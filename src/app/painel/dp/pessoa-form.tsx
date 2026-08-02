@@ -1,0 +1,149 @@
+"use client";
+
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DocumentoInput } from "@/components/documento-input";
+import { type Role } from "@/lib/auth/permissions";
+import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
+import { ErrorModal } from "@/components/error-modal";
+import { formatTelefone } from "@/lib/utils/mascaras";
+import { criarPessoa, editarPessoa, type Credenciais } from "./actions";
+import { CredenciaisPanel } from "./credenciais-panel";
+
+type Funcao = { id: string; nome: string };
+
+type Pessoa = {
+  id: string;
+  nome: string;
+  role: Role;
+  funcao_id: string | null;
+  cpf: string | null;
+  telefone: string | null;
+  data_admissao: string | null;
+  acesso_sistema: boolean;
+};
+
+function hoje() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function PessoaForm({ pessoa, funcoes }: { pessoa?: Pessoa; funcoes: Funcao[] }) {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [pending, startTransition] = useTransition();
+  const [cpf, setCpf] = useState(pessoa?.cpf ?? "");
+  const [cpfValido, setCpfValido] = useState(true);
+  const [whatsapp, setWhatsapp] = useState(formatTelefone(pessoa?.telefone ?? ""));
+  const [credenciais, setCredenciais] = useState<Credenciais | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const action = pessoa ? editarPessoa : criarPessoa;
+
+  async function handleSubmit(formData: FormData) {
+    setErro(null);
+    try {
+      const resultado = await action(formData);
+      if ("credenciais" in resultado) {
+        setCredenciais(resultado.credenciais);
+      } else {
+        router.push("/painel/dp");
+      }
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível salvar a pessoa.");
+    }
+  }
+
+  if (credenciais) {
+    return <CredenciaisPanel credenciais={credenciais} />;
+  }
+
+  return (
+    <form
+      ref={formRef}
+      action={(formData) => startTransition(() => handleSubmit(formData))}
+      className="mt-6 mx-auto max-w-lg space-y-4"
+    >
+      {pessoa && <input type="hidden" name="id" value={pessoa.id} />}
+
+      <div className="space-y-2">
+        <Label htmlFor="nome">Nome</Label>
+        <Input id="nome" name="nome" required defaultValue={pessoa?.nome} />
+      </div>
+
+      {!pessoa && (
+        <div className="space-y-2">
+          <Label htmlFor="email">E-mail</Label>
+          <Input id="email" name="email" type="email" required />
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label htmlFor="cpf">CPF</Label>
+          <DocumentoInput id="cpf" name="cpf" tipo="pf" value={cpf} onChange={setCpf} onValidChange={setCpfValido} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="telefone">WhatsApp</Label>
+          <Input
+            id="telefone"
+            name="telefone"
+            placeholder="(31) 99999-9999"
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(formatTelefone(e.target.value))}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Função</Label>
+        <Select
+          name="funcao_id"
+          required
+          defaultValue={pessoa?.funcao_id ?? undefined}
+          items={Object.fromEntries(funcoes.map((f) => [f.id, f.nome]))}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecione a função" />
+          </SelectTrigger>
+          <SelectContent>
+            {funcoes.map((f) => (
+              <SelectItem key={f.id} value={f.id}>
+                {f.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-neutral-500">A função escolhida define o nível de acesso da pessoa no sistema.</p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="data_admissao">Data de admissão</Label>
+        <Input id="data_admissao" name="data_admissao" type="date" defaultValue={pessoa?.data_admissao ?? hoje()} />
+      </div>
+
+      <div>
+        <label className="flex cursor-pointer items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3.5 py-2 text-sm">
+          <Checkbox name="acesso_sistema" defaultChecked={pessoa?.acesso_sistema ?? true} />
+          Acesso ao sistema liberado
+        </label>
+        <p className="mt-1.5 text-xs text-neutral-500">
+          Ao liberar o acesso, uma senha é gerada automaticamente — na próxima tela você pode enviá-la pra pessoa
+          por WhatsApp ou e-mail.
+        </p>
+      </div>
+
+      <ErrorModal erro={erro} onClose={() => setErro(null)} formRef={formRef} />
+
+      <div className="flex gap-3">
+        <Button type="submit" disabled={pending || !cpfValido} className="bg-brand hover:bg-brand-dark">
+          {pending ? "Salvando..." : "Salvar"}
+        </Button>
+        <ConfirmLeaveButton to="/painel/dp" label="Cancelar" variant="outline" />
+      </div>
+    </form>
+  );
+}

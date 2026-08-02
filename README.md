@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Greenproject Engenharia Mecânica
 
-## Getting Started
+Sistema web da **Greenproject Engenharia Mecânica**, empresa especializada em **ensaio de opacidade** (medição de fumaça preta em veículos e máquinas a diesel, conforme normas IBAMA/CONAMA) e emissão de laudos técnicos.
 
-First, run the development server:
+O projeto reúne três frentes em uma única aplicação **Next.js**:
+
+- **Site público** — institucional, catálogo de serviços e autenticação.
+- **Painel interno** (login obrigatório) — agenda/CRM, cadastro de clientes e veículos, execução do ensaio técnico, emissão de laudo em PDF, orçamento automático e módulo de RH (DP).
+- **Verificação pública sem login** — páginas de consulta de laudo (`/laudo/[codigo]`) e de proposta comercial (`/proposta/[token]`) para conferência de documentos por terceiros.
+
+Modelo **single-tenant** (uma única empresa, sem multi-organização).
+
+## Stack técnica
+
+| Camada | Tecnologia |
+|---|---|
+| Framework | Next.js 16 (App Router, Turbopack) + React 19 |
+| Banco / Auth / Storage | Supabase (Postgres, Auth, Storage) |
+| Estilo | Tailwind CSS v4 + shadcn + `@base-ui/react` |
+| Editor rich-text | Tiptap |
+| Geração de PDF | jsPDF, jsPDF-AutoTable, pdf-lib, pdfjs-dist |
+| Validação de formulários | React Hook Form + Zod |
+| Linguagem | TypeScript |
+
+Toda a lógica de servidor roda via **Server Components** e **Server Actions** do Next.js, sem back-end separado.
+
+## Documentação
+
+A arquitetura completa do sistema (schema, regras de negócio, fluxos e convenções) está documentada em [`system.architecture.md`](./system.architecture.md).
+
+## Como rodar localmente
 
 ```bash
+# instalar dependências
+npm install
+
+# configurar variáveis de ambiente
+cp .env.example .env.local
+# preencha as chaves do Supabase e demais variáveis
+
+# ambiente de desenvolvimento
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra [http://localhost:3000](http://localhost:3000) no navegador.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Scripts disponíveis
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Comando | Descrição |
+|---|---|
+| `npm run dev` | Inicia o servidor de desenvolvimento |
+| `npm run build` | Gera o build de produção |
+| `npm run start` | Sobe o build de produção |
+| `npm run lint` | Executa o linter (ESLint) |
 
-## Learn More
+## Estrutura do projeto
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/            # Rotas (App Router) — site público, painel e áreas protegidas
+├── components/      # Componentes de UI reutilizáveis
+├── lib/             # Clientes Supabase, utilitários e regras de negócio
+└── proxy.ts         # Middleware (Next 16 renomeou middleware.ts → proxy.ts)
+supabase/             # Migrations e configuração do Supabase
+public/               # Assets estáticos (marca, imagens de serviços)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Licença
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Projeto privado e proprietário — © Greenproject Engenharia Mecânica. Uso restrito.
