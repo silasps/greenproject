@@ -151,6 +151,16 @@
   text-wrap: balance;
 }
 
+/* A conta de Trustindex da Greenproject também tem um widget "flutuante"
+   (bolha de avaliação recente) além do carrossel que a gente usa de fato.
+   O script deles sempre pendura esse widget flutuante direto no <body>,
+   então dá pra escondê-lo sem afetar o carrossel (que fica aninhado dentro
+   do nosso próprio container, não como filho direto do body). */
+body > .ti-widget,
+body > .ti-widget-container {
+  display: none !important;
+}
+
 @media print {
   @page {
     margin: 12mm;

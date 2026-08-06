@@ -21,8 +21,8 @@ export default function ServicosPage() {
             Laudos e inspeções com atendimento técnico em campo
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-neutral-600">
-            Conheça os serviços piloto com fotos reais do trabalho realizado pela
-            Greenproject. O mesmo padrão será expandido para o restante do portfólio.
+            Conheça o portfólio de laudos, ensaios e treinamentos da Greenproject, com
+            fotos reais do trabalho realizado em campo pela nossa equipe.
           </p>
         </div>
       </section>

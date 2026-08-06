@@ -38,7 +38,7 @@ Modelo **single-tenant** (uma empresa só, sem multi-empresa/organização).
 | Ícones | `lucide-react` |
 | Validação de doc. | funções próprias (CPF/CNPJ) em `src/lib/utils/documento.ts` — sem lib externa |
 | Toast (instalado, não usado) | `sonner` |
-| Email (instalado, não usado) | `nodemailer` — nenhuma rota realmente envia e-mail próprio; o que existe é o e-mail transacional nativo do Supabase Auth (reset de senha) |
+| Email | `nodemailer` via SMTP da Brevo (`src/lib/email/enviar.ts`, `enviarEmail`) — usado hoje só pelo formulário público `/contato` (Server Action envia pra `COMPANY.email`); o reset de senha continua sendo o e-mail transacional nativo do Supabase Auth, não passa por aqui |
 
 Não há back-end separado: toda lógica de servidor é **Server Components**
 + **Server Actions** (`"use server"`) do Next.js, rodando contra o
@@ -51,7 +51,7 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
-# Brevo — configurado mas não usado em nenhuma rota hoje
+# Brevo — usado pelo formulário de /contato (src/lib/email/enviar.ts)
 BREVO_SMTP_HOST=smtp-relay.brevo.com
 BREVO_SMTP_PORT=587
 BREVO_SMTP_USER=
@@ -460,10 +460,12 @@ de "fora de escopo".
 src/app/
   layout.tsx                         # root layout (toploader, cookie banner)
   acesso-negado/page.tsx
-  (public)/                          # layout com header/footer institucional
-    layout.tsx
-    page.tsx                         # home institucional
-    servicos/page.tsx , servicos/[slug]/page.tsx   # conteúdo em src/lib/content/servicos.ts
+  (public)/                          # layout com header/footer institucional (marketing — ver seção 7.1)
+    layout.tsx                       # monta as fontes IBM Plex escopadas a .public-shell
+    page.tsx                         # home institucional (Hero, serviços, FAQ, avaliações...)
+    servicos/page.tsx , servicos/[slug]/page.tsx   # conteúdo em src/lib/content/servicos.ts (7 serviços)
+    sobre/page.tsx                   # institucional, texto estático
+    contato/page.tsx (+ contact-form.tsx, actions.ts)  # formulário → e-mail via Brevo
     login/page.tsx (+ login-form.tsx)
     esqueci-senha/page.tsx (+ forgot-password-form.tsx)
     redefinir-senha/page.tsx (+ reset-password-form.tsx)
@@ -488,6 +490,75 @@ Todo diretório de página tem seu `loading.tsx` (usa
 `FormPageSkeleton`) — **convenção obrigatória do projeto**, sem isso a
 navegação entre páginas parece travada (Next.js não tem o que mostrar
 enquanto busca dados do Server Component de destino).
+
+### 7.1 Site público — marketing (`src/app/(public)/`, `src/components/marketing/`)
+
+Reformulado a partir do site institucional antigo (WordPress/Elementor,
+`greenproject.com.br`) — várias decisões abaixo replicam ou adaptam o que
+já existia lá.
+
+- **Tipografia própria, escopada** — `(public)/layout.tsx` carrega IBM
+  Plex Sans / Sans Condensed / Mono via `next/font/google` e expõe as
+  variáveis CSS só dentro de `.public-shell` (classe na raiz do layout).
+  `globals.css` redefine `--font-sans`/`--font-heading`/`--font-mono`
+  dentro desse escopo — o `/painel` continua em Geist, sem mudar. Regra
+  do projeto: qualquer estilo pensado só pro site público deve ficar
+  escopado a `.public-shell`, nunca mudar token global.
+- **`src/lib/content/servicos.ts`** — fonte única dos serviços
+  (`SERVICOS: Servico[]`, `getServicoBySlug`). Hoje **7 serviços**;
+  Opacidade e Líquido Penetrante têm fotos 100% reais de campo (3 cada).
+  Transporte Escolar, Treinamento PEMT e Apreciação de Risco NR-12 têm
+  cover real mas foram criados a partir do texto das páginas antigas
+  (adaptado, não copiado literal). **Reclassificação de Sinistros** e
+  **Vistoria de Máquinas em Mineradoras** ainda usam fotos de banco de
+  imagens (mesmas do site antigo) — a empresa nunca teve foto de campo
+  própria pra esses dois; trocar assim que houver.
+- **`Hero` (`marketing/hero.tsx`)** — carrossel de fundo com 1 slide por
+  serviço (`SLIDES`, mesmo array que gera os cards), migração
+  automática a cada `SLIDE_INTERVAL_MS` (5s), pausada se
+  `prefers-reduced-motion`. Cada slide anima `x` (translação
+  direita→esquerda) + `opacity` via `motion`/framer-motion, texto do
+  serviço num painel escuro com blur sobreposto (garante contraste
+  independente da foto de fundo). Slides com `cta` (todos os 7 hoje, já
+  que todos têm página própria) mostram descrição curta + botão "Saiba
+  mais" linkando pro `/servicos/[slug]`.
+  - **Armadilha resolvida**: como os 7 slides ficam todos montados no DOM
+    ao mesmo tempo (só a opacidade/posição muda, pra não recarregar
+    imagem a cada troca), qualquer `<div>` decorativo por cima (os
+    degradês de overlay, o painel de conteúdo do texto principal) precisa
+    de `pointer-events-none` explícito — senão ele intercepta o clique do
+    botão "Saiba mais" mesmo estando visualmente "vazio" ali. Regra: todo
+    elemento puramente decorativo (`aria-hidden`) ou área vazia de um
+    container `w-full`/`inset-0` empilhado por cima de conteúdo
+    clicável **precisa** de `pointer-events-none`.
+- **`ReviewsSection` (`marketing/reviews-section.tsx`)** — widget de
+  avaliações do Trustindex (`cdn.trustindex.io/loader.js?<id>`, mesmo ID
+  de conta do site antigo). Só carrega o script (`next/script`,
+  `strategy="lazyOnload"`) se o visitante aceitou "todos os cookies" no
+  banner (`getCookieConsent()`/evento `gp-cookie-consent-changed` de
+  `cookie-consent-banner.tsx`) — senão mostra um convite pra ativar.
+  `globals.css` esconde `body > .ti-widget`/`.ti-widget-container`: a
+  conta do Trustindex também tem um widget "flutuante" (bolha de review
+  recente) que o script sempre pendura direto no `<body>`, independente
+  de onde o embed foi colocado — a regra CSS mira só esse (filho direto
+  de `body`), não afeta o carrossel normal (que fica aninhado dentro da
+  seção).
+- **WhatsApp como CTA principal** — `linkWhatsapp(telefone, texto)` e
+  `montarTextoOrcamentoWhatsapp` (`src/lib/orcamento/texto-whatsapp.ts`,
+  já usados no painel — seção 8.4) são reaproveitados no site público:
+  botão flutuante (`whatsapp-float-button.tsx`, todas as páginas),
+  hero, CTA final da home e `/contato`. Número vem de
+  `COMPANY.whatsapp` (`src/lib/legal/company-info.ts`, lê
+  `WHATSAPP_NUMERO`).
+- **Sem botão "Entrar" visível** — decisão deliberada: login é só pra
+  equipe/dono, não faz sentido cliente ver. `/login` continua acessível
+  por URL direta, só não tem mais link no header público
+  (`public-header.tsx`).
+- **Logo** (`public/brand/logo.png`) precisa ser genuinamente
+  transparente (não branco opaco disfarçado) — já houve bug assim antes;
+  ao trocar o arquivo, checar `identify -format "%[opaque]"` e limpar
+  `.next/dev/cache/images` se o navegador continuar mostrando a versão
+  antiga (cache do otimizador de imagem do Next, não do arquivo em si).
 
 ## 8. Módulo Agenda (`src/app/painel/agenda/`) — o coração do sistema
 
@@ -960,9 +1031,10 @@ opção, não obrigação, pra ter um sistema equivalente ao atual:
   existem, não são usados — aceite é só o token na URL + clique).
 - Importação automática de tabelas ANFAVEA (`fontes_anfavea` existe,
   sem leitura/escrita no app).
-- Qualquer envio de e-mail transacional próprio (Brevo/nodemailer estão
-  no `.env`/`package.json`, não há nenhuma chamada real — o único e-mail
-  que realmente sai é o de reset de senha nativo do Supabase Auth).
+- Envio de e-mail transacional próprio pelo **painel** (ex.: notificar
+  cliente por e-mail sobre laudo/proposta) — o único envio via Brevo hoje
+  é o formulário público `/contato` (seção 7.1); reset de senha continua
+  sendo o e-mail nativo do Supabase Auth.
 - Múltiplos tipos de teste além de opacidade (`tipo_teste` já tem o
   `check` pronto pra crescer, só "opacidade" existe).
 - "Áreas de acesso" como conceito de primeira classe (nota no fim da

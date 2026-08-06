@@ -9,6 +9,7 @@ import { PhotoMosaic } from "@/components/marketing/photo-mosaic";
 import { ServicoCard } from "@/components/marketing/servico-card";
 import { ComoFunciona } from "@/components/marketing/como-funciona";
 import { WhyUsBlock } from "@/components/marketing/why-us-block";
+import { ReviewsSection } from "@/components/marketing/reviews-section";
 import { Faq } from "@/components/marketing/faq";
 import { HOME_MOSAIC_IMAGES, SERVICOS } from "@/lib/content/servicos";
 
@@ -23,9 +24,9 @@ export default function HomePage() {
         <ScrollReveal>
           <h2 className="text-2xl font-bold text-neutral-900">Nossos serviços</h2>
           <p className="mt-3 max-w-2xl text-neutral-600">
-            Hoje o foco da operação é o laudo de opacidade para frotas a diesel. Os
-            demais ensaios de engenharia seguem sendo incorporados ao site conforme
-            entram no sistema.
+            Laudos, inspeções e treinamentos de engenharia mecânica e segurança do
+            trabalho. O foco atual da operação é o laudo de opacidade para frotas a
+            diesel, mas todo o portfólio abaixo já pode ser solicitado.
           </p>
         </ScrollReveal>
         <div className="mt-8 grid gap-5 sm:grid-cols-2">
@@ -42,6 +43,8 @@ export default function HomePage() {
       <PhotoMosaic images={HOME_MOSAIC_IMAGES} />
 
       <WhyUsBlock />
+
+      <ReviewsSection />
 
       <Faq />
 

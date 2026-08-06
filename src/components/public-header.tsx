@@ -41,12 +41,6 @@ export function PublicHeader() {
         </Link>
         <div className="flex items-center gap-3">
           <PublicNav />
-          <Link
-            href="/login"
-            className="hidden rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark sm:inline-flex"
-          >
-            Entrar
-          </Link>
         </div>
       </div>
     </header>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { MapPinned, ClipboardCheck, ShieldCheck } from "lucide-react";
 import { COMPANY } from "@/lib/legal/company-info";
 
@@ -37,11 +38,14 @@ export default function SobrePage() {
           conformidade, segurança e rastreabilidade dos resultados.
         </p>
         <p className="mt-4 leading-7 text-neutral-600">
-          Hoje concentramos a operação no laudo de opacidade e fumaça preta para
-          frotas a diesel, atendendo aos critérios do CONAMA e do IBAMA. O portfólio de
-          ensaios de engenharia mecânica e segurança do trabalho está em expansão
-          contínua e novos serviços vão sendo incorporados ao site à medida que entram
-          no sistema.
+          O foco atual da operação é o laudo de opacidade e fumaça preta para frotas a
+          diesel, atendendo aos critérios do CONAMA e do IBAMA. Além dele, oferecemos
+          todo o portfólio de laudos, inspeções e treinamentos de engenharia mecânica e
+          segurança do trabalho listados em{" "}
+          <Link href="/servicos" className="text-brand underline hover:text-brand-dark">
+            nossos serviços
+          </Link>
+          .
         </p>
 
         <div className="mt-10 grid gap-5 sm:grid-cols-3">
