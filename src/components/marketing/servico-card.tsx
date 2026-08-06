@@ -15,10 +15,12 @@ export function ServicoCard({
   servico,
   className,
   preloadImage = false,
+  destaque = false,
 }: {
   servico: Servico;
   className?: string;
   preloadImage?: boolean;
+  destaque?: boolean;
 }) {
   return (
     <Card
@@ -40,8 +42,25 @@ export function ServicoCard({
           preload={preloadImage}
           className="object-cover transition-transform duration-500 group-hover/card:scale-105"
         />
+        {destaque && (
+          <span className="absolute top-3 left-3 rounded-sm bg-brand px-2 py-1 font-mono text-[10px] font-semibold tracking-widest text-white uppercase">
+            Serviço em destaque
+          </span>
+        )}
       </Link>
       <CardHeader className="px-5 pt-5 pb-4">
+        {servico.normas && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {servico.normas.map((norma) => (
+              <span
+                key={norma}
+                className="rounded-sm bg-brand/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-brand-dark"
+              >
+                {norma}
+              </span>
+            ))}
+          </div>
+        )}
         <CardTitle className="text-lg font-semibold text-neutral-900">
           {servico.titulo}
         </CardTitle>
@@ -52,10 +71,13 @@ export function ServicoCard({
       <CardFooter className="mt-auto justify-between rounded-b-md border-t border-neutral-200 bg-neutral-50 px-5 py-4">
         <Link
           href={`/servicos/${servico.slug}`}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-brand hover:text-brand-dark"
+          className="group/link inline-flex items-center gap-2 text-sm font-semibold text-brand hover:text-brand-dark"
         >
           Saiba mais
-          <ArrowRight className="h-4 w-4" aria-hidden />
+          <ArrowRight
+            className="h-4 w-4 transition-transform duration-200 group-hover/link:translate-x-0.5"
+            aria-hidden
+          />
         </Link>
       </CardFooter>
     </Card>

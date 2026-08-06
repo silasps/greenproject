@@ -134,6 +134,23 @@
   }
 }
 
+/* Tipografia do site público (IBM Plex): escopada a .public-shell pra não
+   alterar a fonte do /painel interno, que continua em Geist. */
+.public-shell {
+  --font-sans: var(--font-plex-sans);
+  --font-heading: var(--font-plex-sans-condensed);
+  --font-mono: var(--font-plex-mono);
+}
+
+.public-shell h1,
+.public-shell h2,
+.public-shell h3,
+.public-shell h4 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
 @media print {
   @page {
     margin: 12mm;

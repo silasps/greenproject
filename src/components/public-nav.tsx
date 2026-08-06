@@ -17,8 +17,13 @@ export function PublicNav() {
     <>
       <nav className="hidden items-center gap-6 text-sm font-medium text-neutral-700 sm:flex">
         {LINKS.map((link) => (
-          <Link key={link.href} href={link.href} className="hover:text-brand">
+          <Link
+            key={link.href}
+            href={link.href}
+            className="group relative py-1 hover:text-brand"
+          >
             {link.label}
+            <span className="absolute inset-x-0 -bottom-0.5 h-px origin-left scale-x-0 bg-brand transition-transform duration-200 ease-out group-hover:scale-x-100" />
           </Link>
         ))}
       </nav>

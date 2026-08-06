@@ -3,7 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
+import { MessageCircle, Phone } from "lucide-react";
 import { COMPANY } from "@/lib/legal/company-info";
+import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
+
+const STATS = [
+  { label: "Anos de atuação", value: "—" },
+  { label: "Laudos emitidos", value: "—" },
+  { label: "Atendimento", value: "—" },
+] as const;
 
 const container = {
   hidden: {},
@@ -78,18 +86,44 @@ export function Hero() {
           </motion.p>
           <motion.div variants={item} className="mt-8 flex flex-wrap gap-3">
             <Link
-              href="tel:+5531997901568"
-              className="inline-flex min-h-11 items-center rounded-md bg-white px-6 py-3 font-semibold text-brand hover:bg-neutral-100"
+              href={linkWhatsapp(
+                COMPANY.whatsapp,
+                "Olá! Gostaria de solicitar um orçamento para teste de opacidade / fumaça preta."
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-white px-6 py-3 font-semibold text-brand hover:bg-neutral-100"
             >
-              Solicitar orçamento
+              <MessageCircle className="h-5 w-5" aria-hidden />
+              Solicitar orçamento no WhatsApp
             </Link>
             <Link
-              href={`mailto:${COMPANY.email}`}
-              className="inline-flex min-h-11 items-center rounded-md border border-white/40 px-6 py-3 font-semibold text-white hover:bg-white/10"
+              href={`tel:+${COMPANY.whatsapp}`}
+              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-white/40 px-6 py-3 font-semibold text-white hover:bg-white/10"
             >
-              Enviar e-mail
+              <Phone className="h-4 w-4" aria-hidden />
+              Ligar agora
             </Link>
           </motion.div>
+
+          <motion.dl
+            variants={item}
+            className="mt-10 flex max-w-full flex-wrap gap-x-8 gap-y-4 border-t border-white/20 pt-6 sm:divide-x sm:divide-white/15"
+          >
+            {STATS.map((stat) => (
+              <div key={stat.label} className="sm:pl-8 sm:first:pl-0">
+                <dt className="font-mono text-[11px] font-medium tracking-widest text-white/60 uppercase">
+                  {stat.label}
+                </dt>
+                <dd className="mt-1 flex items-baseline gap-2">
+                  <span className="font-mono text-2xl font-semibold text-white">
+                    {stat.value}
+                  </span>
+                  <span className="text-[11px] text-white/50 italic">a confirmar</span>
+                </dd>
+              </div>
+            ))}
+          </motion.dl>
         </div>
       </div>
     </motion.section>

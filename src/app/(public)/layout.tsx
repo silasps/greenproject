@@ -1,9 +1,39 @@
-import Image from "next/image";
 import Link from "next/link";
+import { IBM_Plex_Sans, IBM_Plex_Sans_Condensed, IBM_Plex_Mono } from "next/font/google";
 import { MotionConfig } from "motion/react";
 import { COMPANY } from "@/lib/legal/company-info";
+import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
-import { PublicNav } from "@/components/public-nav";
+import { PublicHeader } from "@/components/public-header";
+import { WhatsappFloatButton } from "@/components/whatsapp-float-button";
+
+// Tipografia própria do site público — IBM Plex nasceu como fonte técnica da IBM
+// pra documentação de engenharia, o que conversa direto com "laudo técnico".
+// Escopada só a este layout pra não alterar a tipografia do /painel interno.
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600"],
+});
+
+const plexSansCondensed = IBM_Plex_Sans_Condensed({
+  variable: "--font-plex-sans-condensed",
+  subsets: ["latin", "latin-ext"],
+  weight: ["500", "600", "700"],
+});
+
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  subsets: ["latin", "latin-ext"],
+  weight: ["500", "600"],
+});
+
+const NAV_SECUNDARIA = [
+  { href: "/", label: "Início" },
+  { href: "/servicos", label: "Serviços" },
+  { href: "/sobre", label: "Sobre" },
+  { href: "/contato", label: "Contato" },
+] as const;
 
 export default function PublicLayout({
   children,
@@ -14,48 +44,73 @@ export default function PublicLayout({
     // reducedMotion="user" desliga as animações do `motion` para quem tem
     // "reduzir movimento" ativado no sistema operacional.
     <MotionConfig reducedMotion="user">
-      <div className="flex min-h-screen flex-col">
-        <header className="relative border-b border-neutral-200 bg-white">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-            <Link href="/" className="flex shrink-0 items-center gap-2">
-              <Image
-                src="/brand/logo.png"
-                alt="Greenproject Engenharia"
-                width={210}
-                height={50}
-                className="h-9 w-auto sm:h-10"
-              />
-            </Link>
-            <div className="flex items-center gap-3">
-              <PublicNav />
-              <Link
-                href="/login"
-                className="hidden rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark sm:inline-flex"
-              >
-                Entrar
-              </Link>
-            </div>
-          </div>
-        </header>
+      <div
+        className={`public-shell font-sans ${plexSans.variable} ${plexSansCondensed.variable} ${plexMono.variable} flex min-h-screen flex-col`}
+      >
+        <PublicHeader />
 
         <main className="flex-1">{children}</main>
 
         <footer className="border-t border-neutral-200 bg-neutral-50">
-          <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-neutral-600 sm:px-6">
-            <div className="grid gap-8 sm:grid-cols-3">
+          <div className="mx-auto max-w-6xl px-4 py-12 text-sm text-neutral-600 sm:px-6">
+            <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <p className="font-semibold text-neutral-900">{COMPANY.razaoSocial}</p>
+                <p className="font-mono text-[11px] font-medium tracking-widest text-neutral-400 uppercase">
+                  Greenproject
+                </p>
+                <p className="mt-2 font-heading font-semibold text-neutral-900">
+                  {COMPANY.razaoSocial}
+                </p>
                 <p className="mt-1">CNPJ {COMPANY.cnpj}</p>
                 <p>{COMPANY.endereco}</p>
               </div>
+
               <div>
-                <p className="font-semibold text-neutral-900">Contato</p>
-                <p className="mt-1">{COMPANY.telefone}</p>
-                <p>{COMPANY.email}</p>
+                <p className="font-mono text-[11px] font-medium tracking-widest text-neutral-400 uppercase">
+                  Navegação
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {NAV_SECUNDARIA.map((link) => (
+                    <li key={link.href}>
+                      <Link href={link.href} className="hover:text-brand">
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </div>
+
               <div>
-                <p className="font-semibold text-neutral-900">Legal</p>
-                <ul className="mt-1 space-y-1">
+                <p className="font-mono text-[11px] font-medium tracking-widest text-neutral-400 uppercase">
+                  Contato
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  <li>
+                    <Link
+                      href={linkWhatsapp(
+                        COMPANY.whatsapp,
+                        "Olá! Gostaria de falar com a Greenproject."
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-brand"
+                    >
+                      WhatsApp {COMPANY.telefone}
+                    </Link>
+                  </li>
+                  <li>
+                    <a href={`mailto:${COMPANY.email}`} className="hover:text-brand">
+                      {COMPANY.email}
+                    </a>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <p className="font-mono text-[11px] font-medium tracking-widest text-neutral-400 uppercase">
+                  Legal
+                </p>
+                <ul className="mt-2 space-y-1.5">
                   <li>
                     <Link href="/privacidade" className="hover:text-brand">
                       Política de Privacidade
@@ -74,13 +129,14 @@ export default function PublicLayout({
                 </ul>
               </div>
             </div>
-            <p className="mt-8 text-xs text-neutral-400">
+            <p className="mt-10 border-t border-neutral-200 pt-6 text-xs text-neutral-400">
               © {new Date().getFullYear()} {COMPANY.razaoSocial}. Todos os direitos reservados.
             </p>
           </div>
         </footer>
 
         <CookieConsentBanner />
+        <WhatsappFloatButton />
       </div>
     </MotionConfig>
   );
