@@ -21,6 +21,8 @@ export function CriarModal({
   podeCriarTeste,
   dataInicial,
   horaInicial,
+  clienteIdPreSelecionado,
+  veiculoIdPreSelecionado,
   onSucesso,
 }: {
   open: boolean;
@@ -28,6 +30,8 @@ export function CriarModal({
   podeCriarTeste: boolean;
   dataInicial?: string;
   horaInicial?: string;
+  clienteIdPreSelecionado?: string;
+  veiculoIdPreSelecionado?: string;
   onSucesso?: () => void;
 }) {
   // Equipe/configurações só são necessárias dentro do form — buscar aqui,
@@ -69,6 +73,8 @@ export function CriarModal({
             tiposServico={dados.tiposServico}
             dataInicial={dataInicial}
             horaInicial={horaInicial}
+            clienteIdPreSelecionado={clienteIdPreSelecionado}
+            veiculoIdPreSelecionado={veiculoIdPreSelecionado}
             onCancelar={() => onOpenChange(false)}
             onSucesso={onSucesso}
           />

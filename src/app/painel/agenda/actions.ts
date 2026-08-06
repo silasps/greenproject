@@ -16,12 +16,25 @@ import { CORES_AGENDA } from "./cores";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
+/** Campos do veículo novo — usado tanto no cadastro completo quanto quando o cliente já existe. */
+function extrairVeiculoNovo(formData: FormData) {
+  const identificador = String(formData.get("veiculo_identificador") ?? "").trim();
+  if (!identificador) return null;
+  return {
+    tipo_ativo: String(formData.get("veiculo_tipo_ativo") ?? "veiculo") as "veiculo" | "maquina_equipamento",
+    identificador,
+    marca: String(formData.get("veiculo_marca") ?? "").trim() || null,
+    modelo: String(formData.get("veiculo_modelo") ?? "").trim() || null,
+    chassi: String(formData.get("veiculo_chassi") ?? "").trim() || null,
+    renavam: String(formData.get("veiculo_renavam") ?? "").trim() || null,
+  };
+}
+
 /** Cadastro de cliente/veículo preenchido direto no orçamento (opcional). */
 function extrairCadastroClienteVeiculo(formData: FormData) {
   if (formData.get("cadastro_cliente") !== "on") return null;
   const cnpjCpf = onlyDigits(String(formData.get("cliente_cnpj_cpf") ?? ""));
   const nome = String(formData.get("cliente_nome") ?? "").trim();
-  const identificador = String(formData.get("veiculo_identificador") ?? "").trim();
   if (!cnpjCpf || !nome) return null;
   return {
     cliente: {
@@ -31,17 +44,57 @@ function extrairCadastroClienteVeiculo(formData: FormData) {
       endereco: String(formData.get("cliente_endereco") ?? "").trim() || null,
       email: String(formData.get("cliente_email") ?? "").trim() || null,
     },
-    veiculo: identificador
-      ? {
-          tipo_ativo: String(formData.get("veiculo_tipo_ativo") ?? "veiculo") as "veiculo" | "maquina_equipamento",
-          identificador,
-          marca: String(formData.get("veiculo_marca") ?? "").trim() || null,
-          modelo: String(formData.get("veiculo_modelo") ?? "").trim() || null,
-          chassi: String(formData.get("veiculo_chassi") ?? "").trim() || null,
-          renavam: String(formData.get("veiculo_renavam") ?? "").trim() || null,
-        }
-      : null,
+    veiculo: extrairVeiculoNovo(formData),
   };
+}
+
+/**
+ * Resolve cliente_id/veiculo_id pro agendamento: reusa cliente/veículo já
+ * cadastrados quando a pessoa buscou um existente (evita duplicar CNPJ/CPF
+ * e é o caminho de uma retestagem), cria cadastro novo quando preenchido no
+ * orçamento, ou deixa o cliente "pendente" (só nome+telefone) pra completar depois.
+ */
+async function resolverClienteEVeiculo(
+  admin: Admin,
+  formData: FormData,
+  fallback: { nomeContato: string; telefonePrincipal: string },
+): Promise<{ clienteId: string; veiculoId: string | null }> {
+  const clienteIdExistente = String(formData.get("cliente_id_existente") ?? "") || null;
+  const veiculoIdExistente = String(formData.get("veiculo_id_existente") ?? "") || null;
+  const cadastro = extrairCadastroClienteVeiculo(formData);
+
+  let clienteId: string;
+  if (clienteIdExistente) {
+    clienteId = clienteIdExistente;
+  } else {
+    const { data: cliente, error } = await admin
+      .from("clientes")
+      .insert(
+        cadastro
+          ? { ...cadastro.cliente, telefone: fallback.telefonePrincipal, status: "completo" }
+          : { nome: fallback.nomeContato, telefone: fallback.telefonePrincipal, status: "pendente" },
+      )
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    clienteId = cliente.id;
+  }
+
+  let veiculoId = veiculoIdExistente;
+  if (!veiculoId) {
+    const veiculoNovo = clienteIdExistente ? extrairVeiculoNovo(formData) : cadastro?.veiculo;
+    if (veiculoNovo) {
+      const { data: veiculo, error } = await admin
+        .from("veiculos_maquinas")
+        .insert({ ...veiculoNovo, cliente_id: clienteId })
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      veiculoId = veiculo.id;
+    }
+  }
+
+  return { clienteId, veiculoId };
 }
 
 /** Cor estável por pessoa — mesmo hash sempre cai na mesma cor da paleta. */
@@ -235,38 +288,17 @@ export async function criarEvento(formData: FormData) {
   }
 
   const valorTotal = calcularValorTotal({ kmIdaVolta, valorKm, pedagio, alimentacao, valorServico, custosExtras });
-  const cadastro = extrairCadastroClienteVeiculo(formData);
 
   const admin = createAdminClient();
   const categoriaFinal = categoriaId ?? (await obterOuCriarCategoriaPessoal(admin, perfil));
 
-  const { data: cliente, error: clienteError } = await admin
-    .from("clientes")
-    .insert(
-      cadastro
-        ? { ...cadastro.cliente, telefone: telefonePrincipal, status: "completo" }
-        : { nome: nomeContato, telefone: telefonePrincipal, status: "pendente" },
-    )
-    .select("id")
-    .single();
-  if (clienteError) throw new Error(clienteError.message);
-
-  let veiculoId: string | null = null;
-  if (cadastro?.veiculo) {
-    const { data: veiculo, error: veiculoError } = await admin
-      .from("veiculos_maquinas")
-      .insert({ ...cadastro.veiculo, cliente_id: cliente.id })
-      .select("id")
-      .single();
-    if (veiculoError) throw new Error(veiculoError.message);
-    veiculoId = veiculo.id;
-  }
+  const { clienteId, veiculoId } = await resolverClienteEVeiculo(admin, formData, { nomeContato, telefonePrincipal });
 
   const { data: agendamento, error: agendamentoError } = await admin
     .from("agendamentos")
     .insert({
       tipo: "teste_opacidade",
-      cliente_id: cliente.id,
+      cliente_id: clienteId,
       veiculo_id: veiculoId,
       nome_contato: nomeContato,
       telefone_contato: telefonePrincipal,
@@ -286,7 +318,7 @@ export async function criarEvento(formData: FormData) {
   const { data: proposta, error: propostaError } = await admin
     .from("propostas")
     .insert({
-      cliente_id: cliente.id,
+      cliente_id: clienteId,
       agendamento_id: agendamento.id,
       km_ida_volta: kmIdaVolta,
       valor_km: valorKm,
@@ -408,29 +440,8 @@ export async function converterEventoParaTeste(id: string, formData: FormData) {
 
   const valorTotal = calcularValorTotal({ kmIdaVolta, valorKm, pedagio, alimentacao, valorServico, custosExtras });
   const categoriaFinal = categoriaId ?? (await obterOuCriarCategoriaPessoal(admin, perfil));
-  const cadastro = extrairCadastroClienteVeiculo(formData);
 
-  const { data: cliente, error: clienteError } = await admin
-    .from("clientes")
-    .insert(
-      cadastro
-        ? { ...cadastro.cliente, telefone: telefonePrincipal, status: "completo" }
-        : { nome: nomeContato, telefone: telefonePrincipal, status: "pendente" },
-    )
-    .select("id")
-    .single();
-  if (clienteError) throw new Error(clienteError.message);
-
-  let veiculoId: string | null = null;
-  if (cadastro?.veiculo) {
-    const { data: veiculo, error: veiculoError } = await admin
-      .from("veiculos_maquinas")
-      .insert({ ...cadastro.veiculo, cliente_id: cliente.id })
-      .select("id")
-      .single();
-    if (veiculoError) throw new Error(veiculoError.message);
-    veiculoId = veiculo.id;
-  }
+  const { clienteId, veiculoId } = await resolverClienteEVeiculo(admin, formData, { nomeContato, telefonePrincipal });
 
   const { error: agendamentoError } = await admin
     .from("agendamentos")
@@ -438,7 +449,7 @@ export async function converterEventoParaTeste(id: string, formData: FormData) {
       tipo: "teste_opacidade",
       titulo: null,
       descricao: null,
-      cliente_id: cliente.id,
+      cliente_id: clienteId,
       veiculo_id: veiculoId,
       nome_contato: nomeContato,
       telefone_contato: telefonePrincipal,
@@ -459,7 +470,7 @@ export async function converterEventoParaTeste(id: string, formData: FormData) {
   const { data: proposta, error: propostaError } = await admin
     .from("propostas")
     .insert({
-      cliente_id: cliente.id,
+      cliente_id: clienteId,
       agendamento_id: id,
       km_ida_volta: kmIdaVolta,
       valor_km: valorKm,

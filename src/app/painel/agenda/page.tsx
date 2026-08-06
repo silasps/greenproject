@@ -8,7 +8,7 @@ import { AgendaCalendario } from "./agenda-calendario";
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; data?: string }>;
+  searchParams: Promise<{ view?: string; data?: string; retestar_cliente_id?: string; retestar_veiculo_id?: string }>;
 }) {
   const { perfil } = await requireAuth();
   const params = await searchParams;
@@ -34,6 +34,8 @@ export default async function AgendaPage({
         agendamentosDoAno={agendamentos}
         usuarioId={perfil.id}
         podeCriarTeste={podeCriarTeste}
+        clienteIdRetestar={params.retestar_cliente_id}
+        veiculoIdRetestar={params.retestar_veiculo_id}
       />
     </div>
   );

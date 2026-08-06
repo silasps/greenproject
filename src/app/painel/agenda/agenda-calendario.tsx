@@ -34,6 +34,8 @@ export function AgendaCalendario({
   agendamentosDoAno,
   usuarioId,
   podeCriarTeste,
+  clienteIdRetestar,
+  veiculoIdRetestar,
 }: {
   visaoInicial: VisaoAgenda;
   dataRefInicial: string;
@@ -41,6 +43,8 @@ export function AgendaCalendario({
   agendamentosDoAno: AgendamentoItem[];
   usuarioId: string;
   podeCriarTeste: boolean;
+  clienteIdRetestar?: string;
+  veiculoIdRetestar?: string;
 }) {
   const pathname = usePathname();
   const { registrar, desregistrar, categoriasOcultas, notificarCategorias } = useAgendaNav();
@@ -53,7 +57,7 @@ export function AgendaCalendario({
   const [cache, setCache] = useState<Record<number, AgendamentoItem[]>>({ [anoInicial]: agendamentosDoAno });
   const anosCarregandoRef = useRef<Set<number>>(new Set());
 
-  const [modalAberto, setModalAberto] = useState(false);
+  const [modalAberto, setModalAberto] = useState(Boolean(clienteIdRetestar && podeCriarTeste));
   const [dataModal, setDataModal] = useState<string | undefined>(undefined);
   const [horaModal, setHoraModal] = useState<string | undefined>(undefined);
   const [eventoAberto, setEventoAberto] = useState<AgendamentoItem | null>(null);
@@ -298,6 +302,8 @@ export function AgendaCalendario({
         podeCriarTeste={podeCriarTeste}
         dataInicial={dataModal}
         horaInicial={horaModal}
+        clienteIdPreSelecionado={clienteIdRetestar}
+        veiculoIdPreSelecionado={veiculoIdRetestar}
         onSucesso={() => {
           setModalAberto(false);
           recarregarTudo();

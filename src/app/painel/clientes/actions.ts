@@ -29,13 +29,20 @@ export async function salvarCliente(formData: FormData) {
 
   if (id) {
     const { error } = await admin.from("clientes").update(payload).eq("id", id);
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mensagemErroCliente(error));
     revalidatePath(`/painel/clientes/${id}`);
     redirect(`/painel/clientes/${id}`);
   } else {
     const { data, error } = await admin.from("clientes").insert(payload).select("id").single();
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mensagemErroCliente(error));
     revalidatePath("/painel/clientes");
     redirect(`/painel/clientes/${data.id}`);
   }
+}
+
+function mensagemErroCliente(error: { code?: string; message: string }) {
+  if (error.code === "23505" && error.message.includes("clientes_cnpj_cpf_key")) {
+    return "Já existe um cliente cadastrado com esse CNPJ/CPF.";
+  }
+  return error.message;
 }

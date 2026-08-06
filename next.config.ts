@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // pdfjs-dist monta um "fake worker" em runtime (import dinâmico de
+  // pdf.worker.mjs) para funcionar em Node sem Worker real. Empacotado
+  // pelo Next esse import quebra ("Cannot find module .../pdf.worker.mjs"),
+  // então usamos require nativo do Node para esse pacote.
+  serverExternalPackages: ["pdfjs-dist"],
   experimental: {
     serverActions: {
       // Padrão é 1mb — pequeno demais para envio de fotos/PDF de laudo.

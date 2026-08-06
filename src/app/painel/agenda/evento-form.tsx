@@ -135,6 +135,8 @@ export function EventoForm({
   tiposServico,
   dataInicial,
   horaInicial,
+  clienteIdPreSelecionado,
+  veiculoIdPreSelecionado,
   onCancelar,
   onSucesso,
 }: {
@@ -144,12 +146,14 @@ export function EventoForm({
   tiposServico: TipoServico[];
   dataInicial?: string;
   horaInicial?: string;
+  clienteIdPreSelecionado?: string;
+  veiculoIdPreSelecionado?: string;
   onCancelar: () => void;
   onSucesso?: () => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
-  const [eTeste, setETeste] = useState(false);
+  const [eTeste, setETeste] = useState(Boolean(clienteIdPreSelecionado));
   const [erro, setErro] = useState<string | null>(null);
   const horaPadrao = horaInicial ?? "09:00";
 
@@ -463,7 +467,11 @@ export function EventoForm({
             </div>
             <p className="text-xs text-neutral-400">Preencha pelo menos um dos dois.</p>
 
-            <CadastroClienteVeiculo nomeSugerido={nomeContato} />
+            <CadastroClienteVeiculo
+              nomeSugerido={nomeContato}
+              clienteIdPreSelecionado={clienteIdPreSelecionado}
+              veiculoIdPreSelecionado={veiculoIdPreSelecionado}
+            />
           </Secao>
 
           <Secao icon={Clock}>

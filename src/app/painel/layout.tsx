@@ -4,6 +4,7 @@ import {
   canGerenciarEquipamentos,
   canGerenciarResponsaveisTecnicos,
   canGerenciarUsuarios,
+  canVerAgendaCompleta,
 } from "@/lib/auth/permissions";
 import { Sidebar } from "./sidebar";
 import { AgendaNavProvider } from "./agenda-nav-context";
@@ -18,6 +19,7 @@ export default async function PainelLayout({
   const navItems = [
     { href: "/painel", label: "Dashboard", key: "dashboard" as const, show: true },
     { href: "/painel/agenda", label: "Agenda", key: "agenda" as const, show: true },
+    { href: "/painel/testes", label: "Testes", key: "testes" as const, show: canVerAgendaCompleta(perfil.role) },
     { href: "/painel/clientes", label: "Clientes", key: "clientes" as const, show: canGerenciarClientes(perfil.role) },
     {
       href: "/painel/equipamentos",

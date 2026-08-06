@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { bucketDoTeste, FILTROS_STATUS } from "./status";
 
 type LinhaTeste = {
   id: string;
@@ -64,9 +65,15 @@ function ListaTestes({ titulo, testes }: { titulo: string; testes: LinhaTeste[] 
   );
 }
 
-export default async function TestesPage() {
+export default async function TestesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   await requireRole(["escritorio", "gerencia"]);
   const supabase = await createClient();
+  const params = await searchParams;
+  const filtro = FILTROS_STATUS.find((f) => f.key === params.status)?.key;
 
   const { data } = await supabase
     .from("agendamentos")
@@ -78,23 +85,44 @@ export default async function TestesPage() {
     .order("data_hora", { ascending: true });
 
   const linhas = (data ?? []) as unknown as LinhaTeste[];
-  const emAberto = linhas.filter(ehAberto);
-  const realizados = linhas.filter((l) => !ehAberto(l));
 
   return (
     <div>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-neutral-900">Testes de opacidade</h1>
-        <Link href="/painel/agenda" className="text-sm text-brand hover:underline">
-          Ver na agenda →
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/painel/testes/vencendo" className="text-sm text-brand hover:underline">
+            Testes vencendo →
+          </Link>
+          <Link href="/painel/agenda" className="text-sm text-brand hover:underline">
+            Ver na agenda →
+          </Link>
+        </div>
       </div>
-      <p className="mt-2 text-neutral-600">Todos os testes agendados, ordenados por data — outra forma de ver o que já está na agenda.</p>
+      <p className="mt-2 text-neutral-600">
+        {filtro
+          ? "Filtrado pelo menu lateral — "
+          : "Todos os testes agendados, ordenados por data — outra forma de ver o que já está na agenda."}
+        {filtro && (
+          <Link href="/painel/testes" className="text-brand hover:underline">
+            ver todos
+          </Link>
+        )}
+      </p>
 
       {linhas.length === 0 && <p className="mt-6 text-sm text-neutral-500">Nenhum teste agendado.</p>}
 
-      <ListaTestes titulo="Em aberto" testes={emAberto} />
-      <ListaTestes titulo="Realizados" testes={realizados} />
+      {filtro ? (
+        <ListaTestes
+          titulo={FILTROS_STATUS.find((f) => f.key === filtro)!.label}
+          testes={linhas.filter((l) => bucketDoTeste(l) === filtro)}
+        />
+      ) : (
+        <>
+          <ListaTestes titulo="Em aberto" testes={linhas.filter(ehAberto)} />
+          <ListaTestes titulo="Realizados" testes={linhas.filter((l) => !ehAberto(l))} />
+        </>
+      )}
     </div>
   );
 }

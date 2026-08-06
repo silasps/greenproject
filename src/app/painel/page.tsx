@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSecoesVisiveis } from "@/lib/kpis/visibilidade";
 import { KPI_SECAO_POR_KEY } from "@/lib/kpis/catalogo";
 import { KpiCard, KpiPill, KpiInfoPill } from "@/components/kpi-card";
+import { diasRestantes } from "@/lib/laudo/validade";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -37,6 +38,16 @@ async function buscarTestesResumo(supabase: Supabase) {
     liberados,
     reprovados,
   };
+}
+
+async function buscarVencendo(supabase: Supabase) {
+  const [{ data: dadosEmpresa }, { data: validades }] = await Promise.all([
+    supabase.from("dados_empresa").select("dias_alerta_vencimento").single(),
+    supabase.from("veiculos_validade").select("validade"),
+  ]);
+  const limiar = Math.max(...(dadosEmpresa?.dias_alerta_vencimento ?? [60]));
+  const vencendo = (validades ?? []).filter((v) => diasRestantes(v.validade) <= limiar).length;
+  return { vencendo };
 }
 
 async function buscarClientesVeiculos(supabase: Supabase) {
@@ -89,12 +100,13 @@ export default async function PainelPage() {
 
   const secoes = await getSecoesVisiveis(supabase, perfil);
 
-  const [testes, clientesVeiculos, equipe, meusAgendamentos, agendaGeral] = await Promise.all([
+  const [testes, clientesVeiculos, equipe, meusAgendamentos, agendaGeral, vencendo] = await Promise.all([
     secoes.has("testes_resumo") ? buscarTestesResumo(supabase) : Promise.resolve(null),
     secoes.has("clientes_veiculos") ? buscarClientesVeiculos(supabase) : Promise.resolve(null),
     secoes.has("equipe_pessoas") ? buscarEquipe(supabase) : Promise.resolve(null),
     secoes.has("meus_agendamentos") ? buscarMeusAgendamentos(supabase, perfil.id) : Promise.resolve(null),
     secoes.has("agenda_geral") ? buscarAgendaGeral(supabase) : Promise.resolve(null),
+    secoes.has("testes_resumo") ? buscarVencendo(supabase) : Promise.resolve(null),
   ]);
 
   return (
@@ -122,6 +134,7 @@ export default async function PainelPage() {
               )}
               {testes.aguardandoRevisao > 0 && <KpiPill label={`${testes.aguardandoRevisao} aguardando revisão`} tom="atencao" />}
               {testes.reprovados > 0 && <KpiPill label={`${testes.reprovados} reprovados`} tom="critico" />}
+              {vencendo && vencendo.vencendo > 0 && <KpiPill label={`${vencendo.vencendo} vencendo`} tom="atencao" />}
             </KpiCard>
           )}
 

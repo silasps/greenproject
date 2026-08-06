@@ -3,22 +3,34 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { formatCpfCnpj } from "@/lib/utils/documento";
+import { diasRestantes } from "@/lib/laudo/validade";
+
+function badgeValidade(validade: string): { label: string; classe: string } {
+  const dias = diasRestantes(validade);
+  const dataFormatada = new Date(validade).toLocaleDateString("pt-BR");
+  if (dias < 0) return { label: `Vencido em ${dataFormatada}`, classe: "bg-red-100 text-red-700" };
+  if (dias <= 60) return { label: `Vence em ${dias} dia${dias === 1 ? "" : "s"} (${dataFormatada})`, classe: "bg-amber-100 text-amber-800" };
+  return { label: `Válido até ${dataFormatada}`, classe: "bg-green-100 text-green-800" };
+}
 
 export default async function ClienteDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   await requireRole(["escritorio", "gerencia"]);
   const { id } = await params;
   const supabase = await createClient();
 
-  // Duas consultas independentes (nenhuma depende do resultado da outra) — em paralelo.
-  const [{ data: cliente }, { data: veiculos }] = await Promise.all([
+  // Três consultas independentes (nenhuma depende do resultado da outra) — em paralelo.
+  const [{ data: cliente }, { data: veiculos }, { data: validades }] = await Promise.all([
     supabase.from("clientes").select("*").eq("id", id).single(),
     supabase
       .from("veiculos_maquinas")
       .select("id, tipo_ativo, identificador, marca, modelo")
       .eq("cliente_id", id)
       .order("created_at", { ascending: false }),
+    supabase.from("veiculos_validade").select("veiculo_id, validade").eq("cliente_id", id),
   ]);
   if (!cliente) notFound();
+
+  const validadePorVeiculo = new Map((validades ?? []).map((v) => [v.veiculo_id, v.validade]));
 
   return (
     <div>
@@ -60,19 +72,34 @@ export default async function ClienteDetalhePage({ params }: { params: Promise<{
         {veiculos?.length === 0 && (
           <p className="p-4 text-sm text-neutral-500">Nenhum veículo/equipamento cadastrado.</p>
         )}
-        {veiculos?.map((v) => (
-          <div key={v.id} className="flex items-center justify-between p-4">
-            <div>
-              <p className="font-medium text-neutral-900">{v.identificador}</p>
-              <p className="text-sm text-neutral-500">
-                {[v.marca, v.modelo].filter(Boolean).join(" ") || "—"}
-              </p>
+        {veiculos?.map((v) => {
+          const validade = validadePorVeiculo.get(v.id);
+          const badge = validade ? badgeValidade(validade) : null;
+          return (
+            <div key={v.id} className="flex items-center justify-between gap-3 p-4">
+              <div className="min-w-0">
+                <p className="font-medium text-neutral-900">{v.identificador}</p>
+                <p className="text-sm text-neutral-500">{[v.marca, v.modelo].filter(Boolean).join(" ") || "—"}</p>
+                {badge && (
+                  <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${badge.classe}`}>
+                    {badge.label}
+                  </span>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="text-sm text-neutral-400">
+                  {v.tipo_ativo === "veiculo" ? "Veículo" : "Máquina/Equipamento"}
+                </span>
+                <Link
+                  href={`/painel/agenda?retestar_cliente_id=${id}&retestar_veiculo_id=${v.id}`}
+                  className="rounded-md border border-brand px-2.5 py-1 text-xs font-semibold text-brand hover:bg-brand/10"
+                >
+                  Retestar
+                </Link>
+              </div>
             </div>
-            <span className="text-sm text-neutral-400">
-              {v.tipo_ativo === "veiculo" ? "Veículo" : "Máquina/Equipamento"}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

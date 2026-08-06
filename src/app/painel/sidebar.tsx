@@ -4,12 +4,26 @@ import { useState, useSyncExternalStore, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Calendar, Users, Gauge, BadgeCheck, Settings, Contact, Menu, X, ArrowLeft, Loader2, LayoutDashboard } from "lucide-react";
-import { ROLE_LABELS, type Role } from "@/lib/auth/permissions";
+import {
+  Calendar,
+  Users,
+  Gauge,
+  BadgeCheck,
+  Settings,
+  Contact,
+  Menu,
+  X,
+  ArrowLeft,
+  Loader2,
+  LayoutDashboard,
+  ClipboardCheck,
+} from "lucide-react";
+import { ROLE_LABELS, canVerAgendaCompleta, type Role } from "@/lib/auth/permissions";
 import { LogoutButton } from "./logout-button";
 import { useAgendaNav } from "./agenda-nav-context";
 import { MiniCalendario } from "./agenda/mini-calendario";
 import { CategoriasFiltro } from "./agenda/categorias-filtro";
+import { TestesFiltroSidebar } from "./testes/testes-filtro-sidebar";
 
 const FORMATADOR_DATA_BRASILIA = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
@@ -58,6 +72,7 @@ function RelogioBrasilia({ className }: { className?: string }) {
 const ICONS = {
   dashboard: LayoutDashboard,
   agenda: Calendar,
+  testes: ClipboardCheck,
   clientes: Users,
   equipamentos: Gauge,
   "responsaveis-tecnicos": BadgeCheck,
@@ -84,6 +99,10 @@ export function Sidebar({
   // calendário no lugar — navegação de data fica a um toque, sem abrir a
   // página de agenda de novo pra trocar o dia.
   const naAgenda = pathname.startsWith("/painel/agenda");
+  // Mesma ideia em Testes, mas só pra quem tem a lista (escritório+) — um
+  // técnico executando o teste dele em /painel/testes/[id] não devia ver um
+  // menu de filtros de uma lista que ele nem acessa.
+  const naTestes = pathname.startsWith("/painel/testes") && canVerAgendaCompleta(perfil.role);
 
   const navPrincipal = (
     <nav className="flex-1 space-y-1 px-3">
@@ -142,6 +161,24 @@ export function Sidebar({
     </div>
   );
 
+  const navTestes = (
+    <div className="flex-1">
+      <button
+        type="button"
+        disabled={voltando}
+        onClick={() => {
+          setOpen(false);
+          startVoltar(() => router.push("/painel"));
+        }}
+        className="mx-3 mb-2 flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium text-neutral-400 hover:bg-white/5 hover:text-white disabled:opacity-60"
+      >
+        {voltando ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <ArrowLeft className="h-4 w-4 shrink-0" />}
+        Voltar ao menu
+      </button>
+      <TestesFiltroSidebar />
+    </div>
+  );
+
   const conteudo = (
     <>
       <Link href="/painel" className="block px-3 py-4">
@@ -151,7 +188,7 @@ export function Sidebar({
       </Link>
       <RelogioBrasilia className="px-6 pb-4 text-center text-xs font-medium text-neutral-400 capitalize" />
 
-      {naAgenda ? navAgenda : navPrincipal}
+      {naAgenda ? navAgenda : naTestes ? navTestes : navPrincipal}
 
       <div className="border-t border-white/10 p-4">
         <p className="truncate text-sm font-medium text-white">{perfil.nome}</p>

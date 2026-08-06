@@ -9,6 +9,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/orcamento",
   "/laudo",
   "/proposta",
+  "/retestagem",
   "/login",
   "/esqueci-senha",
   "/redefinir-senha",
