@@ -39,6 +39,19 @@ export default function PoliticaCookiesPage() {
               ajudam a entender como o site é utilizado, para melhorar conteúdo e navegação. Só
               são ativados mediante seu consentimento no banner exibido na primeira visita.
             </li>
+            <li>
+              <strong>Cookies de terceiros</strong> — usamos o{" "}
+              <a
+                href="https://www.trustindex.io/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-brand"
+              >
+                Trustindex
+              </a>{" "}
+              para exibir nossas avaliações reais de clientes (Google) no site. Esse widget só é
+              carregado se você aceitar todos os cookies no banner de consentimento.
+            </li>
           </ul>
         </section>
 

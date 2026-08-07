@@ -1,4 +1,5 @@
 import { ClipboardCheck, MapPinned, ShieldCheck, Wrench } from "lucide-react";
+import { ScrollReveal } from "./scroll-reveal";
 
 const REASONS = [
   {
@@ -32,7 +33,10 @@ export function WhyUsBlock() {
     <section className="border-y border-neutral-200 bg-neutral-50">
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
         <div className="max-w-2xl">
-          <h2 className="text-2xl font-bold text-neutral-900">
+          <p className="text-xs font-semibold tracking-wide text-brand uppercase">
+            Diferenciais
+          </p>
+          <h2 className="mt-3 text-2xl font-bold text-neutral-900">
             Por que escolher nossos especialistas?
           </h2>
           <p className="mt-3 text-neutral-600">
@@ -41,12 +45,19 @@ export function WhyUsBlock() {
           </p>
         </div>
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {REASONS.map(({ icon: Icon, title, description }) => (
-            <div key={title} className="rounded-md border border-neutral-200 bg-white p-5">
+          {REASONS.map(({ icon: Icon, title, description }, index) => (
+            <ScrollReveal
+              key={title}
+              index={index}
+              className="relative rounded-md border border-neutral-200 bg-white p-5 transition-shadow duration-300 hover:shadow-sm"
+            >
+              <span className="absolute top-4 right-4 font-mono text-[11px] text-neutral-300">
+                {String(index + 1).padStart(2, "0")}
+              </span>
               <Icon className="h-5 w-5 text-brand" aria-hidden />
               <h3 className="mt-4 font-semibold text-neutral-900">{title}</h3>
               <p className="mt-2 text-sm leading-6 text-neutral-600">{description}</p>
-            </div>
+            </ScrollReveal>
           ))}
         </div>
       </div>

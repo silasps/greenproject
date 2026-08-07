@@ -5,6 +5,7 @@ export const COMPANY = {
   cnpj: "44.660.456/0001-53",
   endereco: "R. Monsenhor Messias, 1093 - Flamengo, Contagem - MG",
   telefone: "(31) 99790-1568",
+  whatsapp: process.env.WHATSAPP_NUMERO ?? "5531997901568",
   email: "engenharia@greenproject.com.br",
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://greenproject.com.br",
   // TODO: confirmar quem será o Encarregado de Dados (DPO) formal antes de publicar.

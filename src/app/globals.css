@@ -134,6 +134,33 @@
   }
 }
 
+/* Tipografia do site público (IBM Plex): escopada a .public-shell pra não
+   alterar a fonte do /painel interno, que continua em Geist. */
+.public-shell {
+  --font-sans: var(--font-plex-sans);
+  --font-heading: var(--font-plex-sans-condensed);
+  --font-mono: var(--font-plex-mono);
+}
+
+.public-shell h1,
+.public-shell h2,
+.public-shell h3,
+.public-shell h4 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+/* A conta de Trustindex da Greenproject também tem um widget "flutuante"
+   (bolha de avaliação recente) além do carrossel que a gente usa de fato.
+   O script deles sempre pendura esse widget flutuante direto no <body>,
+   então dá pra escondê-lo sem afetar o carrossel (que fica aninhado dentro
+   do nosso próprio container, não como filho direto do body). */
+body > .ti-widget,
+body > .ti-widget-container {
+  display: none !important;
+}
+
 @media print {
   @page {
     margin: 12mm;
