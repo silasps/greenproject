@@ -24,7 +24,10 @@ export function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setError("E-mail ou senha inválidos.");
+      // "E-mail ou senha inválidos" só quando é isso mesmo — qualquer outro
+      // erro (limite de tentativas, rede, etc.) mostra a mensagem real, pra
+      // não confundir "senha errada" com um problema totalmente diferente.
+      setError(error.code === "invalid_credentials" ? "E-mail ou senha inválidos." : `Erro ao entrar: ${error.message}`);
       setLoading(false);
       return;
     }

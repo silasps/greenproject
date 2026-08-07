@@ -6,18 +6,52 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
-import { salvarVeiculo } from "./actions";
+import { salvarVeiculo, atualizarVeiculo } from "./actions";
 
-export function VeiculoForm({ clienteId }: { clienteId: string }) {
-  const [tipoAtivo, setTipoAtivo] = useState<"veiculo" | "maquina_equipamento">("veiculo");
-  const [identificador, setIdentificador] = useState("");
-  const [marca, setMarca] = useState("");
-  const [motor, setMotor] = useState("");
-  const [marchaLentaMin, setMarchaLentaMin] = useState("");
-  const [marchaLentaMax, setMarchaLentaMax] = useState("");
-  const [rotacaoCorteMin, setRotacaoCorteMin] = useState("");
-  const [rotacaoCorteMax, setRotacaoCorteMax] = useState("");
-  const [limiteOpacidade, setLimiteOpacidade] = useState("");
+type EspecificacaoMotor = {
+  marcha_lenta_min: number | null;
+  marcha_lenta_max: number | null;
+  rotacao_corte_min: number | null;
+  rotacao_corte_max: number | null;
+  limite_opacidade: number | null;
+};
+
+export type VeiculoEdicao = {
+  id: string;
+  tipo_ativo: "veiculo" | "maquina_equipamento";
+  identificador: string;
+  marca: string | null;
+  modelo: string | null;
+  identificacao_motor: string | null;
+  combustivel: string | null;
+  ano: number | null;
+  chassi: string | null;
+  renavam: string | null;
+  patrimonio_cliente: string | null;
+  especificacoes_motor: EspecificacaoMotor | null;
+};
+
+export function VeiculoForm({
+  clienteId,
+  veiculo,
+  voltarPara,
+}: {
+  clienteId: string;
+  veiculo?: VeiculoEdicao;
+  /** Pra onde "Cancelar"/salvar devem voltar — default é o detalhe do cliente. */
+  voltarPara?: string;
+}) {
+  const destino = voltarPara ?? `/painel/clientes/${clienteId}`;
+  const especificacao = veiculo?.especificacoes_motor;
+  const [tipoAtivo, setTipoAtivo] = useState<"veiculo" | "maquina_equipamento">(veiculo?.tipo_ativo ?? "veiculo");
+  const [identificador, setIdentificador] = useState(veiculo?.identificador ?? "");
+  const [marca, setMarca] = useState(veiculo?.marca ?? "");
+  const [motor, setMotor] = useState(veiculo?.identificacao_motor ?? "");
+  const [marchaLentaMin, setMarchaLentaMin] = useState(especificacao?.marcha_lenta_min?.toString() ?? "");
+  const [marchaLentaMax, setMarchaLentaMax] = useState(especificacao?.marcha_lenta_max?.toString() ?? "");
+  const [rotacaoCorteMin, setRotacaoCorteMin] = useState(especificacao?.rotacao_corte_min?.toString() ?? "");
+  const [rotacaoCorteMax, setRotacaoCorteMax] = useState(especificacao?.rotacao_corte_max?.toString() ?? "");
+  const [limiteOpacidade, setLimiteOpacidade] = useState(especificacao?.limite_opacidade?.toString() ?? "");
   const [buscaMotorMsg, setBuscaMotorMsg] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -50,10 +84,13 @@ export function VeiculoForm({ clienteId }: { clienteId: string }) {
 
   return (
     <form
-      action={(formData) => startTransition(() => salvarVeiculo(formData))}
+      action={(formData) =>
+        startTransition(() => (veiculo ? atualizarVeiculo(veiculo.id, formData) : salvarVeiculo(formData)))
+      }
       className="mt-6 mx-auto max-w-lg space-y-4"
     >
       <input type="hidden" name="cliente_id" value={clienteId} />
+      {veiculo && <input type="hidden" name="voltar" value={destino} />}
 
       <div className="flex gap-4">
         <label className="flex items-center gap-2 text-sm">
@@ -96,18 +133,18 @@ export function VeiculoForm({ clienteId }: { clienteId: string }) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="modelo">Modelo</Label>
-          <Input id="modelo" name="modelo" />
+          <Input id="modelo" name="modelo" defaultValue={veiculo?.modelo ?? ""} />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="combustivel">Combustível</Label>
-          <Input id="combustivel" name="combustivel" placeholder="Diesel" />
+          <Input id="combustivel" name="combustivel" placeholder="Diesel" defaultValue={veiculo?.combustivel ?? ""} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="ano">Ano</Label>
-          <Input id="ano" name="ano" type="number" />
+          <Input id="ano" name="ano" type="number" defaultValue={veiculo?.ano ?? ""} />
         </div>
       </div>
 
@@ -115,17 +152,17 @@ export function VeiculoForm({ clienteId }: { clienteId: string }) {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="chassi">Chassi</Label>
-            <Input id="chassi" name="chassi" />
+            <Input id="chassi" name="chassi" defaultValue={veiculo?.chassi ?? ""} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="renavam">Renavam</Label>
-            <Input id="renavam" name="renavam" />
+            <Input id="renavam" name="renavam" defaultValue={veiculo?.renavam ?? ""} />
           </div>
         </div>
       ) : (
         <div className="space-y-2">
           <Label htmlFor="patrimonio_cliente">Patrimônio interno do cliente (opcional)</Label>
-          <Input id="patrimonio_cliente" name="patrimonio_cliente" />
+          <Input id="patrimonio_cliente" name="patrimonio_cliente" defaultValue={veiculo?.patrimonio_cliente ?? ""} />
         </div>
       )}
 
@@ -176,7 +213,7 @@ export function VeiculoForm({ clienteId }: { clienteId: string }) {
         <Button type="submit" disabled={pending} className="bg-brand hover:bg-brand-dark">
           {pending ? "Salvando..." : "Salvar"}
         </Button>
-        <ConfirmLeaveButton to={`/painel/clientes/${clienteId}`} label="Cancelar" variant="outline" />
+        <ConfirmLeaveButton to={destino} label="Cancelar" variant="outline" />
       </div>
     </form>
   );

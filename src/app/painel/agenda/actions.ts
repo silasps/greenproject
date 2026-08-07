@@ -4,7 +4,7 @@ import { addDays, addWeeks, addMonths, addYears, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAuth } from "@/lib/auth/session";
+import { requireAuth, requireRole } from "@/lib/auth/session";
 import { canGerenciarClientes } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calcularValorTotal } from "@/lib/orcamento/calcular";
@@ -12,6 +12,7 @@ import { gerarPropostaPdf } from "@/lib/orcamento/gerar-pdf";
 import { onlyDigits } from "@/lib/utils/mascaras";
 import { enviarEmail } from "@/lib/email/enviar";
 import { COMPANY } from "@/lib/legal/company-info";
+import { registrarAuditoria } from "@/lib/auditoria/registrar";
 import { CORES_AGENDA } from "./cores";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -277,6 +278,7 @@ export async function criarEvento(formData: FormData) {
   const pedagio = Number(formData.get("pedagio") ?? 0);
   const alimentacao = Number(formData.get("alimentacao") ?? 0);
   const valorServico = Number(formData.get("valor_servico") ?? 0);
+  const tipoServicoId = String(formData.get("tipo_servico_id") ?? "") || null;
   const custosExtras = extrairCustosExtras(formData);
 
   // Só um dos dois é obrigatório — WhatsApp é o meio de contato principal,
@@ -304,6 +306,7 @@ export async function criarEvento(formData: FormData) {
       telefone_contato: telefonePrincipal,
       whatsapp_contato: whatsappContato || null,
       tipo_teste: "opacidade",
+      tipo_servico_id: tipoServicoId,
       cep: cep || null,
       endereco: endereco || null,
       numero: numero || null,
@@ -430,6 +433,7 @@ export async function converterEventoParaTeste(id: string, formData: FormData) {
   const pedagio = Number(formData.get("pedagio") ?? 0);
   const alimentacao = Number(formData.get("alimentacao") ?? 0);
   const valorServico = Number(formData.get("valor_servico") ?? 0);
+  const tipoServicoId = String(formData.get("tipo_servico_id") ?? "") || null;
   const custosExtras = extrairCustosExtras(formData);
 
   const telefonePrincipal = telefoneContato || whatsappContato;
@@ -455,6 +459,7 @@ export async function converterEventoParaTeste(id: string, formData: FormData) {
       telefone_contato: telefonePrincipal,
       whatsapp_contato: whatsappContato || null,
       tipo_teste: "opacidade",
+      tipo_servico_id: tipoServicoId,
       cep: cep || null,
       endereco: endereco || null,
       numero: numero || null,
@@ -509,6 +514,42 @@ export async function excluirEvento(id: string) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/painel/agenda");
+}
+
+/**
+ * Exclusão de verdade (não lógica) do agendamento de um teste de opacidade —
+ * cascade já apaga testes_opacidade/medições/laudo (ver schema, seção 6.14).
+ * Só gerência (cargo mais alto hoje) pode excluir, e só se não houver laudo
+ * liberado: laudo é documento oficial com link de verificação pública, não
+ * dá pra sumir com ele por baixo do pano — nesse caso a exclusão é bloqueada.
+ */
+export async function excluirTeste(agendamentoId: string) {
+  const { perfil } = await requireRole(["gerencia"]);
+  const admin = createAdminClient();
+
+  const { data: existente, error: buscaError } = await admin
+    .from("agendamentos")
+    .select("id, testes_opacidade(laudos(id))")
+    .eq("id", agendamentoId)
+    .eq("tipo", "teste_opacidade")
+    .single();
+  if (buscaError || !existente) throw new Error("Teste não encontrado.");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const temLaudo = (existente.testes_opacidade as any[])?.some((t) => t.laudos?.length > 0);
+  if (temLaudo) throw new Error("Esse teste já tem laudo liberado — não é possível excluir.");
+
+  const { error } = await admin.from("agendamentos").delete().eq("id", agendamentoId);
+  if (error) throw new Error(error.message);
+
+  await registrarAuditoria({
+    usuarioId: perfil.id,
+    acao: "excluir_teste",
+    entidade: "agendamento",
+    entidadeId: agendamentoId,
+  });
+
+  redirect("/painel/agenda");
 }
 
 /** Cria (se não existir) e retorna o teste de opacidade vinculado a um agendamento. */
@@ -670,7 +711,13 @@ export async function reenviarPropostaEmail(agendamentoId: string) {
 }
 
 /** Marca a proposta como aceita em nome do cliente — pra quando o aceite acontece por telefone/presencial, sem passar pelo link público. */
-export async function aceitarPropostaComoStaff(agendamentoId: string) {
+export type CanalAceiteProposta = "email" | "whatsapp" | "presencial" | "outro";
+
+export async function aceitarPropostaComoStaff(
+  agendamentoId: string,
+  canal: CanalAceiteProposta,
+  detalhe?: string,
+) {
   const { perfil } = await requireAuth();
   if (!canGerenciarClientes(perfil.role)) throw new Error("Sem permissão.");
 
@@ -692,10 +739,24 @@ export async function aceitarPropostaComoStaff(agendamentoId: string) {
     .from("propostas")
     .update({
       status: "aceita",
-      evidencia_aceite: { via: "staff", aceito_por: perfil.nome, aceito_em: new Date().toISOString() },
+      evidencia_aceite: {
+        via: "staff",
+        canal,
+        detalhe: detalhe || null,
+        aceito_por: perfil.nome,
+        aceito_em: new Date().toISOString(),
+      },
     })
     .eq("id", proposta.id);
   if (updateError) throw new Error(updateError.message);
+
+  await registrarAuditoria({
+    usuarioId: perfil.id,
+    acao: "aceitar_proposta_como_staff",
+    entidade: "proposta",
+    entidadeId: proposta.id,
+    detalhes: { canal, detalhe: detalhe || null },
+  });
 
   revalidatePath(`/painel/agenda/${agendamentoId}`);
   revalidatePath(`/proposta/${proposta.token}`);

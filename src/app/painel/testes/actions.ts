@@ -1,12 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { requireAuth, requireRole } from "@/lib/auth/session";
-import { canImportarPdfSyscon, canRevisarELiberarLaudo } from "@/lib/auth/permissions";
+import { canImportarPdfSyscon, canRevisarELiberarLaudo, canGerenciarClientes } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadArquivo } from "@/lib/storage/upload";
 import { parseEnsaioSyscon } from "@/lib/syscon/parse-ensaio";
 import { gerarLaudoPdf } from "@/lib/laudo/gerar-pdf";
+import { registrarAuditoria } from "@/lib/auditoria/registrar";
+import { enviarEmail } from "@/lib/email/enviar";
+import { COMPANY } from "@/lib/legal/company-info";
 
 async function uploadSeEnviado(bucket: "arquivos-internos", path: string, file: FormDataEntryValue | null) {
   if (file instanceof File && file.size > 0) {
@@ -35,14 +40,22 @@ export async function salvarCampo(testeId: string, formData: FormData) {
   const fotoTraseira = await uploadSeEnviado("arquivos-internos", `testes/${testeId}/foto-traseira.jpg`, formData.get("foto_traseira"));
   const fotoPainel = await uploadSeEnviado("arquivos-internos", `testes/${testeId}/foto-painel.jpg`, formData.get("foto_painel"));
   const fotoEtiqueta = await uploadSeEnviado("arquivos-internos", `testes/${testeId}/foto-etiqueta.jpg`, formData.get("foto_etiqueta"));
+  const fotoEtiquetaNumero = await uploadSeEnviado(
+    "arquivos-internos",
+    `testes/${testeId}/foto-etiqueta-numero.jpg`,
+    formData.get("foto_etiqueta_numero"),
+  );
 
   if (fotoFrente) update.foto_frente_path = fotoFrente;
   if (fotoTraseira) update.foto_traseira_path = fotoTraseira;
   if (fotoPainel) update.foto_painel_path = fotoPainel;
   if (fotoEtiqueta) update.foto_etiqueta_path = fotoEtiqueta;
+  if (fotoEtiquetaNumero) update.foto_etiqueta_numero_path = fotoEtiquetaNumero;
 
-  if (!fotoFrente || !fotoTraseira || !fotoPainel || !fotoEtiqueta) {
-    throw new Error("Envie as 4 fotos (frente, teste sendo feito, painel e etiqueta) para concluir o campo.");
+  if (!fotoFrente || !fotoTraseira || !fotoPainel || !fotoEtiqueta || !fotoEtiquetaNumero) {
+    throw new Error(
+      "Envie as 5 fotos (frente, teste sendo feito, painel, etiqueta completa e etiqueta com o número) para concluir o campo.",
+    );
   }
 
   const chavesExtras = Array.from(formData.keys()).filter((k) => k.startsWith("foto_extra_"));
@@ -57,6 +70,64 @@ export async function salvarCampo(testeId: string, formData: FormData) {
 
   const { error } = await admin.from("testes_opacidade").update(update).eq("id", testeId);
   if (error) throw new Error(error.message);
+
+  revalidatePath(`/painel/testes/${testeId}`);
+}
+
+/**
+ * Reedita os dados de campo (número do teste, equipamento, fotos) depois
+ * que o campo já foi concluído — ex.: técnico digitou o número errado.
+ * Ao contrário de `salvarCampo`, não mexe no `status` (a etapa já avançou)
+ * e fotos não são obrigatórias — só troca as que vierem preenchidas, o
+ * upload sobrescreve o mesmo path de sempre (`testes/{id}/foto-*.jpg`).
+ * Bloqueado depois do laudo liberado — nesse ponto os dados já viraram um
+ * documento oficial emitido, editar por baixo criaria inconsistência.
+ */
+export async function editarCampo(testeId: string, formData: FormData) {
+  const { perfil } = await requireAuth();
+  const admin = createAdminClient();
+
+  const { data: teste } = await admin.from("testes_opacidade").select("status, fotos_extras").eq("id", testeId).single();
+  if (!teste) throw new Error("Teste não encontrado.");
+  if (teste.status === "aprovado") throw new Error("Não é possível editar depois do laudo liberado.");
+
+  const equipamentoId = String(formData.get("equipamento_id") || "") || null;
+  const numeroTeste = String(formData.get("numero_teste") || "").trim();
+  if (!numeroTeste) throw new Error("Número do teste é obrigatório.");
+  if (!equipamentoId) throw new Error("Selecione o equipamento usado.");
+
+  const update: Record<string, unknown> = { equipamento_id: equipamentoId, numero_teste: numeroTeste };
+
+  const fotoFrente = await uploadSeEnviado("arquivos-internos", `testes/${testeId}/foto-frente.jpg`, formData.get("foto_frente"));
+  const fotoTraseira = await uploadSeEnviado("arquivos-internos", `testes/${testeId}/foto-traseira.jpg`, formData.get("foto_traseira"));
+  const fotoPainel = await uploadSeEnviado("arquivos-internos", `testes/${testeId}/foto-painel.jpg`, formData.get("foto_painel"));
+  const fotoEtiqueta = await uploadSeEnviado("arquivos-internos", `testes/${testeId}/foto-etiqueta.jpg`, formData.get("foto_etiqueta"));
+  const fotoEtiquetaNumero = await uploadSeEnviado(
+    "arquivos-internos",
+    `testes/${testeId}/foto-etiqueta-numero.jpg`,
+    formData.get("foto_etiqueta_numero"),
+  );
+
+  if (fotoFrente) update.foto_frente_path = fotoFrente;
+  if (fotoTraseira) update.foto_traseira_path = fotoTraseira;
+  if (fotoPainel) update.foto_painel_path = fotoPainel;
+  if (fotoEtiqueta) update.foto_etiqueta_path = fotoEtiqueta;
+  if (fotoEtiquetaNumero) update.foto_etiqueta_numero_path = fotoEtiquetaNumero;
+
+  const chavesExtras = Array.from(formData.keys()).filter((k) => k.startsWith("foto_extra_"));
+  const novasExtras = (
+    await Promise.all(
+      chavesExtras.map((chave, i) =>
+        uploadSeEnviado("arquivos-internos", `testes/${testeId}/foto-extra-${Date.now()}-${i}.jpg`, formData.get(chave)),
+      ),
+    )
+  ).filter((path): path is string => !!path);
+  if (novasExtras.length > 0) update.fotos_extras = [...(teste.fotos_extras ?? []), ...novasExtras];
+
+  const { error } = await admin.from("testes_opacidade").update(update).eq("id", testeId);
+  if (error) throw new Error(error.message);
+
+  await registrarAuditoria({ usuarioId: perfil.id, acao: "editar_campo_teste", entidade: "teste_opacidade", entidadeId: testeId });
 
   revalidatePath(`/painel/testes/${testeId}`);
 }
@@ -106,6 +177,46 @@ export async function importarPdfSyscon(testeId: string, formData: FormData) {
       })),
     );
   }
+
+  revalidatePath(`/painel/testes/${testeId}`);
+}
+
+/**
+ * Devolve um teste "aguardando revisão" pra corrigir algo antes de liberar
+ * o laudo — pro escritório (reimportar PDF, ex.: PDF errado) ou pro técnico
+ * de campo (refazer fotos/número). Descarta o que veio do PDF importado
+ * (resultado, média, medições) já que vai ser reimportado de qualquer
+ * jeito — mesmo devolvendo só pro escritório, o PDF antigo não vale mais.
+ */
+export async function devolverRevisao(testeId: string, destino: "campo" | "escritorio", motivo?: string) {
+  const { perfil } = await requireRole(["gerencia"]);
+  if (!canRevisarELiberarLaudo(perfil.role)) throw new Error("Sem permissão.");
+
+  const admin = createAdminClient();
+  const { data: teste } = await admin.from("testes_opacidade").select("status").eq("id", testeId).single();
+  if (!teste) throw new Error("Teste não encontrado.");
+  if (teste.status !== "aguardando_revisao") throw new Error("Só dá pra devolver um teste que está aguardando revisão.");
+
+  const { error } = await admin
+    .from("testes_opacidade")
+    .update({
+      status: destino === "campo" ? "aguardando_execucao" : "aguardando_pdf_syscon",
+      pdf_ensaio_original_path: null,
+      resultado: null,
+      media_m1: null,
+    })
+    .eq("id", testeId);
+  if (error) throw new Error(error.message);
+
+  await admin.from("testes_opacidade_medicoes").delete().eq("teste_id", testeId);
+
+  await registrarAuditoria({
+    usuarioId: perfil.id,
+    acao: "devolver_revisao",
+    entidade: "teste_opacidade",
+    entidadeId: testeId,
+    detalhes: { destino, motivo: motivo || null },
+  });
 
   revalidatePath(`/painel/testes/${testeId}`);
 }
@@ -162,7 +273,68 @@ export async function liberarLaudo(testeId: string, formData: FormData) {
   await admin.from("testes_opacidade").update({ status: "aprovado" }).eq("id", testeId);
   await admin.from("agendamentos").update({ status: "concluido" }).eq("id", teste.agendamento_id);
 
+  await registrarAuditoria({
+    usuarioId: perfil.id,
+    acao: "liberar_laudo",
+    entidade: "laudo",
+    entidadeId: testeId,
+    detalhes: { numero, codigo_publico: codigoPublico },
+  });
+
   revalidatePath(`/painel/testes/${testeId}`);
+}
+
+/** Envia o laudo já emitido por e-mail — mesmo texto/dados da mensagem de WhatsApp, formatado em HTML. */
+export async function enviarLaudoEmail(testeId: string) {
+  const { perfil } = await requireAuth();
+  if (!canGerenciarClientes(perfil.role)) throw new Error("Sem permissão.");
+
+  const admin = createAdminClient();
+  const { data: laudo, error } = await admin
+    .from("laudos")
+    .select(
+      "numero, codigo_publico, teste:testes_opacidade(resultado, veiculos_maquinas(identificador, marca, modelo), agendamentos(data_hora, clientes(nome, email)))",
+    )
+    .eq("teste_id", testeId)
+    .single();
+  if (error) throw new Error(error.message);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teste = laudo.teste as any;
+  const veiculo = teste?.veiculos_maquinas;
+  const agendamento = teste?.agendamentos;
+  const cliente = agendamento?.clientes;
+  if (!cliente?.email) throw new Error("Cliente não tem e-mail cadastrado.");
+
+  const aprovado = teste?.resultado === "aprovado";
+  const dataHoraTexto = agendamento?.data_hora
+    ? format(new Date(agendamento.data_hora), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })
+    : "-";
+  const link = `${COMPANY.siteUrl}/laudo/${laudo.codigo_publico}`;
+
+  await enviarEmail({
+    para: cliente.email,
+    assunto: `Laudo de opacidade nº ${laudo.numero} — ${COMPANY.razaoSocial}`,
+    html: `
+      <p>Olá ${cliente.nome ?? ""},</p>
+      <p>Segue o laudo do teste de opacidade realizado em ${dataHoraTexto}.</p>
+      <p>
+        <strong>Empresa:</strong> ${COMPANY.razaoSocial}<br>
+        ${veiculo ? `<strong>Veículo/equipamento:</strong> ${veiculo.identificador} ${[veiculo.marca, veiculo.modelo].filter(Boolean).join(" ")}<br>` : ""}
+        <strong>Resultado:</strong> <span style="display:inline-block;padding:1px 10px;border-radius:9999px;font-weight:bold;background:${aprovado ? "#dcfce7" : "#fee2e2"};color:${aprovado ? "#166534" : "#991b1b"}">${aprovado ? "APROVADO" : "REPROVADO"}</span><br>
+        <strong>Laudo nº:</strong> ${laudo.numero}
+      </p>
+      <p><a href="${link}">Ver e baixar o laudo</a></p>
+      <p>Qualquer dúvida, estamos à disposição — ${COMPANY.razaoSocial}.</p>
+    `,
+  });
+
+  await registrarAuditoria({
+    usuarioId: perfil.id,
+    acao: "enviar_laudo_email",
+    entidade: "laudo",
+    entidadeId: testeId,
+  });
 }
 
 function gerarCodigoPublico() {

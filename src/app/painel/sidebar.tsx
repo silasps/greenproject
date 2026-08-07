@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, useTransition } from "react";
+import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -97,12 +97,35 @@ export function Sidebar({
 
   // Na Agenda, a sidebar recolhe os outros itens e mostra o mini
   // calendário no lugar — navegação de data fica a um toque, sem abrir a
-  // página de agenda de novo pra trocar o dia.
-  const naAgenda = pathname.startsWith("/painel/agenda");
+  // página de agenda de novo pra trocar o dia. Só na lista/calendário em si
+  // (path exato): em /painel/agenda/[id] (detalhe de um evento/teste) o
+  // filtro de categorias não filtra nada ali, só ficava como ruído.
+  const naAgenda = pathname === "/painel/agenda";
+
+  // "Área de testes" é um estado que persiste ao navegar pra dentro de um
+  // teste específico — que abre em /painel/agenda/[id] (é a mesma tela de
+  // detalhe de agendamento usada pra evento e teste), não em
+  // /painel/testes/[id]. Sem isso, entrar num teste a partir da lista
+  // perdia o menu de filtros e caía no menu principal. Só reseta ao sair
+  // pra um lugar que não é nem Testes nem detalhe de agendamento (ex.:
+  // "Voltar ao menu", ou o calendário da Agenda em si).
+  const [emAreaTestes, setEmAreaTestes] = useState(() => pathname.startsWith("/painel/testes"));
+  // Precisa ser efeito mesmo (não dá pra derivar só do pathname atual — o
+  // caso /painel/agenda/[id] depende do estado anterior, "continua o que já
+  // era"), por isso o setState síncrono aqui é intencional.
+  useEffect(() => {
+    if (pathname.startsWith("/painel/testes")) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEmAreaTestes(true);
+    } else if (!pathname.startsWith("/painel/agenda/")) {
+      setEmAreaTestes(false);
+    }
+  }, [pathname]);
+
   // Mesma ideia em Testes, mas só pra quem tem a lista (escritório+) — um
   // técnico executando o teste dele em /painel/testes/[id] não devia ver um
   // menu de filtros de uma lista que ele nem acessa.
-  const naTestes = pathname.startsWith("/painel/testes") && canVerAgendaCompleta(perfil.role);
+  const naTestes = emAreaTestes && canVerAgendaCompleta(perfil.role);
 
   const navPrincipal = (
     <nav className="flex-1 space-y-1 px-3">

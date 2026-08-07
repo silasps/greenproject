@@ -74,12 +74,12 @@ export default async function TestesVencendoPage() {
           <h2 className="text-sm font-semibold tracking-wide text-neutral-500 uppercase">
             Solicitações de clientes ({solicitacoes.length})
           </h2>
-          <div className="mt-2 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
+          <div className="mt-2 space-y-3">
             {solicitacoes.map((s) => {
               const veiculo = veiculoPorId.get(s.veiculo_id);
               const cliente = clientePorId.get(s.cliente_id);
               return (
-                <div key={s.id} className="flex items-center justify-between gap-3 p-4">
+                <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white p-4">
                   <div className="min-w-0">
                     <p className="font-medium text-neutral-900">{cliente?.nome ?? "—"}</p>
                     <p className="text-sm text-neutral-500">
@@ -109,7 +109,7 @@ export default async function TestesVencendoPage() {
 
       {proximas.length === 0 && <p className="mt-6 text-sm text-neutral-500">Nenhum veículo vencendo no período.</p>}
 
-      <div className="mt-6 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
+      <div className="mt-6 space-y-3">
         {proximas.map((v) => {
           const veiculo = veiculoPorId.get(v.veiculo_id);
           const cliente = clientePorId.get(v.cliente_id);
@@ -118,7 +118,7 @@ export default async function TestesVencendoPage() {
           const emailEnviadoEm = ultimoContatoPorVeiculoCanal.get(`${v.veiculo_id}:email`);
           const whatsappEnviadoEm = ultimoContatoPorVeiculoCanal.get(`${v.veiculo_id}:whatsapp`);
           return (
-            <div key={v.veiculo_id} className="flex items-center justify-between gap-3 p-4">
+            <div key={v.veiculo_id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white p-4">
               <div className="min-w-0">
                 <p className="font-medium text-neutral-900">{cliente?.nome ?? "—"}</p>
                 <p className="text-sm text-neutral-500">

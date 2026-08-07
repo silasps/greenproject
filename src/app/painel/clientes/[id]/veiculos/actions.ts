@@ -5,10 +5,8 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function salvarVeiculo(formData: FormData) {
-  await requireRole(["escritorio", "gerencia"]);
-
-  const clienteId = String(formData.get("cliente_id"));
+/** Monta o payload comum a criar/editar — inclusive o upsert de especificacoes_motor, que as duas ações usam igual. */
+async function montarPayloadVeiculo(admin: ReturnType<typeof createAdminClient>, clienteId: string, formData: FormData) {
   const tipoAtivo = String(formData.get("tipo_ativo"));
   const identificador = String(formData.get("identificador")).trim().toUpperCase();
   const marca = String(formData.get("marca") || "").trim();
@@ -19,8 +17,6 @@ export async function salvarVeiculo(formData: FormData) {
   const ano = anoRaw ? Number(anoRaw) : null;
 
   if (!identificador) throw new Error("Placa/número de série é obrigatório.");
-
-  const admin = createAdminClient();
 
   let especificacaoMotorId: string | null = null;
   const marchaLentaMin = numOrNull(formData.get("marcha_lenta_min"));
@@ -84,15 +80,41 @@ export async function salvarVeiculo(formData: FormData) {
   if (tipoAtivo === "veiculo") {
     payload.chassi = String(formData.get("chassi") || "").trim();
     payload.renavam = String(formData.get("renavam") || "").trim();
+    payload.patrimonio_cliente = null;
   } else {
     payload.patrimonio_cliente = String(formData.get("patrimonio_cliente") || "").trim();
+    payload.chassi = null;
+    payload.renavam = null;
   }
+
+  return payload;
+}
+
+export async function salvarVeiculo(formData: FormData) {
+  await requireRole(["escritorio", "gerencia"]);
+  const clienteId = String(formData.get("cliente_id"));
+  const admin = createAdminClient();
+  const payload = await montarPayloadVeiculo(admin, clienteId, formData);
 
   const { error } = await admin.from("veiculos_maquinas").insert(payload);
   if (error) throw new Error(error.message);
 
   revalidatePath(`/painel/clientes/${clienteId}`);
   redirect(`/painel/clientes/${clienteId}`);
+}
+
+export async function atualizarVeiculo(veiculoId: string, formData: FormData) {
+  await requireRole(["escritorio", "gerencia"]);
+  const clienteId = String(formData.get("cliente_id"));
+  const admin = createAdminClient();
+  const payload = await montarPayloadVeiculo(admin, clienteId, formData);
+
+  const { error } = await admin.from("veiculos_maquinas").update(payload).eq("id", veiculoId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/painel/clientes/${clienteId}`);
+  const voltar = String(formData.get("voltar") || "");
+  redirect(voltar || `/painel/clientes/${clienteId}`);
 }
 
 function numOrNull(value: FormDataEntryValue | null) {

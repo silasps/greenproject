@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { FileText, Loader2, Upload } from "lucide-react";
+import { FileText, Loader2, Upload, ArrowLeftRight, Trash2, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { comprimirParaWebp } from "@/lib/utils/image-to-webp";
 
 // Só guarda o arquivo localmente (File no input) e mostra uma prévia via
@@ -18,19 +19,29 @@ export function FileDropInput({
   required,
   capture,
   label = "Clique para enviar o arquivo",
+  previaAtualUrl,
+  onArquivoChange,
 }: {
   id: string;
   name: string;
   accept?: string;
+  /** Esse campo nunca pode terminar vazio — se não tiver foto atual nem uma nova escolhida, o input fica `required` de verdade (bloqueia o submit). */
   required?: boolean;
   capture?: boolean | "user" | "environment";
   label?: string;
+  /** URL (assinada) da foto já salva — mostra como miniatura com Trocar/Excluir, em vez da área de upload vazia, até o usuário mexer nela. */
+  previaAtualUrl?: string | null;
+  /** Avisa o componente pai qual arquivo está selecionado agora (ou null) — usado por fluxos tipo wizard que precisam saber se já dá pra avançar. */
+  onArquivoChange?: (arquivo: File | null) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [otimizando, setOtimizando] = useState(false);
+  // Usuário clicou em "Excluir" na foto atual sem (ainda) escolher uma nova.
+  const [atualRemovida, setAtualRemovida] = useState(false);
+  const [ampliada, setAmpliada] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -45,6 +56,7 @@ export function FileDropInput({
     }
 
     setArquivo(file);
+    onArquivoChange?.(file);
 
     if (file?.type.startsWith("image/")) {
       const url = URL.createObjectURL(file);
@@ -65,6 +77,7 @@ export function FileDropInput({
 
     if (!original.type.startsWith("image/") || original.type === "image/svg+xml") {
       mostrarArquivo(original);
+      setAtualRemovida(false);
       return;
     }
 
@@ -77,6 +90,7 @@ export function FileDropInput({
       dt.items.add(comprimido);
       if (inputRef.current) inputRef.current.files = dt.files;
       mostrarArquivo(comprimido);
+      setAtualRemovida(false);
     } finally {
       setOtimizando(false);
     }
@@ -87,6 +101,12 @@ export function FileDropInput({
     if (inputRef.current) inputRef.current.value = "";
   }
 
+  // Ainda tem uma foto salva pra mostrar (não trocou nem excluiu ainda).
+  const mostrandoAtual = !arquivo && !!previaAtualUrl && !atualRemovida;
+  // Nada de válido nesse campo agora (nem atual, nem novo) — obrigatório de verdade.
+  const inputRequired = required && !arquivo && (!previaAtualUrl || atualRemovida);
+  const imagemGrandeUrl = previewUrl ?? (mostrandoAtual ? previaAtualUrl : null);
+
   return (
     <div>
       <input
@@ -95,7 +115,7 @@ export function FileDropInput({
         name={name}
         type="file"
         accept={accept}
-        required={required}
+        required={inputRequired}
         capture={capture}
         className="hidden"
         onChange={(e) => handleChange(e.target.files)}
@@ -110,14 +130,18 @@ export function FileDropInput({
         <div className="flex items-center gap-3 rounded-md border border-neutral-200 p-3">
           <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-neutral-100">
             {previewUrl ? (
-              <Image
-                src={previewUrl}
-                alt={arquivo.name}
-                fill
-                sizes="56px"
-                unoptimized
-                className="object-cover"
-              />
+              <>
+                <Image src={previewUrl} alt={arquivo.name} fill sizes="56px" unoptimized className="object-cover" />
+                <button
+                  type="button"
+                  title="Ver em tamanho real"
+                  aria-label="Ver em tamanho real"
+                  onClick={() => setAmpliada(true)}
+                  className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition hover:bg-black/40 hover:opacity-100"
+                >
+                  <Maximize2 className="size-4" />
+                </button>
+              </>
             ) : (
               <FileText className="h-6 w-6 text-neutral-400" />
             )}
@@ -127,11 +151,67 @@ export function FileDropInput({
             <p className="text-xs text-neutral-500">{(arquivo.size / 1024).toFixed(0)} KB</p>
           </div>
           <div className="flex shrink-0 gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-              Trocar arquivo
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              title="Trocar arquivo"
+              aria-label="Trocar arquivo"
+              onClick={() => inputRef.current?.click()}
+            >
+              <ArrowLeftRight className="size-4" />
             </Button>
-            <Button type="button" variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={limpar}>
-              Excluir
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              title="Excluir"
+              aria-label="Excluir"
+              className="text-red-600 hover:text-red-700"
+              onClick={limpar}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        </div>
+      ) : mostrandoAtual ? (
+        <div className="flex items-center gap-3 rounded-md border border-neutral-200 p-3">
+          <button
+            type="button"
+            title="Ver em tamanho real"
+            aria-label="Ver em tamanho real"
+            onClick={() => setAmpliada(true)}
+            className="group relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-neutral-100"
+          >
+            <Image src={previaAtualUrl!} alt="Foto atual" fill sizes="56px" unoptimized className="object-cover" />
+            <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
+              <Maximize2 className="size-4" />
+            </span>
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-neutral-800">Foto atual</p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              title="Trocar"
+              aria-label="Trocar"
+              onClick={() => inputRef.current?.click()}
+            >
+              <ArrowLeftRight className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              title="Excluir"
+              aria-label="Excluir"
+              className="text-red-600 hover:text-red-700"
+              onClick={() => setAtualRemovida(true)}
+            >
+              <Trash2 className="size-4" />
             </Button>
           </div>
         </div>
@@ -142,7 +222,22 @@ export function FileDropInput({
         >
           <Upload className="h-6 w-6" />
           {label}
+          {atualRemovida && <span className="text-xs text-amber-600">Foto removida — envie uma nova</span>}
         </label>
+      )}
+
+      {imagemGrandeUrl && (
+        <Dialog open={ampliada} onOpenChange={setAmpliada}>
+          <DialogContent className="max-w-[calc(100%-2rem)] p-2 sm:max-w-4xl">
+            <DialogTitle className="sr-only">Foto ampliada</DialogTitle>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imagemGrandeUrl}
+              alt="Foto ampliada"
+              className="max-h-[85vh] w-full rounded-lg object-contain"
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -250,6 +250,7 @@ titulo text, descricao text, criado_por uuid references usuarios_perfis(id) on d
 -- campos de TESTE via captação rápida (ver seção 8):
 nome_contato text, telefone_contato text, whatsapp_contato text
 tipo_teste text default 'opacidade' check in ('opacidade')
+tipo_servico_id uuid references tipos_servico(id) on delete set null  -- migration 0019
 cep text, endereco text, numero text
 proposta_id uuid references propostas(id) on delete set null
 created_at, updated_at (trigger)
@@ -316,7 +317,8 @@ valor_total numeric not null
 token text not null unique             -- identificador público (URL /proposta/[token])
 status text not null default 'enviada' check in ('enviada','aceita','expirada')
 otp_hash text, otp_expira_em timestamptz    -- reservado, não implementado (ver seção 8)
-evidencia_aceite jsonb                 -- {ip, userAgent, aceito_em}
+evidencia_aceite jsonb                 -- {ip, userAgent, aceito_em} (aceite público) ou
+                                        -- {via:"staff", canal, detalhe, aceito_por, aceito_em} (aceitarPropostaComoStaff)
 expires_at timestamptz
 pdf_path text                          -- preenchido só depois do cadastro completo
 created_at
@@ -418,6 +420,20 @@ cards resultantes (`KpiCard`, `src/components/kpi-card.tsx`) aparecem no
 dashboard (`/painel/page.tsx`) — ver nota na seção 11, esse item **saiu**
 de "fora de escopo".
 
+### 6.19 `auditoria_log` (log de auditoria — só ações críticas)
+```
+id uuid PK, usuario_id uuid references usuarios_perfis(id) on delete set null,
+acao text not null, entidade text not null, entidade_id uuid,
+detalhes jsonb, created_at timestamptz not null default now()
+```
+Escopo deliberadamente pequeno (não é trigger de banco pra todo
+INSERT/UPDATE/DELETE — decisão consciente, ver histórico da conversa):
+gravado via `registrarAuditoria()` (`src/lib/auditoria/registrar.ts`)
+chamado à mão dentro de cada server action sensível — hoje `excluirTeste`,
+`liberarLaudo`, `aceitarPropostaComoStaff`, `salvarCliente` (só no update).
+Nunca deixa a ação principal falhar por erro de log. Só `gerencia` lê
+(`select`); não tem UI de consulta ainda, só a tabela.
+
 ### Migrations, em ordem (útil pra recriar o histórico exato)
 1. `0001_initial_schema.sql` — tudo de 6.1 a 6.16 (menos as colunas
    adicionadas depois).
@@ -445,6 +461,11 @@ de "fora de escopo".
     (ver 6.18).
 12. `0012_categorias_agenda.sql` — cria `categorias_agenda`, adiciona
     `agendamentos.categoria_id` (ver 6.17).
+    (0013–0017 existem no repo mas não estão documentados aqui ainda.)
+18. `0018_auditoria_log.sql` — cria `auditoria_log` (ver 6.19).
+19. `0019_agendamento_tipo_servico.sql` — `agendamentos.tipo_servico_id`
+    (ver 6.9) — persiste o tipo de serviço escolhido no agendamento, antes
+    só existia como estado local do form.
 
 ### Storage buckets (criados fora de migration — via dashboard/CLI, não SQL)
 - **`laudos`** — público, sem limite de tamanho/mime. `${codigo_publico}.pdf`.
@@ -729,12 +750,20 @@ clusters, só que por linha em vez de coluna).
 ### 8.5 Execução do teste (`painel/testes/[testeId]/`)
 Fluxo em 3 etapas, sem bloqueio rígido de campo entre elas (só o botão
 final de "Liberar" é checado):
-1. **Campo** (`campo-form.tsx` → `salvarCampo`): técnico escolhe o
-   equipamento usado, digita o número do teste, sobe as 4 fotos
-   obrigatórias (frente/traseira/painel/etiqueta — convertidas pra WebP
-   no browser antes do upload, `src/lib/utils/image-to-webp.ts`) pro
-   bucket privado `arquivos-internos`. Status vira
-   `aguardando_pdf_syscon`.
+1. **Campo** (`campo-wizard.tsx` → `salvarCampo`): fluxo em tela cheia
+   (`fixed inset-0`, cobre até a sidebar), um passo por vez — pensado pra
+   reduzir erro humano no celular. Escolhe o equipamento (tela de
+   preparo), depois 5 fotos obrigatórias em sequência
+   (frente/traseira/painel/etiqueta completa/etiqueta só o número —
+   convertidas pra WebP no browser antes do upload,
+   `src/lib/utils/image-to-webp.ts`) pro bucket privado
+   `arquivos-internos`, barra de progresso no topo. Os 5
+   `FileDropInput` ficam todos montados o tempo todo (só escondidos via
+   CSS fora do passo atual) — mantém o arquivo escolhido sem duplicar
+   estado; a etiqueta do número existe só pra conferência visual (o
+   número continua digitado à mão). Tela final de conferência junta as 5
+   fotos + número do teste + fotos extras opcionais antes de enviar.
+   Status vira `aguardando_pdf_syscon`.
 2. **Importar PDF do Syscon** (`import-syscon-form.tsx` →
    `importarPdfSyscon`, só quem `canImportarPdfSyscon`): sobe o PDF
    exportado pelo equipamento Syscon, `src/lib/syscon/parse-ensaio.ts`
@@ -752,6 +781,27 @@ final de "Liberar" é checado):
    bucket `laudos`, insere a linha em `laudos`, marca
    `testes_opacidade.status='aprovado'` e
    `agendamentos.status='concluido'`.
+
+Dados de campo (número do teste, equipamento, fotos) ficam editáveis
+depois de enviados, enquanto o laudo não é liberado — `campo-edit-form.tsx`
+→ `editarCampo` (não mexe em `status`, fotos são opcionais na edição, só
+troca a que vier preenchida — upload sobrescreve o mesmo path de sempre).
+Bloqueado quando `status='aprovado'` (laudo já é documento oficial
+emitido). Acessível também pelos subpassos da execução em
+`agenda/[id]/page.tsx` (ver nota do stepper na seção 10.14).
+
+Fotos em qualquer tela de teste (dados de campo, revisão) aparecem como
+miniatura clicável (`FotosPreviewGrid`/`FotoPreview`,
+`src/components/foto-preview.tsx`) que abre um modal grande — nunca link de
+texto abrindo em nova aba.
+
+Da tela "aguardando revisão", `DevolverRevisaoButton` →
+`devolverRevisao` (só `canRevisarELiberarLaudo` = gerência) devolve o
+teste pro escritório (`aguardando_pdf_syscon`, reimportar PDF) ou pro
+técnico (`aguardando_execucao`, refazer campo) quando algo está errado —
+sempre descarta `resultado`/`media_m1`/`pdf_ensaio_original_path` e as
+`testes_opacidade_medicoes`, já que um PDF novo vai substituir tudo isso
+de qualquer jeito.
 
 ### 8.6 PDF do laudo (`src/lib/laudo/gerar-pdf.ts`)
 3 páginas via `jspdf`/`jspdf-autotable`: (1) capa com dados do
@@ -949,6 +999,35 @@ autoria interna de `gerencia`, nunca input público).
     antigos com aquele tipo de serviço). Delete de verdade só quando não
     há esse risco (ex.: `funcoes`, `categorias_agenda` hoje não expõe
     exclusão pela UI).
+13. **Lista de itens (cliente, equipamento, teste, pessoa DP,
+    agendamento...) é uma pilha de cards com espaço entre eles**
+    (`space-y-3` no container, cada item com sua própria
+    `rounded-lg border border-neutral-200 bg-white`), **nunca** um único
+    card com `divide-y` separando as linhas por borda interna — a versão
+    `divide-y` lê como um bloco só, não como itens distintos. Estado
+    vazio ("Nenhum X cadastrado") fica fora dos cards, texto solto. Não
+    se aplica a dropdown de autocomplete/busca (ex.:
+    `cliente-existente-picker.tsx`), que continua compacto com
+    `divide-y` — ali o agrupamento visual é o efeito desejado.
+14. **Checklist "passo a passo"** (`agenda/[id]/page.tsx`, componente
+    `PassoAPasso`) — lista vertical (uma linha por passo, com o botão de
+    ação daquele passo ao lado) em `md:` pra cima; barra horizontal
+    compacta (só ícones + legenda do passo atual) no celular, onde rótulo
+    embaixo de bolinha quebraria. Cada passo pode ter `subpassos`
+    (sub-checklist recuado, ex.: status interno da execução do teste) e um
+    `acao` que só aparece quando aquele passo específico está
+    disponível — a disponibilidade de cada passo é calculada
+    independentemente dos outros (não é uma sequência rígida: ex. dá pra
+    iniciar a execução do teste mesmo com a proposta ainda não aceita),
+    então mais de uma ação pode aparecer ao mesmo tempo, cada uma junto do
+    passo certo — em vez de empilhar todos os botões soltos no fim da
+    página.
+15. **Mensagem de WhatsApp com endereço: texto puro, sem link do Google
+    Maps embutido.** WhatsApp/iMessage detectam endereço em texto puro e
+    deixam clicável sozinhos, abrindo o app de mapa que o destinatário já
+    usa (Waze, Apple Maps, Google Maps...) — um link `google.com/maps`
+    força um app específico e é redundante com essa detecção nativa. Ver
+    `montarTextoOrcamentoWhatsapp` em `src/lib/orcamento/texto-whatsapp.ts`.
 
 ## 11. Fora de escopo / conhecido como não implementado
 

@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { bucketDoTeste, FILTROS_STATUS, type LinhaTesteStatus } from "./status";
+import { bucketDoTeste, FILTROS_STATUS, type FiltroStatus, type LinhaTesteStatus } from "./status";
+import { useTestesFiltro } from "../testes-filtro-context";
 
 /** Contagem por status na sidebar de Testes — busca client-side sob demanda (só quando essa área abre), mesmo padrão do CategoriasFiltro da Agenda. */
 export function TestesFiltroSidebar() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const filtroAtivo = searchParams.get("status");
+  const { filtro: filtroAtivo, setFiltro } = useTestesFiltro();
   const [linhas, setLinhas] = useState<LinhaTesteStatus[] | null>(null);
 
   useEffect(() => {
@@ -24,12 +24,19 @@ export function TestesFiltroSidebar() {
       .then(({ data }) => setLinhas((data ?? []) as unknown as LinhaTesteStatus[]));
   }, []);
 
-  const contagem = (chave: (typeof FILTROS_STATUS)[number]["key"]) =>
-    linhas?.filter((l) => bucketDoTeste(l) === chave).length ?? null;
+  const contagem = (chave: FiltroStatus) => linhas?.filter((l) => bucketDoTeste(l) === chave).length ?? null;
 
-  // Página de detalhe de um teste (/painel/testes/[id]) também "está" nessa área,
-  // mas o link "Todos" só deve acender na lista sem filtro nenhum.
-  const emTodos = pathname === "/painel/testes" && !filtroAtivo;
+  // Já na lista de testes: clicar só troca o filtro no client (instantâneo,
+  // sem navegação/round-trip). Vindo de outra página, deixa o <Link> navegar
+  // normalmente — a lista lê o "?status=" da URL na primeira montagem.
+  const naListaDeTestes = pathname === "/painel/testes";
+  function aoClicar(e: MouseEvent<HTMLAnchorElement>, chave: FiltroStatus | null) {
+    if (!naListaDeTestes) return;
+    e.preventDefault();
+    setFiltro(chave);
+  }
+
+  const emTodos = naListaDeTestes && !filtroAtivo;
 
   return (
     <div className="mt-4 px-3">
@@ -37,6 +44,7 @@ export function TestesFiltroSidebar() {
       <div className="mt-1.5 space-y-0.5">
         <Link
           href="/painel/testes"
+          onClick={(e) => aoClicar(e, null)}
           className={cn(
             "flex items-center justify-between rounded-full px-3 py-1.5 text-sm",
             emTodos ? "bg-brand text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white",
@@ -47,13 +55,14 @@ export function TestesFiltroSidebar() {
         </Link>
 
         {FILTROS_STATUS.map((filtro) => {
-          const ativo = filtroAtivo === filtro.key;
+          const ativo = naListaDeTestes && filtroAtivo === filtro.key;
           const total = contagem(filtro.key);
           if (total === 0) return null;
           return (
             <Link
               key={filtro.key}
               href={`/painel/testes?status=${filtro.key}`}
+              onClick={(e) => aoClicar(e, filtro.key)}
               className={cn(
                 "flex items-center justify-between gap-2 rounded-full px-3 py-1.5 text-sm",
                 ativo ? "bg-brand text-white" : "text-neutral-300 hover:bg-white/5 hover:text-white",

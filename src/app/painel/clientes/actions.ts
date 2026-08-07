@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { onlyDigits, isValidCpf, isValidCnpj } from "@/lib/utils/documento";
+import { registrarAuditoria } from "@/lib/auditoria/registrar";
 
 export async function salvarCliente(formData: FormData) {
-  await requireRole(["escritorio", "gerencia"]);
+  const { perfil } = await requireRole(["escritorio", "gerencia"]);
 
   const id = String(formData.get("id") || "");
   const tipo = String(formData.get("tipo"));
@@ -30,8 +31,10 @@ export async function salvarCliente(formData: FormData) {
   if (id) {
     const { error } = await admin.from("clientes").update(payload).eq("id", id);
     if (error) throw new Error(mensagemErroCliente(error));
+    await registrarAuditoria({ usuarioId: perfil.id, acao: "editar_cliente", entidade: "cliente", entidadeId: id });
     revalidatePath(`/painel/clientes/${id}`);
-    redirect(`/painel/clientes/${id}`);
+    const voltar = String(formData.get("voltar") || "");
+    redirect(voltar || `/painel/clientes/${id}`);
   } else {
     const { data, error } = await admin.from("clientes").insert(payload).select("id").single();
     if (error) throw new Error(mensagemErroCliente(error));

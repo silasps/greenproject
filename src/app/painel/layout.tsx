@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/permissions";
 import { Sidebar } from "./sidebar";
 import { AgendaNavProvider } from "./agenda-nav-context";
+import { TestesFiltroProvider } from "./testes-filtro-context";
 
 export default async function PainelLayout({
   children,
@@ -49,10 +50,12 @@ export default async function PainelLayout({
 
   return (
     <AgendaNavProvider>
-      <div className="min-h-screen bg-neutral-50 md:flex">
-        <Sidebar navItems={navItems} perfil={perfil} />
-        <main className="flex-1 px-4 py-8 sm:px-6 md:ml-60 md:px-8 print:ml-0 print:p-0">{children}</main>
-      </div>
+      <TestesFiltroProvider>
+        <div className="min-h-screen bg-neutral-50 md:flex">
+          <Sidebar navItems={navItems} perfil={perfil} />
+          <main className="flex-1 px-4 py-8 sm:px-6 md:ml-60 md:px-8 print:ml-0 print:p-0">{children}</main>
+        </div>
+      </TestesFiltroProvider>
     </AgendaNavProvider>
   );
 }

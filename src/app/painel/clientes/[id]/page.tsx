@@ -68,15 +68,15 @@ export default async function ClienteDetalhePage({ params }: { params: Promise<{
         </Link>
       </div>
 
-      <div className="mt-4 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
+      <div className="mt-4 space-y-3">
         {veiculos?.length === 0 && (
-          <p className="p-4 text-sm text-neutral-500">Nenhum veículo/equipamento cadastrado.</p>
+          <p className="text-sm text-neutral-500">Nenhum veículo/equipamento cadastrado.</p>
         )}
         {veiculos?.map((v) => {
           const validade = validadePorVeiculo.get(v.id);
           const badge = validade ? badgeValidade(validade) : null;
           return (
-            <div key={v.id} className="flex items-center justify-between gap-3 p-4">
+            <div key={v.id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white p-4">
               <div className="min-w-0">
                 <p className="font-medium text-neutral-900">{v.identificador}</p>
                 <p className="text-sm text-neutral-500">{[v.marca, v.modelo].filter(Boolean).join(" ") || "—"}</p>

@@ -1,14 +1,14 @@
 // Comprime uma imagem para WebP direto no navegador, antes do upload.
-// Perda de qualidade: WebP com quality ~0.82 é compressão "lossy" (com
-// perda), igual o JPEG — mas nessa faixa a perda é imperceptível a olho
-// nu, mesmo se a foto precisar ser recuperada depois para conferência ou
-// impressa dentro do laudo. Não é um formato de arquivamento sem perdas;
-// se um dia for preciso guardar a foto original bit-a-bit (ex.: perícia),
-// esse não é o caminho — mas para evidência fotográfica de um laudo, é o
-// equilíbrio padrão de mercado entre qualidade e tamanho de arquivo.
+// Perda de qualidade: WebP ainda é "lossy" (com perda) mesmo em quality
+// alto — não existe WebP 100% sem perda vindo de canvas.toBlob. quality
+// 0.95 + maxDimension 2000 é o mínimo de perda que ainda vale a pena
+// comprimir (evita mandar HEIC/RAW de 10+ MB do celular), importante
+// principalmente pra foto da etiqueta com o número em destaque, que
+// precisa continuar legível de perto. Se um dia for preciso guardar a
+// foto original bit-a-bit (ex.: perícia), esse não é o caminho.
 export async function comprimirParaWebp(
   file: File,
-  { quality = 0.82, maxDimension = 1600 } = {},
+  { quality = 0.95, maxDimension = 2000 } = {},
 ): Promise<File> {
   if (file.type === "image/svg+xml" || !file.type.startsWith("image/")) {
     return file;

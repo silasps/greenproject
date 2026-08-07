@@ -25,7 +25,7 @@ import { CategoriaPicker } from "./categoria-picker";
 import { CustosExtras, type CustoExtra } from "./custos-extras";
 import { Secao } from "./secao-form";
 import { CadastroClienteVeiculo } from "./cadastro-cliente-veiculo";
-import { montarTextoOrcamentoWhatsapp, linkWhatsapp, linkGoogleMaps } from "@/lib/orcamento/texto-whatsapp";
+import { montarTextoOrcamentoWhatsapp, linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
 
 type Pessoa = { id: string; nome: string };
 type ConfiguracoesOrcamento = { valor_km: number; fator_correcao_distancia: number };
@@ -137,6 +137,7 @@ export function EventoForm({
   horaInicial,
   clienteIdPreSelecionado,
   veiculoIdPreSelecionado,
+  apenasTeste,
   onCancelar,
   onSucesso,
 }: {
@@ -148,12 +149,14 @@ export function EventoForm({
   horaInicial?: string;
   clienteIdPreSelecionado?: string;
   veiculoIdPreSelecionado?: string;
+  /** Abre já travado em "Teste", sem o toggle Evento/Teste — usado no botão "+" da lista de Testes. */
+  apenasTeste?: boolean;
   onCancelar: () => void;
   onSucesso?: () => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
-  const [eTeste, setETeste] = useState(Boolean(clienteIdPreSelecionado));
+  const [eTeste, setETeste] = useState(apenasTeste || Boolean(clienteIdPreSelecionado));
   const [erro, setErro] = useState<string | null>(null);
   const horaPadrao = horaInicial ?? "09:00";
 
@@ -322,7 +325,7 @@ export function EventoForm({
 
   return (
     <form ref={formRef} action={(formData) => startTransition(() => handleSubmit(formData))} className="space-y-4">
-      {podeCriarTeste && (
+      {podeCriarTeste && !apenasTeste && (
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -344,9 +347,9 @@ export function EventoForm({
           >
             Teste
           </button>
-          <input type="hidden" name="e_teste" value={eTeste ? "on" : "off"} />
         </div>
       )}
+      <input type="hidden" name="e_teste" value={eTeste ? "on" : "off"} />
 
       {!eTeste && (
         <>
@@ -499,6 +502,7 @@ export function EventoForm({
 
           <Secao icon={Wrench}>
             <Label>Tipo de serviço</Label>
+            <input type="hidden" name="tipo_servico_id" value={tipoServicoId} />
             <Select
               value={tipoServicoId}
               onValueChange={(value) => value && handleTipoServicoChange(value)}
@@ -656,13 +660,6 @@ export function EventoForm({
                             : endereco
                               ? `${endereco}${numero ? `, ${numero}` : ""}${cep ? ` · CEP ${cep}` : ""}`
                               : "A definir",
-                          linkLocal: testeNaEmpresa
-                            ? enderecoEmpresa
-                              ? linkGoogleMaps(enderecoEmpresa)
-                              : undefined
-                            : endereco
-                              ? linkGoogleMaps(`${endereco}${numero ? `, ${numero}` : ""}`)
-                              : undefined,
                           kmIdaVolta,
                           valorKm: Number(valorKm || 0),
                           pedagio: Number(pedagio || 0),

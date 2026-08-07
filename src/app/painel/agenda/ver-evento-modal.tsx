@@ -43,7 +43,7 @@ import { CategoriaPicker } from "./categoria-picker";
 import { CustosExtras, type CustoExtra } from "./custos-extras";
 import { Secao } from "./secao-form";
 import { CadastroClienteVeiculo } from "./cadastro-cliente-veiculo";
-import { montarTextoOrcamentoWhatsapp, linkWhatsapp, linkGoogleMaps } from "@/lib/orcamento/texto-whatsapp";
+import { montarTextoOrcamentoWhatsapp, linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
 import type { AgendamentoItem, Categoria } from "./tipos";
 
 type Pessoa = { id: string; nome: string };
@@ -761,13 +761,6 @@ function CamposTeste({
                       : endereco
                         ? `${endereco}${numero ? `, ${numero}` : ""}${cep ? ` · CEP ${cep}` : ""}`
                         : "A definir",
-                    linkLocal: testeNaEmpresa
-                      ? enderecoEmpresa
-                        ? linkGoogleMaps(enderecoEmpresa)
-                        : undefined
-                      : endereco
-                        ? linkGoogleMaps(`${endereco}${numero ? `, ${numero}` : ""}`)
-                        : undefined,
                     kmIdaVolta,
                     valorKm: Number(valorKm || 0),
                     pedagio: Number(pedagio || 0),

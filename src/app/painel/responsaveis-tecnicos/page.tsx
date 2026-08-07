@@ -22,10 +22,10 @@ export default async function ResponsaveisTecnicosPage() {
         </Link>
       </div>
 
-      <div className="mt-6 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
-        {responsaveis?.length === 0 && <p className="p-4 text-sm text-neutral-500">Nenhum responsável cadastrado.</p>}
+      <div className="mt-6 space-y-3">
+        {responsaveis?.length === 0 && <p className="text-sm text-neutral-500">Nenhum responsável cadastrado.</p>}
         {responsaveis?.map((r) => (
-          <div key={r.id} className="p-4">
+          <div key={r.id} className="rounded-lg border border-neutral-200 bg-white p-4">
             <p className="font-medium text-neutral-900">{r.nome}</p>
             <p className="text-sm text-neutral-500">
               {[r.formacao, r.registro_conselho].filter(Boolean).join(" · ")}

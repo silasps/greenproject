@@ -14,7 +14,6 @@ export function montarTextoOrcamentoWhatsapp({
   nomeServico,
   dataHoraTexto,
   local,
-  linkLocal,
   kmIdaVolta,
   valorKm,
   pedagio,
@@ -25,9 +24,13 @@ export function montarTextoOrcamentoWhatsapp({
   nomeServico: string;
   /** Data/hora e local do agendamento — pra o cliente sempre poder recorrer a essa mensagem e se situar. */
   dataHoraTexto: string;
+  /**
+   * Endereço puro, sem link do Google Maps embutido — o WhatsApp/iMessage já
+   * detecta endereço em texto puro e deixa clicável, abrindo o app de mapa
+   * que o cliente já usa (Waze, Google Maps, Apple Maps...), em vez de forçar
+   * um app específico via link.
+   */
   local: string;
-  /** Link do Google Maps pro local — quando informado, some junto pra abrir direto no mapa/Waze. */
-  linkLocal?: string;
   kmIdaVolta: number;
   valorKm: number;
   pedagio: number;
@@ -44,7 +47,6 @@ export function montarTextoOrcamentoWhatsapp({
     "",
     `*Data/hora:* ${dataHoraTexto}`,
     `*Local:* ${local}`,
-    ...(linkLocal ? [`Ver no mapa: ${linkLocal}`] : []),
     "",
     `*Serviço:* ${nomeServico}`,
     DESCRICAO_SERVICO_OPACIDADE,
@@ -59,11 +61,6 @@ export function montarTextoOrcamentoWhatsapp({
     "Qualquer dúvida, estamos à disposição!",
   ];
   return linhas.join("\n");
-}
-
-/** Link do Google Maps pro endereço — abre no app (Google Maps/Waze, conforme o padrão do aparelho) ou no navegador. */
-export function linkGoogleMaps(endereco: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`;
 }
 
 /** Link do WhatsApp Web/app já com o texto preenchido — assume DDI 55 quando o número não vem com ele. */

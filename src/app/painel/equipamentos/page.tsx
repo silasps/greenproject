@@ -22,12 +22,16 @@ export default async function EquipamentosPage() {
         </Link>
       </div>
 
-      <div className="mt-6 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
-        {equipamentos?.length === 0 && <p className="p-4 text-sm text-neutral-500">Nenhum equipamento cadastrado.</p>}
+      <div className="mt-6 space-y-3">
+        {equipamentos?.length === 0 && <p className="text-sm text-neutral-500">Nenhum equipamento cadastrado.</p>}
         {equipamentos?.map((eq) => {
           const vencido = eq.validade && eq.validade < hoje;
           return (
-            <Link key={eq.id} href={`/painel/equipamentos/${eq.id}`} className="flex items-center justify-between p-4 hover:bg-neutral-50">
+            <Link
+              key={eq.id}
+              href={`/painel/equipamentos/${eq.id}`}
+              className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-4 hover:bg-neutral-50"
+            >
               <div>
                 <p className="font-medium text-neutral-900">
                   {eq.modelo} · {eq.numero_serie}

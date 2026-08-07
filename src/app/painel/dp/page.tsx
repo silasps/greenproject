@@ -54,14 +54,14 @@ export default async function DpPage() {
         </div>
       )}
 
-      <div className="mt-6 divide-y divide-neutral-200 rounded-2xl border border-neutral-200 bg-white shadow-sm">
-        {pessoas?.length === 0 && <p className="p-4 text-sm text-neutral-500">Nenhuma pessoa cadastrada.</p>}
+      <div className="mt-6 space-y-3">
+        {pessoas?.length === 0 && <p className="text-sm text-neutral-500">Nenhuma pessoa cadastrada.</p>}
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         {pessoas?.map((p: any) => (
           <Link
             key={p.id}
             href={`/painel/dp/${p.id}/editar`}
-            className="flex items-center justify-between p-4 hover:bg-neutral-50"
+            className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm hover:bg-neutral-50"
           >
             <div>
               <p className="font-medium text-neutral-900">{p.nome}</p>

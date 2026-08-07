@@ -286,9 +286,9 @@ export function AgendaCalendario({
 
       <div id="agenda-do-periodo" className="mt-6 scroll-mt-16 print:mt-4">
         <h2 className="text-sm font-semibold tracking-wide text-neutral-500 uppercase">Agenda do período</h2>
-        <div className="mt-2 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
+        <div className="mt-2 space-y-3">
           {agendamentosNoPeriodo.length === 0 && (
-            <p className="p-4 text-sm text-neutral-500">Nenhum agendamento no período.</p>
+            <p className="text-sm text-neutral-500">Nenhum agendamento no período.</p>
           )}
           {agendamentosNoPeriodo.map((item) => (
             <ItemLinha key={item.id} item={item} usuarioId={usuarioId} aoAbrirEvento={abrirEvento} />
@@ -1025,7 +1025,10 @@ function ItemLinha({
     </div>
   );
 
-  const className = cn("block hover:bg-neutral-50", compacto ? "rounded px-1 py-0.5" : "px-3 py-2");
+  const className = cn(
+    "block hover:bg-neutral-50",
+    compacto ? "rounded px-1 py-0.5" : "rounded-lg border border-neutral-200 bg-white p-4",
+  );
 
   if (aoAbrirEvento) {
     return (

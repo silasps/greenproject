@@ -20,13 +20,13 @@ export default async function ClientesPage() {
         </Link>
       </div>
 
-      <div className="mt-6 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
-        {clientes?.length === 0 && <p className="p-4 text-sm text-neutral-500">Nenhum cliente cadastrado.</p>}
+      <div className="mt-6 space-y-3">
+        {clientes?.length === 0 && <p className="text-sm text-neutral-500">Nenhum cliente cadastrado.</p>}
         {clientes?.map((cliente) => (
           <Link
             key={cliente.id}
             href={`/painel/clientes/${cliente.id}`}
-            className="flex items-center justify-between p-4 hover:bg-neutral-50"
+            className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-4 hover:bg-neutral-50"
           >
             <div>
               <p className="font-medium text-neutral-900">{cliente.nome}</p>

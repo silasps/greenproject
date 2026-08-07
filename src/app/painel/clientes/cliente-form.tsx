@@ -65,6 +65,7 @@ export function ClienteForm({ cliente, cancelHref }: { cliente?: Cliente; cancel
       className="mt-6 mx-auto max-w-lg space-y-4"
     >
       {cliente && <input type="hidden" name="id" value={cliente.id} />}
+      {cliente && <input type="hidden" name="voltar" value={cancelHref} />}
 
       <div className="flex gap-4">
         <label className="flex items-center gap-2 text-sm">
