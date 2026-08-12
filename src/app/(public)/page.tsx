@@ -5,18 +5,15 @@ import { Hero } from "@/components/marketing/hero";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
 import { CertificationsBand } from "@/components/marketing/certifications-band";
 import { PhotoMosaic } from "@/components/marketing/photo-mosaic";
-import { ServicoCard } from "@/components/marketing/servico-card";
+import { ServicosCarousel } from "@/components/marketing/servicos-carousel";
 import { ComoFunciona } from "@/components/marketing/como-funciona";
 import { WhyUsBlock } from "@/components/marketing/why-us-block";
 import { ReviewsSection } from "@/components/marketing/reviews-section";
 import { Faq } from "@/components/marketing/faq";
 import { FinalCta } from "@/components/marketing/final-cta";
-import { HOME_MOSAIC_IMAGES, SERVICOS } from "@/lib/content/servicos";
-
-// Só um gostinho do portfólio na home — os 7 inteiros empilhados aqui
-// viravam uma rolagem enorme, principalmente no celular. Lista completa
-// fica em /servicos.
-const SERVICOS_HOME = SERVICOS.slice(0, 3);
+import { getMosaicImages, getServicos } from "@/lib/content/servicos";
+import { getDadosEmpresa } from "@/lib/legal/dados-empresa";
+import { getHeroSlides } from "@/lib/content/hero-slides";
 
 export const metadata: Metadata = {
   title: "Greenproject Engenharia | Laudos Técnicos em Campo em Contagem e Grande BH",
@@ -33,10 +30,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const servicos = await getServicos();
+  // Curadoria da gerência (/painel/servicos, campo "Exibir na home") — só
+  // um gostinho do portfólio aqui, os 7 inteiros empilhados viravam uma
+  // rolagem enorme, principalmente no celular. Lista completa fica em
+  // /servicos.
+  const servicosHome = servicos.filter((servico) => servico.exibirNaHome);
+  const mosaicImages = await getMosaicImages();
+  const { whatsapp } = await getDadosEmpresa();
+  const heroSlides = await getHeroSlides();
+
   return (
     <div>
-      <Hero />
+      <Hero slides={heroSlides} whatsapp={whatsapp} />
 
       <CertificationsBand />
 
@@ -49,19 +56,15 @@ export default function HomePage() {
             diesel.
           </p>
         </ScrollReveal>
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {SERVICOS_HOME.map((servico, index) => (
-            <ScrollReveal key={servico.slug} index={index}>
-              <ServicoCard servico={servico} destaque={index === 0} />
-            </ScrollReveal>
-          ))}
-        </div>
-        <ScrollReveal index={SERVICOS_HOME.length} className="mt-8 text-center">
+        <ScrollReveal className="mt-8">
+          <ServicosCarousel servicos={servicosHome} />
+        </ScrollReveal>
+        <ScrollReveal index={servicosHome.length} className="mt-8 text-center">
           <Link
             href="/servicos"
             className="group/link inline-flex items-center gap-2 font-semibold text-neutral-700 hover:text-brand"
           >
-            Ver todos os serviços ({SERVICOS.length})
+            Ver todos os serviços ({servicos.length})
             <ArrowRight
               className="h-4 w-4 transition-transform duration-200 group-hover/link:translate-x-0.5"
               aria-hidden
@@ -72,7 +75,7 @@ export default function HomePage() {
 
       <ComoFunciona />
 
-      <PhotoMosaic images={HOME_MOSAIC_IMAGES} />
+      <PhotoMosaic images={mosaicImages} />
 
       <WhyUsBlock />
 
@@ -84,6 +87,7 @@ export default function HomePage() {
         headline="Pronto para regularizar sua frota?"
         description="Fale com a gente e agende o teste de opacidade sem sair da sua garagem."
         whatsappMessage="Olá! Gostaria de solicitar um orçamento para teste de opacidade / fumaça preta."
+        whatsapp={whatsapp}
       />
     </div>
   );

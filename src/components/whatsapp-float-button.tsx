@@ -3,23 +3,31 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessageCircle } from "lucide-react";
-import { COMPANY } from "@/lib/legal/company-info";
 import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
-import { getServicoBySlug } from "@/lib/content/servicos";
 
 const MENSAGEM_PADRAO = "Olá! Gostaria de falar com a Greenproject.";
 
-export function WhatsappFloatButton() {
+// Serviços e whatsapp vêm do banco (gerenciados em /painel/servicos e
+// /painel/site) — como este é um client component, não pode buscar direto;
+// recebe tudo já carregado uma vez pelo (public)/layout.tsx (server
+// component).
+export function WhatsappFloatButton({
+  servicos,
+  whatsapp,
+}: {
+  servicos: { slug: string; titulo: string }[];
+  whatsapp: string;
+}) {
   const pathname = usePathname();
   const slug = pathname?.startsWith("/servicos/") ? pathname.split("/")[2] : undefined;
-  const servico = slug ? getServicoBySlug(slug) : undefined;
+  const servico = slug ? servicos.find((s) => s.slug === slug) : undefined;
   const mensagem = servico
     ? `Olá! Gostaria de solicitar um orçamento para ${servico.titulo}.`
     : MENSAGEM_PADRAO;
 
   return (
     <Link
-      href={linkWhatsapp(COMPANY.whatsapp, mensagem)}
+      href={linkWhatsapp(whatsapp, mensagem)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Falar no WhatsApp"

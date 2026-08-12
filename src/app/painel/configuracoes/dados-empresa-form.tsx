@@ -5,6 +5,7 @@ import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatTelefone } from "@/lib/utils/mascaras";
 import { salvarDadosEmpresa } from "./actions";
 
 type DadosEmpresa = { razao_social: string; cnpj: string; endereco: string; telefone: string };
@@ -15,7 +16,7 @@ export function DadosEmpresaForm({ dados }: { dados: DadosEmpresa }) {
   const [razaoSocial, setRazaoSocial] = useState(dados.razao_social);
   const [cnpj, setCnpj] = useState(dados.cnpj);
   const [endereco, setEndereco] = useState(dados.endereco);
-  const [telefone, setTelefone] = useState(dados.telefone);
+  const [telefone, setTelefone] = useState(formatTelefone(dados.telefone));
 
   if (!editando) {
     return (
@@ -71,7 +72,19 @@ export function DadosEmpresaForm({ dados }: { dados: DadosEmpresa }) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="telefone">Telefone</Label>
-          <Input id="telefone" name="telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
+          <Input
+            id="telefone"
+            name="telefone"
+            inputMode="numeric"
+            value={telefone}
+            onChange={(e) => setTelefone(formatTelefone(e.target.value))}
+          />
+          <p className="text-xs text-neutral-500">
+            Esse é o mesmo número usado no cabeçalho, no botão de WhatsApp e no
+            &ldquo;Ligar agora&rdquo; do site — muda em qualquer um dos dois lugares
+            (aqui ou em Gerenciamento do site → Informações de contato), sempre fica
+            igual nos dois.
+          </p>
         </div>
         <div className="flex gap-3">
           <Button type="submit" disabled={pending} className="bg-brand hover:bg-brand-dark">

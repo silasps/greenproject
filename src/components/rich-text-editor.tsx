@@ -2,7 +2,7 @@
 
 import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Italic, List, ListOrdered } from "lucide-react";
+import { Italic, List, ListOrdered, Underline } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const richTextClasses =
@@ -41,6 +41,7 @@ export function RichTextEditor({
     selector: ({ editor: ed }) => ({
       bold: ed?.isActive("bold") ?? false,
       italic: ed?.isActive("italic") ?? false,
+      underline: ed?.isActive("underline") ?? false,
       bulletList: ed?.isActive("bulletList") ?? false,
       orderedList: ed?.isActive("orderedList") ?? false,
       html: ed?.getHTML() ?? defaultValue,
@@ -67,6 +68,15 @@ export function RichTextEditor({
           className={botaoClasses(!!estado?.italic)}
         >
           <Italic className="size-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="Sublinhado"
+          aria-pressed={estado?.underline}
+          onClick={() => editor?.chain().focus().toggleUnderline().run()}
+          className={botaoClasses(!!estado?.underline)}
+        >
+          <Underline className="size-4" />
         </button>
         <button
           type="button"

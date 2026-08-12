@@ -1,6 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function uploadArquivo(bucket: "laudos" | "propostas" | "arquivos-internos", path: string, file: File) {
+export async function uploadArquivo(
+  bucket: "laudos" | "propostas" | "arquivos-internos" | "servicos",
+  path: string,
+  file: File
+) {
   const admin = createAdminClient();
   const { error } = await admin.storage.from(bucket).upload(path, file, {
     contentType: file.type,
@@ -10,7 +14,7 @@ export async function uploadArquivo(bucket: "laudos" | "propostas" | "arquivos-i
   return path;
 }
 
-export function publicUrl(bucket: "laudos" | "propostas", path: string) {
+export function publicUrl(bucket: "laudos" | "propostas" | "servicos", path: string) {
   const admin = createAdminClient();
   return admin.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }

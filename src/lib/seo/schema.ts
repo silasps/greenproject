@@ -17,7 +17,7 @@ const AREA_ATENDIMENTO = {
   name: "Região Metropolitana de Belo Horizonte",
 };
 
-export function buildLocalBusinessSchema() {
+export function buildLocalBusinessSchema(telefone: string) {
   return {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -25,7 +25,7 @@ export function buildLocalBusinessSchema() {
     name: COMPANY.razaoSocial,
     url: COMPANY.siteUrl,
     image: `${COMPANY.siteUrl}/brand/logo-completa.png`,
-    telephone: COMPANY.telefone,
+    telephone: telefone,
     email: COMPANY.email,
     address: ENDERECO,
     areaServed: AREA_ATENDIMENTO,
@@ -34,7 +34,7 @@ export function buildLocalBusinessSchema() {
   };
 }
 
-export function buildServiceSchema(servico: Servico, url: string) {
+export function buildServiceSchema(servico: Servico, url: string, telefone: string) {
   return {
     "@context": "https://schema.org",
     "@type": "Service",
@@ -45,7 +45,7 @@ export function buildServiceSchema(servico: Servico, url: string) {
     provider: {
       "@type": "LocalBusiness",
       name: COMPANY.razaoSocial,
-      telephone: COMPANY.telefone,
+      telephone: telefone,
       address: ENDERECO,
     },
     areaServed: AREA_ATENDIMENTO,

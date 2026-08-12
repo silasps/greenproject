@@ -6,7 +6,8 @@ import { ArrowLeft, CheckCircle2, Mail, Phone } from "lucide-react";
 import { WhyUsBlock } from "@/components/marketing/why-us-block";
 import { FinalCta } from "@/components/marketing/final-cta";
 import { COMPANY } from "@/lib/legal/company-info";
-import { getServicoBySlug, SERVICOS } from "@/lib/content/servicos";
+import { getDadosEmpresa } from "@/lib/legal/dados-empresa";
+import { getServicoBySlug } from "@/lib/content/servicos";
 import { JsonLd } from "@/lib/seo/json-ld";
 import { buildServiceSchema } from "@/lib/seo/schema";
 
@@ -14,17 +15,11 @@ type ServicoPageProps = {
   params: Promise<{ slug: string }>;
 };
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return SERVICOS.map((servico) => ({ slug: servico.slug }));
-}
-
 export async function generateMetadata({
   params,
 }: ServicoPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const servico = getServicoBySlug(slug);
+  const servico = await getServicoBySlug(slug);
 
   if (!servico) {
     return {
@@ -48,18 +43,23 @@ export async function generateMetadata({
 
 export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
   const { slug } = await params;
-  const servico = getServicoBySlug(slug);
+  const servico = await getServicoBySlug(slug);
 
   if (!servico) {
     notFound();
   }
 
   const hasStepImages = servico.metodologia.some((step) => step.imagem);
+  const { telefone, whatsapp } = await getDadosEmpresa();
 
   return (
     <div className="bg-background">
       <JsonLd
-        data={buildServiceSchema(servico, `${COMPANY.siteUrl}/servicos/${servico.slug}`)}
+        data={buildServiceSchema(
+          servico,
+          `${COMPANY.siteUrl}/servicos/${servico.slug}`,
+          telefone
+        )}
       />
       <section className="bg-ink text-white">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
@@ -93,11 +93,11 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  href="tel:+5531997901568"
+                  href={`tel:+${whatsapp}`}
                   className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand px-5 py-3 text-sm font-semibold text-white hover:bg-brand-dark"
                 >
                   <Phone className="h-4 w-4" aria-hidden />
-                  {COMPANY.telefone}
+                  {telefone}
                 </Link>
                 <Link
                   href={`mailto:${COMPANY.email}`}
@@ -252,6 +252,7 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
         headline="Precisa desse laudo na sua operação?"
         description="Fale diretamente com a Greenproject para combinar local, prazo e escopo da inspeção."
         whatsappMessage={`Olá! Gostaria de solicitar um orçamento para ${servico.titulo}.`}
+        whatsapp={whatsapp}
       />
     </div>
   );

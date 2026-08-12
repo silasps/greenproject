@@ -3,6 +3,7 @@ import {
   canGerenciarClientes,
   canGerenciarEquipamentos,
   canGerenciarResponsaveisTecnicos,
+  canGerenciarSite,
   canGerenciarUsuarios,
   canVerAgendaCompleta,
 } from "@/lib/auth/permissions";
@@ -43,6 +44,12 @@ export default async function PainelLayout({
       label: "DP",
       key: "dp" as const,
       show: canGerenciarUsuarios(perfil.role),
+    },
+    {
+      href: "/painel/site",
+      label: "Site",
+      key: "site" as const,
+      show: canGerenciarSite(perfil.role),
     },
     {
       href: "/painel/configuracoes",
