@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -100,7 +99,6 @@ export async function salvarVeiculo(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath(`/painel/clientes/${clienteId}`);
-  redirect(`/painel/clientes/${clienteId}`);
 }
 
 export async function atualizarVeiculo(veiculoId: string, formData: FormData) {
@@ -113,8 +111,6 @@ export async function atualizarVeiculo(veiculoId: string, formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath(`/painel/clientes/${clienteId}`);
-  const voltar = String(formData.get("voltar") || "");
-  redirect(voltar || `/painel/clientes/${clienteId}`);
 }
 
 function numOrNull(value: FormDataEntryValue | null) {

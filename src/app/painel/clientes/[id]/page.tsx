@@ -4,6 +4,8 @@ import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { formatCpfCnpj } from "@/lib/utils/documento";
 import { diasRestantes } from "@/lib/laudo/validade";
+import { NovoVeiculoButton } from "./veiculos/novo-veiculo-button";
+import { EditarVeiculoButton } from "./veiculos/editar-veiculo-button";
 
 function badgeValidade(validade: string): { label: string; classe: string } {
   const dias = diasRestantes(validade);
@@ -23,7 +25,9 @@ export default async function ClienteDetalhePage({ params }: { params: Promise<{
     supabase.from("clientes").select("*").eq("id", id).single(),
     supabase
       .from("veiculos_maquinas")
-      .select("id, tipo_ativo, identificador, marca, modelo")
+      .select(
+        "id, tipo_ativo, identificador, marca, modelo, identificacao_motor, combustivel, ano, chassi, renavam, patrimonio_cliente, especificacoes_motor(marcha_lenta_min, marcha_lenta_max, rotacao_corte_min, rotacao_corte_max, limite_opacidade)",
+      )
       .eq("cliente_id", id)
       .order("created_at", { ascending: false }),
     supabase.from("veiculos_validade").select("veiculo_id, validade").eq("cliente_id", id),
@@ -60,12 +64,7 @@ export default async function ClienteDetalhePage({ params }: { params: Promise<{
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-neutral-900">Veículos e equipamentos</h2>
-        <Link
-          href={`/painel/clientes/${id}/veiculos/novo`}
-          className="rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-dark"
-        >
-          Novo veículo/equipamento
-        </Link>
+        <NovoVeiculoButton clienteId={id} />
       </div>
 
       <div className="mt-4 space-y-3">
@@ -96,6 +95,8 @@ export default async function ClienteDetalhePage({ params }: { params: Promise<{
                 >
                   Retestar
                 </Link>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                <EditarVeiculoButton clienteId={id} veiculo={v as any} />
               </div>
             </div>
           );

@@ -323,9 +323,7 @@ export default async function AgendamentoDetalhePage({
       // Concluído: vai direto pra edição (ícone/texto do passo já servem de
       // atalho, sem precisar de um botão extra). Pendente: rola até o form
       // de vincular, mais abaixo na própria página.
-      href: agendamento.veiculo_id
-        ? `/painel/clientes/${agendamento.cliente_id}/veiculos/${agendamento.veiculo_id}/editar${voltarParaAgendamento}`
-        : "#vincular-veiculo",
+      href: agendamento.veiculo_id ? `/painel/clientes/${agendamento.cliente_id}` : "#vincular-veiculo",
       icon: Car,
       acao: podeGerenciar && clientePronto && !agendamento.veiculo_id && (
         <Link href="#vincular-veiculo" className={botaoClasse}>
@@ -526,11 +524,8 @@ export default async function AgendamentoDetalhePage({
                   </SubmitButton>
                 </form>
               ) : (
-                <Link
-                  href={`/painel/clientes/${agendamento.cliente_id}/veiculos/novo`}
-                  className="text-sm text-brand hover:underline"
-                >
-                  Cadastrar veículo/equipamento →
+                <Link href={`/painel/clientes/${agendamento.cliente_id}`} className="text-sm text-brand hover:underline">
+                  Cadastrar veículo/equipamento no cadastro do cliente →
                 </Link>
               )}
             </Cartao>
