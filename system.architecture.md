@@ -467,7 +467,20 @@ pra continuar submetendo os dois grupos juntos com o card fechado —
 `salvarUsuarioKpis`/`salvarFuncaoKpis` continuam recebendo **um único
 FormData com as duas seções**, então nunca viraram dois `<form>`
 separados). A resolução em `getSecoesVisiveis` é idêntica pros dois
-tipos — só a apresentação nos formulários muda.
+tipos — só a apresentação/gravação nos formulários muda:
+
+- **`tipo: "kpi"`** — radio de 3 estados (`SecaoRadios`, tanto em
+  `kpis-por-cargo-form.tsx` quanto em `kpis-pessoa-form.tsx`): "Seguir
+  cargo" apaga o override (volta a herdar), "Sempre mostrar"/"Sempre
+  esconder" grava explícito. É um ajuste pontual em cima do padrão do
+  cargo — pensado pra exceção, não pra configuração permanente.
+- **`tipo: "acesso"`** — checkbox direto (`SecaoCheckboxes` em
+  `kpis-pessoa-form.tsx`, mesmo visual de `GrupoCheckboxes` em
+  `kpis-por-cargo-form.tsx`), **sem** estado "seguir cargo": marcado ou
+  desmarcado grava sempre um valor explícito em `usuarios_kpis`, igual ao
+  que já acontecia por cargo em `funcoes_kpis`/`salvarFuncaoKpis`. Não dá
+  pra "resetar" pra seguir o cargo por essa UI — é a mesma limitação que
+  já existia no toggle por cargo, só replicada por pessoa.
 
 **A chave `site` é a única com `tipo: "acesso"` até agora** e não vira
 card do dashboard (`/painel/page.tsx` não tem `case` pra ela — nenhum

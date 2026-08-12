@@ -3,6 +3,7 @@
 import { type ReactNode, useTransition } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { KPI_SECOES_DASHBOARD, KPI_SECOES_ACESSO, type KpiSecaoDef } from "@/lib/kpis/catalogo";
 import { getRoleLevel, ROLE_LEVEL, type Role } from "@/lib/auth/permissions";
@@ -43,37 +44,17 @@ function CardColapsavel({
   );
 }
 
-// Mesmas 3 opções (seguir cargo / forçar sim / forçar não) nos dois
-// grupos, mas o texto muda: "site" é uma área que a pessoa acessa ou não
-// (mesma linguagem do checkbox "tem acesso" em Configurações), não algo
-// que ela "vê"/"não vê" como os cards de KPI do dashboard.
-const TEXTOS = {
-  kpi: {
-    seguirCargo: (padrao: boolean) => `Seguir cargo (${padrao ? "vê" : "não vê"})`,
-    sempreLigado: "Sempre mostrar",
-    sempreDesligado: "Sempre esconder",
-  },
-  acesso: {
-    seguirCargo: (padrao: boolean) => `Seguir cargo (${padrao ? "tem acesso" : "sem acesso"})`,
-    sempreLigado: "Sempre liberar acesso",
-    sempreDesligado: "Sempre bloquear acesso",
-  },
-} as const;
-
 function SecaoRadios({
-  tipo,
   secoes,
   nivelAcessoCargo,
   overridesCargo,
   overridesPessoa,
 }: {
-  tipo: "kpi" | "acesso";
   secoes: KpiSecaoDef[];
   nivelAcessoCargo: Role;
   overridesCargo: Overrides;
   overridesPessoa: Overrides;
 }) {
-  const textos = TEXTOS[tipo];
   return (
     <div className="mt-4 space-y-3">
       {secoes.map((secao) => {
@@ -88,18 +69,54 @@ function SecaoRadios({
             <div className="flex gap-4 text-sm text-neutral-600">
               <label className="flex items-center gap-1.5">
                 <input type="radio" name={`kpi_${secao.key}`} value="cargo" defaultChecked={atual === "cargo"} className="accent-brand" />
-                {textos.seguirCargo(padraoDoCargo)}
+                Seguir cargo ({padraoDoCargo ? "vê" : "não vê"})
               </label>
               <label className="flex items-center gap-1.5">
                 <input type="radio" name={`kpi_${secao.key}`} value="mostrar" defaultChecked={atual === "mostrar"} className="accent-brand" />
-                {textos.sempreLigado}
+                Sempre mostrar
               </label>
               <label className="flex items-center gap-1.5">
                 <input type="radio" name={`kpi_${secao.key}`} value="esconder" defaultChecked={atual === "esconder"} className="accent-brand" />
-                {textos.sempreDesligado}
+                Sempre esconder
               </label>
             </div>
           </fieldset>
+        );
+      })}
+    </div>
+  );
+}
+
+// Mesmo padrão de kpis-por-cargo-form.tsx (Configurações → Visibilidade e
+// acesso): checkbox direto, sem estado "seguir cargo" — ao contrário da
+// exceção de KPI (que é um ajuste pontual em cima do padrão do cargo), o
+// acesso da pessoa aqui é sempre um valor explícito, igual ao que já
+// existe pra cargo.
+function SecaoCheckboxes({
+  secoes,
+  nivelAcessoCargo,
+  overridesCargo,
+  overridesPessoa,
+}: {
+  secoes: KpiSecaoDef[];
+  nivelAcessoCargo: Role;
+  overridesCargo: Overrides;
+  overridesPessoa: Overrides;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+      {secoes.map((secao) => {
+        const padrao = overridesCargo[secao.key] ?? getRoleLevel(nivelAcessoCargo) >= ROLE_LEVEL[secao.nivelPadrao];
+        const valorAtual = overridesPessoa[secao.key] ?? padrao;
+        return (
+          <label key={secao.key} className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+            <Checkbox
+              name={`kpi_${secao.key}`}
+              defaultChecked={valorAtual}
+              className="data-checked:border-brand data-checked:bg-brand"
+            />
+            {secao.label}
+          </label>
         );
       })}
     </div>
@@ -131,7 +148,6 @@ export function KpisPessoaForm({
         descricao="Por padrão ela vê o que o cargo dela libera na tela inicial do painel (configurado em Configurações). Só mexa aqui se essa pessoa precisa ver mais ou menos do que o cargo dela, sem trocar o cargo."
       >
         <SecaoRadios
-          tipo="kpi"
           secoes={KPI_SECOES_DASHBOARD}
           nivelAcessoCargo={nivelAcessoCargo}
           overridesCargo={overridesCargo}
@@ -140,11 +156,10 @@ export function KpisPessoaForm({
       </CardColapsavel>
 
       <CardColapsavel
-        titulo="Exceção de acessos pra essa pessoa"
-        descricao="Áreas do sistema que essa pessoa pode abrir, além do que o cargo dela já libera (mesma lógica de Configurações → Visibilidade e acesso, só que pontual pra essa pessoa)."
+        titulo="Acessos dessa pessoa"
+        descricao="Áreas do sistema que essa pessoa pode abrir — mesma lista de Configurações → Visibilidade e acesso, só que marcada pra essa pessoa em vez do cargo dela."
       >
-        <SecaoRadios
-          tipo="acesso"
+        <SecaoCheckboxes
           secoes={KPI_SECOES_ACESSO}
           nivelAcessoCargo={nivelAcessoCargo}
           overridesCargo={overridesCargo}
