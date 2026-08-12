@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { buscarCnpj } from "@/lib/utils/documento";
+import { formatTelefone } from "@/lib/utils/mascaras";
 import { DocumentoInput } from "@/components/documento-input";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ErrorModal } from "@/components/error-modal";
@@ -26,7 +27,7 @@ export function ClienteForm({ cliente, cancelHref }: { cliente?: Cliente; cancel
   const [cnpjCpf, setCnpjCpf] = useState(cliente?.cnpj_cpf ?? "");
   const [nome, setNome] = useState(cliente?.nome ?? "");
   const [endereco, setEndereco] = useState(cliente?.endereco ?? "");
-  const [telefone, setTelefone] = useState(cliente?.telefone ?? "");
+  const [telefone, setTelefone] = useState(formatTelefone(cliente?.telefone ?? ""));
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [documentoValido, setDocumentoValido] = useState(true);
@@ -43,7 +44,7 @@ export function ClienteForm({ cliente, cancelHref }: { cliente?: Cliente; cancel
       }
       setNome(dados.nome);
       setEndereco(dados.endereco);
-      if (dados.telefone) setTelefone(dados.telefone);
+      if (dados.telefone) setTelefone(formatTelefone(dados.telefone));
     } finally {
       setBuscando(false);
     }
@@ -112,7 +113,13 @@ export function ClienteForm({ cliente, cancelHref }: { cliente?: Cliente; cancel
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="telefone">Telefone</Label>
-          <Input id="telefone" name="telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
+          <Input
+            id="telefone"
+            name="telefone"
+            inputMode="numeric"
+            value={telefone}
+            onChange={(e) => setTelefone(formatTelefone(e.target.value))}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">E-mail</Label>

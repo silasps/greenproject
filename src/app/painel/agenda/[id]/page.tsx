@@ -442,12 +442,12 @@ export default async function AgendamentoDetalhePage({
         </Link>
       )}
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
+      <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-6">
         <div className="lg:col-span-8">
           <PassoAPasso passos={passos} />
         </div>
 
-        <div className="flex flex-col gap-4 lg:col-span-4">
+        <div className="flex flex-col gap-6 lg:col-span-4">
           <Cartao icon={User} titulo="Contato">
             <p className="text-neutral-900">
               {agendamento.nome_contato} · {agendamento.telefone_contato}
@@ -478,10 +478,10 @@ export default async function AgendamentoDetalhePage({
 
           {proposta && (
             <Cartao icon={Wallet} titulo="Proposta" id="proposta">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <p className="text-3xl font-bold text-brand">{formatarMoeda(proposta.valor_total)}</p>
                 <span
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold uppercase ${STATUS_CLASSE[proposta.status] ?? "bg-neutral-100 text-neutral-600"}`}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap uppercase ${STATUS_CLASSE[proposta.status] ?? "bg-neutral-100 text-neutral-600"}`}
                 >
                   {STATUS_LABEL[proposta.status] ?? proposta.status}
                 </span>
