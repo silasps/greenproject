@@ -130,6 +130,31 @@ export async function editarPessoa(formData: FormData): Promise<ResultadoPessoa>
   return { ok: true };
 }
 
+/** Gera uma senha nova pra pessoa que esqueceu a dela — mesma lógica usada
+ * quando o acesso é reativado em editarPessoa, só que sob demanda. */
+export async function redefinirSenha(usuarioId: string): Promise<Credenciais> {
+  await requireRole(["gerencia"]);
+
+  const admin = createAdminClient();
+  const { data: perfil, error: perfilError } = await admin
+    .from("usuarios_perfis")
+    .select("nome, telefone")
+    .eq("id", usuarioId)
+    .single();
+  if (perfilError || !perfil) throw new Error("Pessoa não encontrada.");
+
+  const {
+    data: { user },
+  } = await admin.auth.admin.getUserById(usuarioId);
+  if (!user?.email) throw new Error("Pessoa sem e-mail cadastrado.");
+
+  const senha = gerarSenhaAleatoria();
+  const { error } = await admin.auth.admin.updateUserById(usuarioId, { password: senha });
+  if (error) throw new Error(error.message);
+
+  return { nome: perfil.nome, email: user.email, senha, whatsapp: perfil.telefone };
+}
+
 export async function salvarUsuarioKpis(formData: FormData) {
   await requireRole(["gerencia"]);
 

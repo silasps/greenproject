@@ -13,6 +13,8 @@ export async function salvarResponsavelTecnico(formData: FormData) {
   const formacao = String(formData.get("formacao") || "").trim();
   const registroConselho = String(formData.get("registro_conselho") || "").trim();
   const contato = String(formData.get("contato") || "").trim();
+  const usuarioIdBruto = String(formData.get("usuario_id") || "none");
+  const usuarioId = usuarioIdBruto === "none" ? null : usuarioIdBruto;
   const assinatura = formData.get("assinatura") as File | null;
 
   if (!nome) throw new Error("Nome é obrigatório.");
@@ -20,7 +22,7 @@ export async function salvarResponsavelTecnico(formData: FormData) {
   const admin = createAdminClient();
   const { data: responsavel, error } = await admin
     .from("responsaveis_tecnicos")
-    .insert({ nome, formacao, registro_conselho: registroConselho, contato })
+    .insert({ nome, formacao, registro_conselho: registroConselho, contato, usuario_id: usuarioId })
     .select("id")
     .single();
 

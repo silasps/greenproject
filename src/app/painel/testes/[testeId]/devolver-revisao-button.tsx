@@ -26,7 +26,7 @@ export function DevolverRevisaoButton({ testeId }: { testeId: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:underline"
+        className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium text-red-600 hover:bg-red-50"
       >
         <Undo2 className="size-4" />
         Algo errado? Devolver pra correção

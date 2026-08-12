@@ -7,6 +7,7 @@ import {
   canGerenciarUsuarios,
   canVerAgendaCompleta,
 } from "@/lib/auth/permissions";
+import { estaImpersonando, listarUsuariosParaImpersonar } from "@/lib/auth/impersonation";
 import { Sidebar } from "./sidebar";
 import { AgendaNavProvider } from "./agenda-nav-context";
 import { TestesFiltroProvider } from "./testes-filtro-context";
@@ -17,6 +18,9 @@ export default async function PainelLayout({
   children: React.ReactNode;
 }) {
   const { perfil } = await requireAuth();
+  const impersonando = await estaImpersonando();
+  const podeTrocarIdentidade = perfil.is_superadmin || impersonando;
+  const usuariosImpersonaveis = podeTrocarIdentidade ? await listarUsuariosParaImpersonar() : [];
 
   const navItems = [
     { href: "/painel", label: "Dashboard", key: "dashboard" as const, show: true },
@@ -59,7 +63,13 @@ export default async function PainelLayout({
     <AgendaNavProvider>
       <TestesFiltroProvider>
         <div className="min-h-screen bg-neutral-50 md:flex">
-          <Sidebar navItems={navItems} perfil={perfil} />
+          <Sidebar
+            navItems={navItems}
+            perfil={perfil}
+            identitySwitcher={
+              podeTrocarIdentidade ? { usuarios: usuariosImpersonaveis, impersonando } : undefined
+            }
+          />
           <main className="flex-1 px-4 py-8 sm:px-6 md:ml-60 md:px-8 print:ml-0 print:p-0">{children}</main>
         </div>
       </TestesFiltroProvider>

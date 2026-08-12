@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -127,20 +127,25 @@ export function CampoWizard({ testeId, equipamentos }: { testeId: string; equipa
     <div className="fixed inset-0 z-50 flex flex-col bg-white">
       {fase !== "preparo" && (
         <div className="shrink-0 border-b border-neutral-200 px-4 py-3">
-          <div className="mx-auto flex max-w-md items-center gap-1.5">
-            {STEPS.map((_, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "h-1.5 flex-1 rounded-full",
-                  i < passoAtual || fase === "conferencia" ? "bg-brand" : i === passoAtual ? "bg-brand/40" : "bg-neutral-200",
-                )}
-              />
-            ))}
+          <div className="mx-auto flex max-w-md items-center justify-between gap-2">
+            <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+              {fase === "conferencia" ? "Conferência final" : `Passo ${passoAtual + 1} de ${total}`}
+            </p>
+            {fase !== "conferencia" && (
+              <p className="text-xs font-bold text-brand">{Math.round(((passoAtual + 1) / total) * 100)}%</p>
+            )}
           </div>
-          <p className="mx-auto mt-2 max-w-md text-center text-xs text-neutral-500">
-            {fase === "conferencia" ? "Conferência final" : `Passo ${passoAtual + 1} de ${total} · faltam ${total - concluidas}`}
-          </p>
+          <div className="mx-auto mt-2 h-1.5 max-w-md overflow-hidden rounded-full bg-neutral-200">
+            <div
+              className="h-full rounded-full bg-brand transition-all duration-500"
+              style={{ width: `${((fase === "conferencia" ? total : passoAtual + 1) / total) * 100}%` }}
+            />
+          </div>
+          {fase !== "conferencia" && (
+            <p className="mx-auto mt-1.5 max-w-md text-center text-xs text-neutral-400">
+              Faltam {total - concluidas} de {total} fotos
+            </p>
+          )}
         </div>
       )}
 
@@ -171,7 +176,12 @@ export function CampoWizard({ testeId, equipamentos }: { testeId: string; equipa
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="button" disabled={!equipamentoId} className="bg-brand hover:bg-brand-dark" onClick={() => setFase(0)}>
+              <Button
+                type="button"
+                disabled={!equipamentoId}
+                className="h-12 rounded-full bg-brand text-base hover:bg-brand-dark"
+                onClick={() => setFase(0)}
+              >
                 Começar
               </Button>
             </div>
@@ -180,19 +190,23 @@ export function CampoWizard({ testeId, equipamentos }: { testeId: string; equipa
           {STEPS.map((step, i) => (
             <div key={step.name} className={cn(fase === i || fase === "conferencia" ? "block" : "hidden")}>
               {fase !== "conferencia" && (
-                <div className="mb-4 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50">
-                  <div className="relative h-[28vh] w-full">
+                <>
+                  <h2 className="mb-1 text-xl font-bold text-neutral-900">{step.titulo}</h2>
+                  <p className="mb-4 text-sm text-neutral-500">{step.descricao}</p>
+                  <div className="relative mb-4 aspect-[4/3] w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 shadow-sm">
                     <Image src={step.exemplo} alt={`Exemplo: ${step.titulo}`} fill sizes="450px" className="object-contain" />
+                    <div className="absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-black/50 to-transparent p-3">
+                      <span className="flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                        <Info className="size-3.5" />
+                        Exemplo de captura
+                      </span>
+                    </div>
                   </div>
-                  <p className="border-t border-neutral-200 bg-white py-1.5 text-center text-xs text-neutral-400">
-                    Exemplo de enquadramento (referência)
-                  </p>
-                </div>
+                </>
               )}
-              <Label htmlFor={step.name} className="text-sm font-medium text-neutral-900">
+              <Label htmlFor={step.name} className={fase === "conferencia" ? "text-sm font-medium text-neutral-900" : "sr-only"}>
                 {step.titulo}
               </Label>
-              {fase !== "conferencia" && <p className="mt-1 mb-2 text-sm text-neutral-500">{step.descricao}</p>}
               <div className={fase === "conferencia" ? "mt-2" : ""}>
                 <FileDropInput
                   id={step.name}
@@ -223,9 +237,9 @@ export function CampoWizard({ testeId, equipamentos }: { testeId: string; equipa
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex gap-2 pb-6">
+          <div className="sticky bottom-0 -mx-4 mt-2 flex gap-2 border-t border-neutral-200 bg-white px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
             {typeof fase === "number" && fase > 0 && (
-              <Button type="button" variant="outline" onClick={() => setFase(fase - 1)}>
+              <Button type="button" variant="outline" className="h-12 rounded-full text-base" onClick={() => setFase(fase - 1)}>
                 Voltar
               </Button>
             )}
@@ -233,7 +247,7 @@ export function CampoWizard({ testeId, equipamentos }: { testeId: string; equipa
               <Button
                 type="button"
                 disabled={!prontos[STEPS[fase].name]}
-                className="flex-1 bg-brand hover:bg-brand-dark"
+                className="h-12 flex-1 rounded-full bg-brand text-base hover:bg-brand-dark"
                 onClick={() => setFase(fase + 1)}
               >
                 Próxima etapa
@@ -243,7 +257,7 @@ export function CampoWizard({ testeId, equipamentos }: { testeId: string; equipa
               <Button
                 type="button"
                 disabled={!prontos[STEPS[fase].name]}
-                className="flex-1 bg-brand hover:bg-brand-dark"
+                className="h-12 flex-1 rounded-full bg-brand text-base hover:bg-brand-dark"
                 onClick={() => setFase("conferencia")}
               >
                 Ir pra conferência
@@ -251,10 +265,10 @@ export function CampoWizard({ testeId, equipamentos }: { testeId: string; equipa
             )}
             {fase === "conferencia" && (
               <>
-                <Button type="button" variant="outline" onClick={() => setFase(total - 1)}>
+                <Button type="button" variant="outline" className="h-12 rounded-full text-base" onClick={() => setFase(total - 1)}>
                   Voltar
                 </Button>
-                <Button type="submit" disabled={pending} className="flex-1 bg-brand hover:bg-brand-dark">
+                <Button type="submit" disabled={pending} className="h-12 flex-1 rounded-full bg-brand text-base hover:bg-brand-dark">
                   {pending ? "Enviando..." : "Concluir campo"}
                 </Button>
               </>

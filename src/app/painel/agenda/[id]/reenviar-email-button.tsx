@@ -27,7 +27,7 @@ export function ReenviarEmailButton({ agendamentoId }: { agendamentoId: string }
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="flex items-center gap-1.5 rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-neutral-200 px-4 py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? (
           <Loader2 className="size-4 animate-spin" />

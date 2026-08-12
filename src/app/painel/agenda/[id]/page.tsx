@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Circle,
   ArrowRight,
+  Calendar,
   type LucideIcon,
 } from "lucide-react";
 import { requireAuth } from "@/lib/auth/session";
@@ -58,26 +59,26 @@ type Passo = {
 
 function SubPassos({ subpassos }: { subpassos: SubPasso[] }) {
   return (
-    <ul className="mt-1.5 space-y-1">
+    <ul className="space-y-1.5">
       {subpassos.map((sp, i) => {
         const conteudo = (
           <>
             {sp.feito ? (
-              <CheckCircle2 className="size-3.5 shrink-0 text-brand" />
+              <CheckCircle2 className="size-4 shrink-0 text-brand" />
             ) : (
-              <Circle className="size-3.5 shrink-0 text-neutral-300" />
+              <Circle className="size-4 shrink-0 text-neutral-300" />
             )}
-            <span className={sp.feito ? "text-neutral-400" : "text-neutral-600"}>{sp.label}</span>
+            <span className={sp.feito ? "text-neutral-400 line-through" : "text-neutral-700"}>{sp.label}</span>
           </>
         );
         return (
           <li key={i}>
             {sp.href ? (
-              <Link href={sp.href} className="flex items-center gap-1.5 text-xs hover:underline">
+              <Link href={sp.href} className="flex items-center gap-2 text-sm hover:underline">
                 {conteudo}
               </Link>
             ) : (
-              <span className="flex items-center gap-1.5 text-xs">{conteudo}</span>
+              <span className="flex items-center gap-2 text-sm">{conteudo}</span>
             )}
           </li>
         );
@@ -90,61 +91,52 @@ function Bolinha({ passo, atual }: { passo: Passo; atual: boolean }) {
   return (
     <passo.icon
       className={cn(
-        "size-6 shrink-0 rounded-full p-1",
+        "size-8 shrink-0 rounded-full border-4 border-white p-1.5 shadow-sm",
         passo.feito
           ? "bg-brand text-white"
           : atual
-            ? "border-2 border-brand bg-white text-brand"
-            : "border-2 border-neutral-300 bg-white text-neutral-400",
+            ? "bg-white text-brand ring-2 ring-brand"
+            : "bg-white text-neutral-300 ring-2 ring-neutral-200",
       )}
     />
   );
 }
 
 /**
- * Passo a passo do teste: lista vertical (uma linha por passo, com o botão
- * de ação ao lado) em telas maiores, onde sobra espaço; barra horizontal
- * compacta (só os ícones + legenda do passo atual) no celular, onde rótulo
- * embaixo de cada bolinha quebraria. Mesmos dados nos dois — só muda a
- * disposição. Toda bolinha é clicável e navega/rola pra área
- * correspondente, mesmo as já concluídas, pra dar pra editar. A bolinha do
- * passo atual (primeiro não concluído) fica sem preenchimento, só o ícone
- * em verde — diferencia de "concluído" (preenchido) e "ainda não chegou lá"
- * (contorno cinza).
+ * Passo a passo do teste: uma única timeline vertical (bolinha + linha
+ * conectora + rótulo), igual em qualquer tamanho de tela — a coluna só fica
+ * mais estreita no celular, não precisa de uma disposição alternativa. Toda
+ * bolinha é clicável e navega/rola pra área correspondente, mesmo as já
+ * concluídas, pra dar pra editar. A bolinha do passo atual (primeiro não
+ * concluído) fica sem preenchimento, só o ícone em verde — diferencia de
+ * "concluído" (preenchido) e "ainda não chegou lá" (contorno cinza).
  */
 function PassoAPasso({ passos }: { passos: Passo[] }) {
   const total = passos.length;
-  const concluidos = passos.filter((p) => p.feito).length;
   const atualIndex = passos.findIndex((p) => !p.feito);
-  const numeroAtual = atualIndex === -1 ? total : atualIndex + 1;
-  // Máx. (total - 1) "gaps" entre bolinhas — sem o min(), com tudo concluído
-  // concluidos === total e a conta passava de 100%, vazando pra fora do card.
-  const progresso = total > 1 ? Math.min(concluidos, total - 1) / (total - 1) : 0;
-  const acoesDisponiveis = passos.some((p) => p.acao);
 
   return (
-    <div className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-sm font-medium text-neutral-500">
-        <ListChecks className="size-4 text-brand" />
+    <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm lg:p-6">
+      <div className="flex items-center gap-2 text-base font-semibold text-neutral-900">
+        <ListChecks className="size-5 text-brand" />
         Passo a passo pra concluir
       </div>
 
-      {/* Telas médias/grandes: lista vertical, um passo por linha */}
-      <ol className="mt-4 hidden md:block">
+      <ol className="mt-6">
         {passos.map((passo, i) => (
-          <li key={i} className="relative flex gap-3 pb-6 last:pb-0">
+          <li key={i} className="relative flex gap-4 pb-8 last:pb-0">
             {i < total - 1 && (
               <span
                 className={cn(
-                  "absolute top-6 bottom-0 left-3 -ml-px w-0.5",
-                  passo.feito ? "bg-brand" : "bg-neutral-200",
+                  "absolute top-8 bottom-0 left-4 -ml-px w-0.5",
+                  passo.feito ? "bg-brand/30" : "bg-neutral-200",
                 )}
               />
             )}
             <Link href={passo.href ?? "#"} aria-label={passo.label} title={passo.label} className="relative z-10 shrink-0">
               <Bolinha passo={passo} atual={i === atualIndex} />
             </Link>
-            <div className="min-w-0 flex-1 pt-0.5">
+            <div className="min-w-0 flex-1 pt-1">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
                 <Link
                   href={passo.href ?? "#"}
@@ -157,48 +149,15 @@ function PassoAPasso({ passos }: { passos: Passo[] }) {
                 </Link>
                 {passo.acao}
               </div>
-              {passo.subpassos && <SubPassos subpassos={passo.subpassos} />}
+              {passo.subpassos && (
+                <div className="mt-3 rounded-lg border border-neutral-100 bg-neutral-50/60 p-3">
+                  <SubPassos subpassos={passo.subpassos} />
+                </div>
+              )}
             </div>
           </li>
         ))}
       </ol>
-
-      {/* Celular: barra horizontal compacta, ícones só + legenda do passo atual */}
-      <div className="md:hidden">
-        <div className="relative mt-4 flex items-center">
-          <div className="absolute left-3 right-3 h-0.5 bg-neutral-200" />
-          <div
-            className="absolute left-3 h-0.5 bg-brand transition-all"
-            style={{ width: `calc((100% - 1.5rem) * ${progresso})` }}
-          />
-          {passos.map((passo, i) => (
-            <Link
-              key={i}
-              href={passo.href ?? "#"}
-              aria-label={passo.label}
-              title={passo.label}
-              className={cn(
-                "relative z-10 flex flex-1",
-                i === 0 ? "justify-start" : i === total - 1 ? "justify-end" : "justify-center",
-              )}
-            >
-              <Bolinha passo={passo} atual={i === atualIndex} />
-            </Link>
-          ))}
-        </div>
-        <p className="mt-2 text-sm">
-          <span className="text-neutral-400">
-            Passo {numeroAtual} de {total} ·{" "}
-          </span>
-          <span className="font-medium text-neutral-900">{(atualIndex === -1 ? passos[total - 1] : passos[atualIndex]).label}</span>
-        </p>
-        {acoesDisponiveis && (
-          <div className="mt-3 flex flex-col items-start gap-2">
-            {passos.map((passo, i) => passo.acao && <div key={i}>{passo.acao}</div>)}
-          </div>
-        )}
-        {passos.map((passo, i) => passo.subpassos && <SubPassos key={i} subpassos={passo.subpassos} />)}
-      </div>
     </div>
   );
 }
@@ -215,19 +174,27 @@ function Cartao({
   children: React.ReactNode;
 }) {
   return (
-    <div id={id} className="mt-4 scroll-mt-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-sm font-medium text-neutral-500">
+    <div id={id} className="scroll-mt-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
         <Icon className="size-4 text-brand" />
         {titulo}
       </div>
-      <div className="mt-2">{children}</div>
+      <div className="mt-2 text-base font-medium text-neutral-900">{children}</div>
     </div>
   );
 }
 
-export default async function AgendamentoDetalhePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AgendamentoDetalhePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ voltar?: string }>;
+}) {
   const { perfil } = await requireAuth();
   const { id } = await params;
+  const { voltar } = await searchParams;
+  const voltarPara = voltar || "/painel/agenda";
   const supabase = await createClient();
 
   const { data: agendamento } = await supabase
@@ -250,31 +217,37 @@ export default async function AgendamentoDetalhePage({ params }: { params: Promi
     // este link direto é só uma visualização (útil pra compartilhar).
     return (
       <div className="mx-auto max-w-lg lg:max-w-2xl xl:max-w-3xl">
-        <Link href="/painel/agenda" className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-brand">
+        <Link
+          href={voltarPara}
+          className="flex w-fit items-center gap-1.5 rounded-full py-1.5 pr-3 pl-2 text-sm text-neutral-500 hover:bg-neutral-100 hover:text-brand"
+        >
           <ArrowLeft className="size-4" />
           Voltar
         </Link>
-        <h1 className="mt-3 text-2xl font-bold text-neutral-900">{agendamento.titulo}</h1>
-        <p className="mt-1 text-neutral-500">
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl">{agendamento.titulo}</h1>
+        <p className="mt-1 flex items-center gap-1.5 text-neutral-500">
+          <Calendar className="size-4" />
           {format(new Date(agendamento.data_hora), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
           {agendamento.data_hora_fim &&
             ` – ${format(new Date(agendamento.data_hora_fim), "d 'de' MMMM 'às' HH:mm", { locale: ptBR })}`}
         </p>
-        {agendamento.endereco && (
-          <Cartao icon={MapPin} titulo="Localização">
-            <p className="text-neutral-900">{agendamento.endereco}</p>
-          </Cartao>
-        )}
-        {agendamento.descricao && (
-          <Cartao icon={FileText} titulo="Descrição">
-            <p className="whitespace-pre-wrap text-neutral-700">{agendamento.descricao}</p>
-          </Cartao>
-        )}
-        {participantes.length > 0 && (
-          <Cartao icon={User} titulo="Participantes">
-            <p className="text-neutral-700">{participantes.join(", ")}</p>
-          </Cartao>
-        )}
+        <div className="mt-4 space-y-4">
+          {agendamento.endereco && (
+            <Cartao icon={MapPin} titulo="Localização">
+              <p className="text-neutral-900">{agendamento.endereco}</p>
+            </Cartao>
+          )}
+          {agendamento.descricao && (
+            <Cartao icon={FileText} titulo="Descrição">
+              <p className="whitespace-pre-wrap text-neutral-700">{agendamento.descricao}</p>
+            </Cartao>
+          )}
+          {participantes.length > 0 && (
+            <Cartao icon={User} titulo="Participantes">
+              <p className="text-neutral-700">{participantes.join(", ")}</p>
+            </Cartao>
+          )}
+        </div>
       </div>
     );
   }
@@ -421,9 +394,12 @@ export default async function AgendamentoDetalhePage({ params }: { params: Promi
     : `https://wa.me/?text=${encodeURIComponent(mensagemWpp)}`;
 
   return (
-    <div className="mx-auto max-w-lg lg:max-w-2xl xl:max-w-3xl">
+    <div className="mx-auto max-w-lg lg:max-w-5xl">
       <div className="flex items-center justify-between">
-        <Link href="/painel/agenda" className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-brand">
+        <Link
+          href={voltarPara}
+          className="flex items-center gap-1.5 rounded-full py-1.5 pr-3 pl-2 text-sm text-neutral-500 hover:bg-neutral-100 hover:text-brand"
+        >
           <ArrowLeft className="size-4" />
           Voltar
         </Link>
@@ -440,21 +416,20 @@ export default async function AgendamentoDetalhePage({ params }: { params: Promi
             description="O agendamento e todos os dados do ensaio (fotos, medições, PDF importado) são apagados de vez. Essa ação não pode ser desfeita."
             variant="ghost"
             size="sm"
-            className="text-red-600 hover:bg-red-50 hover:text-red-700"
+            className="rounded-full text-red-600 hover:bg-red-50 hover:text-red-700"
           />
         )}
       </div>
-      <h1 className="mt-3 text-2xl font-bold text-neutral-900">{nomeServico}</h1>
-      <p className="mt-1 text-neutral-500">
+      <h1 className="mt-3 text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl">{nomeServico}</h1>
+      <p className="mt-1 flex items-center gap-1.5 text-neutral-500">
+        <Calendar className="size-4" />
         {format(new Date(agendamento.data_hora), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
       </p>
-
-      <PassoAPasso passos={passos} />
 
       {testeStatus === "aprovado" && (
         <Link
           href={`/painel/testes/${testeId}`}
-          className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-brand/30 bg-brand/5 p-4 shadow-sm hover:bg-brand/10"
+          className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/5 p-5 shadow-sm hover:bg-brand/10"
         >
           <div>
             <p className="text-sm font-semibold text-brand">Laudo emitido</p>
@@ -467,91 +442,101 @@ export default async function AgendamentoDetalhePage({ params }: { params: Promi
         </Link>
       )}
 
-      <Cartao icon={User} titulo="Contato">
-        <p className="text-neutral-900">
-          {agendamento.nome_contato} · {agendamento.telefone_contato}
-        </p>
-        {cliente?.status === "pendente" && hrefEditarCliente && (
-          <Link href={hrefEditarCliente} className="mt-2 inline-block text-sm text-brand hover:underline">
-            Completar cadastro do cliente (CNPJ/CPF) →
-          </Link>
-        )}
-      </Cartao>
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
+        <div className="lg:col-span-8">
+          <PassoAPasso passos={passos} />
+        </div>
 
-      {agendamento.endereco && (
-        <Cartao icon={MapPin} titulo="Local do teste">
-          <p className="text-neutral-900">
-            {agendamento.endereco}
-            {agendamento.numero && `, ${agendamento.numero}`} {agendamento.cep && `· CEP ${agendamento.cep}`}
-          </p>
-        </Cartao>
-      )}
+        <div className="flex flex-col gap-4 lg:col-span-4">
+          <Cartao icon={User} titulo="Contato">
+            <p className="text-neutral-900">
+              {agendamento.nome_contato} · {agendamento.telefone_contato}
+            </p>
+            {cliente?.status === "pendente" && hrefEditarCliente && (
+              <Link href={hrefEditarCliente} className="mt-2 inline-block text-sm text-brand hover:underline">
+                Completar cadastro do cliente (CNPJ/CPF) →
+              </Link>
+            )}
+          </Cartao>
 
-      {veiculo && (
-        <Cartao icon={Car} titulo="Veículo/equipamento" id="veiculo">
-          <p className="text-neutral-900">
-            {veiculo.identificador} {[veiculo.marca, veiculo.modelo].filter(Boolean).join(" ")}
-          </p>
-        </Cartao>
-      )}
-
-      {proposta && (
-        <Cartao icon={Wallet} titulo="Proposta" id="proposta">
-          <div className="flex items-center justify-between">
-            <p className="text-lg font-bold text-neutral-900">{formatarMoeda(proposta.valor_total)}</p>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_CLASSE[proposta.status] ?? "bg-neutral-100 text-neutral-600"}`}>
-              {STATUS_LABEL[proposta.status] ?? proposta.status}
-            </span>
-          </div>
-          <div className="mt-3 flex flex-wrap items-start gap-3">
-            <a
-              href={linkWpp}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-dark"
-            >
-              <MessageCircle className="size-4" />
-              Reenviar por WhatsApp
-            </a>
-            {cliente?.email && <ReenviarEmailButton agendamentoId={agendamento.id} />}
-            <Link
-              href={`/proposta/${proposta.token}`}
-              target="_blank"
-              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-            >
-              Ver página pública
-            </Link>
-          </div>
-        </Cartao>
-      )}
-
-      {podeGerenciar && cliente?.status === "completo" && !agendamento.veiculo_id && (
-        <Cartao icon={Car} titulo="Vincular veículo/equipamento" id="vincular-veiculo">
-          {veiculos && veiculos.length > 0 ? (
-            <form action={vincularVeiculo} className="flex gap-2">
-              <input type="hidden" name="agendamento_id" value={agendamento.id} />
-              <select name="veiculo_id" required className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm">
-                <option value="">Selecione...</option>
-                {veiculos.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.identificador} {[v.marca, v.modelo].filter(Boolean).join(" ")}
-                  </option>
-                ))}
-              </select>
-              <SubmitButton pendingLabel="Vinculando..." className="flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-dark">
-                Vincular
-              </SubmitButton>
-            </form>
-          ) : (
-            <Link
-              href={`/painel/clientes/${agendamento.cliente_id}/veiculos/novo`}
-              className="text-sm text-brand hover:underline"
-            >
-              Cadastrar veículo/equipamento →
-            </Link>
+          {agendamento.endereco && (
+            <Cartao icon={MapPin} titulo="Local do teste">
+              <p className="text-neutral-900">
+                {agendamento.endereco}
+                {agendamento.numero && `, ${agendamento.numero}`} {agendamento.cep && `· CEP ${agendamento.cep}`}
+              </p>
+            </Cartao>
           )}
-        </Cartao>
-      )}
+
+          {veiculo && (
+            <Cartao icon={Car} titulo="Veículo/equipamento" id="veiculo">
+              <p className="text-neutral-900">
+                {veiculo.identificador} {[veiculo.marca, veiculo.modelo].filter(Boolean).join(" ")}
+              </p>
+            </Cartao>
+          )}
+
+          {proposta && (
+            <Cartao icon={Wallet} titulo="Proposta" id="proposta">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-3xl font-bold text-brand">{formatarMoeda(proposta.valor_total)}</p>
+                <span
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold uppercase ${STATUS_CLASSE[proposta.status] ?? "bg-neutral-100 text-neutral-600"}`}
+                >
+                  {STATUS_LABEL[proposta.status] ?? proposta.status}
+                </span>
+              </div>
+              <div className="mt-4 flex flex-col gap-2.5 border-t border-neutral-100 pt-4">
+                <a
+                  href={linkWpp}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
+                >
+                  <MessageCircle className="size-4" />
+                  Reenviar por WhatsApp
+                </a>
+                {cliente?.email && <ReenviarEmailButton agendamentoId={agendamento.id} />}
+                <Link
+                  href={`/proposta/${proposta.token}`}
+                  target="_blank"
+                  className="flex w-full items-center justify-center rounded-full border-2 border-neutral-200 px-4 py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+                >
+                  Ver página pública
+                </Link>
+              </div>
+            </Cartao>
+          )}
+
+          {podeGerenciar && cliente?.status === "completo" && !agendamento.veiculo_id && (
+            <Cartao icon={Car} titulo="Vincular veículo/equipamento" id="vincular-veiculo">
+              {veiculos && veiculos.length > 0 ? (
+                <form action={vincularVeiculo} className="flex flex-col gap-2">
+                  <input type="hidden" name="agendamento_id" value={agendamento.id} />
+                  <select name="veiculo_id" required className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm">
+                    <option value="">Selecione...</option>
+                    {veiculos.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.identificador} {[v.marca, v.modelo].filter(Boolean).join(" ")}
+                      </option>
+                    ))}
+                  </select>
+                  <SubmitButton pendingLabel="Vinculando..." className="w-full rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-dark">
+                    Vincular
+                  </SubmitButton>
+                </form>
+              ) : (
+                <Link
+                  href={`/painel/clientes/${agendamento.cliente_id}/veiculos/novo`}
+                  className="text-sm text-brand hover:underline"
+                >
+                  Cadastrar veículo/equipamento →
+                </Link>
+              )}
+            </Cartao>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -4,11 +4,14 @@ import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { FileDropInput } from "@/components/file-drop-input";
 import { salvarResponsavelTecnico } from "./actions";
 
-export function ResponsavelForm({ cancelHref }: { cancelHref: string }) {
+type Usuario = { id: string; nome: string };
+
+export function ResponsavelForm({ cancelHref, usuarios }: { cancelHref: string; usuarios: Usuario[] }) {
   const [pending, startTransition] = useTransition();
 
   return (
@@ -31,6 +34,25 @@ export function ResponsavelForm({ cancelHref }: { cancelHref: string }) {
       <div className="space-y-2">
         <Label htmlFor="contato">Contato</Label>
         <Input id="contato" name="contato" />
+      </div>
+      <div className="space-y-2">
+        <Label>Conta de acesso vinculada</Label>
+        <Select name="usuario_id" items={{ none: "Nenhuma (responsável externo, sem login)", ...Object.fromEntries(usuarios.map((u) => [u.id, u.nome])) }} defaultValue="none">
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Nenhuma (responsável externo, sem login)</SelectItem>
+            {usuarios.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                {u.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-neutral-500">
+          Se essa pessoa faz login no sistema, vincule a conta — é o que permite liberar laudo aparecer pra ela e já vir com o próprio nome selecionado.
+        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="assinatura">Imagem da assinatura</Label>

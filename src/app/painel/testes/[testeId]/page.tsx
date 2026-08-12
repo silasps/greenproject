@@ -3,8 +3,8 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Download, ShieldCheck, MessageCircle } from "lucide-react";
-import { requireAuth } from "@/lib/auth/session";
-import { canImportarPdfSyscon, canRevisarELiberarLaudo } from "@/lib/auth/permissions";
+import { requireAuth, getMeuResponsavelTecnicoId } from "@/lib/auth/session";
+import { canImportarPdfSyscon } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { signedUrl, publicUrl } from "@/lib/storage/upload";
@@ -17,6 +17,8 @@ import { ImportSysconForm } from "./import-syscon-form";
 import { LiberarForm } from "./liberar-form";
 import { DevolverRevisaoButton } from "./devolver-revisao-button";
 import { EnviarLaudoEmailButton } from "./enviar-laudo-email-button";
+import { LaudoPreviewCard } from "./laudo-preview-card";
+import { VisualizarLaudoButton } from "./visualizar-laudo-button";
 import { FotosPreviewGrid, PdfPreview } from "@/components/foto-preview";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -24,6 +26,13 @@ const STATUS_LABEL: Record<string, string> = {
   aguardando_pdf_syscon: "Aguardando PDF do opacímetro",
   aguardando_revisao: "Aguardando revisão",
   aprovado: "Laudo emitido",
+};
+
+const STATUS_CLASSE: Record<string, string> = {
+  aguardando_execucao: "bg-neutral-100 text-neutral-600",
+  aguardando_pdf_syscon: "bg-amber-100 text-amber-800",
+  aguardando_revisao: "bg-blue-100 text-blue-700",
+  aprovado: "bg-green-100 text-green-800",
 };
 
 export default async function TesteDetalhePage({ params }: { params: Promise<{ testeId: string }> }) {
@@ -34,7 +43,7 @@ export default async function TesteDetalhePage({ params }: { params: Promise<{ t
   const { data: teste } = await supabase
     .from("testes_opacidade")
     .select(
-      "*, veiculos_maquinas(*, clientes(*)), equipamentos_teste(modelo, numero_serie), testes_opacidade_medicoes(*)",
+      "*, veiculos_maquinas(*, clientes(*), especificacoes_motor(*)), equipamentos_teste(*), testes_opacidade_medicoes(*)",
     )
     .eq("id", testeId)
     .single();
@@ -46,10 +55,14 @@ export default async function TesteDetalhePage({ params }: { params: Promise<{ t
 
   return (
     <div className="mx-auto max-w-lg lg:max-w-2xl xl:max-w-3xl">
-      <h1 className="text-2xl font-bold text-neutral-900">
+      <h1 className="text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl">
         {cliente?.nome} · {veiculo?.identificador}
       </h1>
-      <p className="mt-1 text-sm text-neutral-500">{STATUS_LABEL[teste.status] ?? teste.status}</p>
+      <span
+        className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold uppercase ${STATUS_CLASSE[teste.status] ?? "bg-neutral-100 text-neutral-600"}`}
+      >
+        {STATUS_LABEL[teste.status] ?? teste.status}
+      </span>
 
       {teste.status === "aguardando_execucao" && (
         <CampoSection testeId={testeId} />
@@ -61,9 +74,7 @@ export default async function TesteDetalhePage({ params }: { params: Promise<{ t
 
       {teste.status === "aguardando_pdf_syscon" && (
         <div className="mt-6">
-          <p className="text-sm text-neutral-600">
-            Número do teste informado em campo: <strong>{teste.numero_teste}</strong>
-          </p>
+          {/* Número do teste já aparece (e é editável) no card "Dados de campo" acima — evita ter dois lugares mostrando o mesmo dado, um deles podendo ficar desatualizado. */}
           {canImportarPdfSyscon(perfil.role) ? (
             <ImportSysconForm testeId={testeId} />
           ) : (
@@ -75,10 +86,10 @@ export default async function TesteDetalhePage({ params }: { params: Promise<{ t
       )}
 
       {teste.status === "aguardando_revisao" && (
-        <RevisaoSection testeId={testeId} teste={teste} podeLiberar={canRevisarELiberarLaudo(perfil.role)} />
+        <RevisaoSection testeId={testeId} teste={teste} meuResponsavelId={await getMeuResponsavelTecnicoId(perfil.id)} />
       )}
 
-      {teste.status === "aprovado" && <EmitidoSection testeId={testeId} />}
+      {teste.status === "aprovado" && <EmitidoSection testeId={testeId} teste={teste} />}
     </div>
   );
 }
@@ -134,8 +145,11 @@ async function CampoEditSection({ testeId, teste }: { testeId: string; teste: an
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function RevisaoSection({ testeId, teste, podeLiberar }: { testeId: string; teste: any; podeLiberar: boolean }) {
+async function RevisaoSection({ testeId, teste, meuResponsavelId }: { testeId: string; teste: any; meuResponsavelId: string | null }) {
+  const podeLiberar = !!meuResponsavelId;
+  const cliente = teste.veiculos_maquinas?.clientes;
   const fotosExtras: string[] = teste.fotos_extras ?? [];
+
   const [pdfUrl, extrasUrls] = await Promise.all([
     teste.pdf_ensaio_original_path ? signedUrl(teste.pdf_ensaio_original_path) : Promise.resolve(null),
     Promise.all(
@@ -145,11 +159,6 @@ async function RevisaoSection({ testeId, teste, podeLiberar }: { testeId: string
     ),
   ]);
 
-  const medicoes = (teste.testes_opacidade_medicoes ?? []).sort(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (a: any, b: any) => a.ciclo_aceleracao - b.ciclo_aceleracao,
-  );
-
   let responsaveis: { id: string; label: string }[] = [];
   if (podeLiberar) {
     const admin = createAdminClient();
@@ -158,35 +167,36 @@ async function RevisaoSection({ testeId, teste, podeLiberar }: { testeId: string
   }
 
   return (
-    <div className="mt-6 space-y-6">
-      <div className="rounded-md border border-neutral-200 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-neutral-700">Resultado do ensaio</p>
-            <p className="mt-2 text-sm text-neutral-600">
-              <strong className="uppercase">{teste.resultado ?? "-"}</strong> · Média: {teste.media_m1 ?? "-"} m-1
-            </p>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {medicoes.map((m: any) => (
-              <p key={m.id} className="text-sm text-neutral-500">
-                Ciclo {m.ciclo_aceleracao}: {m.opacidade_m1} m-1
-              </p>
-            ))}
-          </div>
-          {pdfUrl && teste.pdf_ensaio_original_path && (
-            <PdfPreview url={pdfUrl} path={teste.pdf_ensaio_original_path} label="PDF do ensaio" />
-          )}
-        </div>
-        <FotosPreviewGrid fotos={extrasUrls} />
-      </div>
+    <div className="mt-6 space-y-4">
+      {/* Prévia de como o laudo vai sair, pra dar confiança antes de validar — "Editar dados de campo" só pula pro
+          card que já existe acima (id="dados-campo"), sem duplicar o form de edição aqui. */}
+      <LaudoPreviewCard teste={teste} mostrarEditar />
 
-      <div className="rounded-md border border-neutral-200 p-4">
-        <p className="text-sm font-medium text-neutral-700">Liberar laudo</p>
-        <div className="mt-2">
+      {(pdfUrl || extrasUrls.length > 0) && (
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-neutral-800">Arquivos do ensaio</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {pdfUrl && teste.pdf_ensaio_original_path && (
+              <PdfPreview url={pdfUrl} path={teste.pdf_ensaio_original_path} label="PDF do ensaio" />
+            )}
+          </div>
+          <FotosPreviewGrid fotos={extrasUrls} />
+        </div>
+      )}
+
+      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <p className="text-sm font-semibold text-neutral-800">Validar teste</p>
+        <div className="mt-3">
           {podeLiberar ? (
-            <LiberarForm testeId={testeId} responsaveis={responsaveis} />
+            <LiberarForm
+              testeId={testeId}
+              responsaveis={responsaveis}
+              defaultResponsavelId={meuResponsavelId}
+              resultado={teste.resultado}
+              clienteEmail={cliente?.email ?? null}
+            />
           ) : (
-            <p className="text-sm text-neutral-500">Aguardando a gerência revisar e liberar o laudo.</p>
+            <p className="text-sm text-neutral-500">Aguardando um engenheiro responsável revisar e liberar o laudo.</p>
           )}
         </div>
         {podeLiberar && (
@@ -199,12 +209,13 @@ async function RevisaoSection({ testeId, teste, podeLiberar }: { testeId: string
   );
 }
 
-async function EmitidoSection({ testeId }: { testeId: string }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function EmitidoSection({ testeId, teste }: { testeId: string; teste: any }) {
   const admin = createAdminClient();
   const { data: laudo } = await admin
     .from("laudos")
     .select(
-      "numero, codigo_publico, pdf_path, emitido_em, testes_opacidade(resultado, veiculos_maquinas(identificador, marca, modelo), agendamentos(data_hora, whatsapp_contato, telefone_contato))",
+      "numero, codigo_publico, pdf_path, emitido_em, responsaveis_tecnicos(nome, formacao, registro_conselho, contato), testes_opacidade(agendamentos(data_hora, whatsapp_contato, telefone_contato))",
     )
     .eq("teste_id", testeId)
     .single();
@@ -212,11 +223,10 @@ async function EmitidoSection({ testeId }: { testeId: string }) {
   if (!laudo) return null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const teste = laudo.testes_opacidade as any;
-  const agendamento = teste?.agendamentos;
-  const veiculo = teste?.veiculos_maquinas;
+  const agendamento = (laudo.testes_opacidade as any)?.agendamentos;
+  const veiculo = teste.veiculos_maquinas;
   const telefoneContato = agendamento?.whatsapp_contato || agendamento?.telefone_contato || "";
-  const aprovado = teste?.resultado === "aprovado";
+  const aprovado = teste.resultado === "aprovado";
   const dataHoraTexto = agendamento?.data_hora
     ? format(new Date(agendamento.data_hora), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })
     : "-";
@@ -257,12 +267,32 @@ async function EmitidoSection({ testeId }: { testeId: string }) {
         Válido até <strong>{validadeTexto}</strong>
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${validadeBadge.classe}`}>{validadeBadge.label}</span>
       </p>
-      <div className="flex flex-wrap gap-3 text-sm">
+      <div className="flex flex-wrap gap-2.5">
+        <a
+          href={linkWpp}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
+        >
+          <MessageCircle className="size-4" />
+          Enviar por WhatsApp
+        </a>
+        <EnviarLaudoEmailButton testeId={testeId} />
+        <VisualizarLaudoButton>
+          <LaudoPreviewCard
+            teste={teste}
+            mostrarEditar={false}
+            numero={laudo.numero}
+            dataEmissao={laudo.emitido_em}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            responsavel={laudo.responsaveis_tecnicos as any}
+          />
+        </VisualizarLaudoButton>
         <a
           href={pdfUrl}
           target="_blank"
           rel="noreferrer"
-          className="flex w-20 flex-col items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-2 text-center text-xs text-brand hover:border-brand/40 hover:bg-brand/5"
+          className="flex items-center gap-1.5 rounded-full border-2 border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
         >
           <Download className="size-4" />
           Baixar PDF
@@ -270,21 +300,11 @@ async function EmitidoSection({ testeId }: { testeId: string }) {
         <Link
           href={`/laudo/${laudo.codigo_publico}`}
           target="_blank"
-          className="flex w-20 flex-col items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-2 text-center text-xs text-brand hover:border-brand/40 hover:bg-brand/5"
+          className="flex items-center gap-1.5 rounded-full border-2 border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
         >
           <ShieldCheck className="size-4" />
           Página de verificação
         </Link>
-        <a
-          href={linkWpp}
-          target="_blank"
-          rel="noreferrer"
-          className="flex w-20 flex-col items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-2 text-center text-xs text-brand hover:border-brand/40 hover:bg-brand/5"
-        >
-          <MessageCircle className="size-4" />
-          Enviar por WhatsApp
-        </a>
-        <EnviarLaudoEmailButton testeId={testeId} />
       </div>
     </div>
   );

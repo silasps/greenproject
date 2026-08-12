@@ -38,7 +38,7 @@ Modelo **single-tenant** (uma empresa só, sem multi-empresa/organização).
 | Ícones | `lucide-react` |
 | Validação de doc. | funções próprias (CPF/CNPJ) em `src/lib/utils/documento.ts` — sem lib externa |
 | Toast (instalado, não usado) | `sonner` |
-| Email | `nodemailer` via SMTP da Brevo (`src/lib/email/enviar.ts`, `enviarEmail`) — dois usos hoje: formulário público `/contato` (envia pra `COMPANY.email`) e botão "Enviar por e-mail" do laudo no painel (`testes/actions.ts:enviarLaudoEmail`, pro e-mail do cliente); reset de senha continua sendo o e-mail transacional nativo do Supabase Auth, não passa por aqui |
+| Email | `nodemailer` via SMTP da Brevo (`src/lib/email/enviar.ts`, `enviarEmail`) — usado pelo formulário público `/contato` (envia pra `COMPANY.email`) e pelo envio do laudo emitido pro cliente (`src/lib/laudo/enviar-email.ts`, manual ou automático na validação, ver seção 8.4/8.4.1); o reset de senha continua sendo o e-mail transacional nativo do Supabase Auth, não passa por aqui |
 
 Não há back-end separado: toda lógica de servidor é **Server Components**
 + **Server Actions** (`"use server"`) do Next.js, rodando contra o
@@ -124,6 +124,26 @@ Três variantes, **nunca** misturar:
   `usuarios_perfis`, evitando recursão de RLS ao ser chamada de dentro de
   policies da própria `usuarios_perfis`).
 - `/acesso-negado` — página simples de "sem permissão".
+- **Superadmin / impersonação** (`usuarios_perfis.is_superadmin`,
+  `src/lib/auth/impersonation.ts`): flag adicional sobre uma conta
+  `gerencia` (não é um nível novo na hierarquia de `Role` — RLS continua
+  vendo essa conta como `gerencia`). Quem tem a flag ganha um dropdown na
+  sidebar (`identity-switcher.tsx`, só renderizado quando
+  `is_superadmin || impersonando`) pra **trocar a sessão real do servidor**
+  pra a de qualquer outro usuário com `acesso_sistema = true` — não é uma
+  simulação de UI, dali em diante toda RLS/Server Action roda como aquele
+  usuário de fato:
+  - `assumirIdentidade(usuarioId)` guarda o `refresh_token` da sessão
+    original num cookie httpOnly (`gp_impersonator_refresh`, só na
+    primeira troca — trocar de um impersonado pra outro não sobrescreve),
+    gera um magic link pro usuário-alvo via
+    `admin.auth.admin.generateLink()` e troca a sessão com
+    `supabase.auth.verifyOtp({ token_hash, type: "magiclink" })`.
+  - `voltarAoAdmin()` lê o cookie e restaura a sessão original com
+    `supabase.auth.refreshSession({ refresh_token })`.
+  - Autorização de `assumirIdentidade`/`listarUsuariosParaImpersonar`: ou
+    `perfil.is_superadmin`, ou o cookie de impersonação já existir (prova
+    que uma sessão de superadmin iniciou a troca).
 
 ## 6. Schema do banco (Postgres/Supabase)
 
@@ -925,16 +945,52 @@ final de "Liberar" é checado):
    K m⁻¹, resultado aprovado/reprovado), confere se o número bate com o
    digitado em campo, grava as `testes_opacidade_medicoes`. Status vira
    `aguardando_revisao`.
-3. **Liberar laudo** (`liberar-form.tsx` → `liberarLaudo`, só
-   `canRevisarELiberarLaudo` = gerência): escolhe o responsável técnico
-   que assina, gera `numero` sequencial (`"{count+1}/{ano de 2 dígitos}"`,
-   contando linhas de `laudos` — não é à prova de race condition, é
-   aceitável pro volume da empresa), gera `codigo_publico` aleatório
-   (12 chars, alfabeto sem caracteres ambíguos, agrupado em blocos de 4
-   com `-`), monta o PDF (`src/lib/laudo/gerar-pdf.ts`, ver 8.5), sobe pro
-   bucket `laudos`, insere a linha em `laudos`, marca
-   `testes_opacidade.status='aprovado'` e
-   `agendamentos.status='concluido'`.
+3. **Validar teste / liberar laudo** (`page.tsx`, `RevisaoSection` →
+   `liberar-form.tsx` → `liberarLaudo`, só `canRevisarELiberarLaudo` =
+   gerência): a tela "aguardando revisão" mostra uma **prévia do
+   documento** (`laudo-preview-card.tsx`, `LaudoPreviewCard` — todos os
+   campos do laudo de referência do cliente: dados do veículo/proprietário
+   em grade com borda (contratante, CNPJ/CPF, marca/modelo, placa, ano,
+   chassi, renavam, combustível, endereço, telefone), fotos grandes do
+   ensaio com legenda, tabela de medições, dados do opacímetro (incluindo
+   o certificado de calibração do INMETRO já anexado no cadastro do
+   equipamento — `equipamentos_teste.pdf_certificado_calibracao_path`,
+   mesmo arquivo mesclado no PDF final pelo `gerar-pdf.ts` — mostrado
+   clicável via `PdfPreview` com `size="lg"`), texto de conclusão idêntico
+   ao do PDF — ver `src/lib/laudo/texto-conclusao.ts`,
+   fonte única compartilhada com `gerar-pdf.ts`) com um link "Editar dados
+   de campo" que pula pro card `campo-edit-form.tsx` já existente acima
+   (`href="#dados-campo"`, sem duplicar o form; some quando
+   `mostrarEditar=false`, ver 8.4.1). A mesma `LaudoPreviewCard` é
+   reaproveitada no laudo já emitido — não é recomputada do zero em cada
+   lugar; só ali (`props` opcionais `numero`/`dataEmissao`/`responsavel`)
+   é que mostra o bloco "Responsável técnico" (nome, formação, registro no
+   conselho, contato de `responsaveis_tecnicos`), porque só depois de
+   liberado o `responsavel_tecnico_id` é definitivo — antes disso ainda
+   está sendo escolhido no form abaixo. Escolhido o responsável técnico, o
+   botão **"Validar
+   teste"** abre um diálogo de confirmação (`LiberarForm`, componente
+   client) mostrando o resultado (APROVADO/REPROVADO) e perguntando se
+   quer já mandar cópia por e-mail pro cliente:
+   - **"Não, só validar"** — chama `liberarLaudo` com
+     `enviar_email=false`.
+   - **"Sim, validar e enviar"** (desabilitado se o cliente não tem
+     e-mail cadastrado) — mesma chamada com `enviar_email=true`.
+
+   `liberarLaudo` gera `numero` sequencial (`"{count+1}/{ano de 2
+   dígitos}"`, contando linhas de `laudos` — não é à prova de race
+   condition, é aceitável pro volume da empresa), gera `codigo_publico`
+   aleatório (12 chars, alfabeto sem caracteres ambíguos, agrupado em
+   blocos de 4 com `-`), monta o PDF (`src/lib/laudo/gerar-pdf.ts`, ver
+   8.5), sobe pro bucket `laudos`, insere a linha em `laudos`, marca
+   `testes_opacidade.status='aprovado'` e `agendamentos.status='concluido'`.
+   Se `enviar_email=true`, tenta enviar em seguida via
+   `enviarLaudoPorEmail` (`src/lib/laudo/enviar-email.ts`, mesmo helper
+   usado pelo botão manual "Enviar por e-mail" da seção 8.4.1) — **best
+   effort**: falha de envio (ex.: sem e-mail cadastrado) não desfaz a
+   liberação, já que o laudo já foi emitido de verdade; o diálogo mostra
+   se o envio deu certo ou não, e o botão manual continua disponível
+   depois pra tentar de novo.
 
 Com o laudo liberado, `EnviarLaudoEmailButton` (`testes/[testeId]/`) chama
 a Server Action `enviarLaudoEmail` (`testes/actions.ts`) e manda o PDF por
@@ -950,10 +1006,28 @@ Bloqueado quando `status='aprovado'` (laudo já é documento oficial
 emitido). Acessível também pelos subpassos da execução em
 `agenda/[id]/page.tsx` (ver nota do stepper na seção 10.14).
 
-Fotos em qualquer tela de teste (dados de campo, revisão) aparecem como
-miniatura clicável (`FotosPreviewGrid`/`FotoPreview`,
-`src/components/foto-preview.tsx`) que abre um modal grande — nunca link de
-texto abrindo em nova aba.
+Fotos em qualquer tela de teste (dados de campo, arquivos extras da
+revisão) aparecem como miniatura clicável de 64px
+(`FotosPreviewGrid`/`FotoPreview`, `src/components/foto-preview.tsx`) que
+abre um modal grande — nunca link de texto abrindo em nova aba. A prévia
+do laudo (acima) usa a mesma `FotoPreview` com `size="lg"` (grade de 3
+colunas, foto grande com legenda embaixo) pra imitar o layout de 3 fotos
+da capa do PDF — não a miniatura pequena, que ali ficaria ilegível.
+
+### 8.4.1 Laudo emitido — compartilhar com o cliente (`EmitidoSection`, `page.tsx`)
+Depois de liberado, a tela mostra nº do laudo, validade (1 ano da
+emissão, `diasRestantes`/badge de vencimento) e botões: **Enviar por
+WhatsApp** (`wa.me`, mesmo padrão da seção 8.4), **Enviar por e-mail**
+(`enviar-laudo-email-button.tsx` → `enviarLaudoEmail`, usa o mesmo
+`enviarLaudoPorEmail` do envio automático na validação — via Brevo,
+`src/lib/email/enviar.ts`; exige `clientes.email` preenchido, senão
+mostra erro), **Visualizar laudo** (`visualizar-laudo-button.tsx`,
+`VisualizarLaudoButton` — Client Component só com o botão/diálogo em
+volta; recebe a `LaudoPreviewCard` (Server Component) já renderizada via
+`children`, sem precisar rebuscar dados no client, e mostra o mesmo
+documento da revisão, só que com `mostrarEditar={false}` — pra ver o
+laudo sem precisar baixar o PDF), **Baixar PDF** e link pra "Página de
+verificação" (`/laudo/{codigo_publico}`).
 
 Da tela "aguardando revisão", `DevolverRevisaoButton` →
 `devolverRevisao` (só `canRevisarELiberarLaudo` = gerência) devolve o
@@ -1028,8 +1102,7 @@ Só `gerencia` acessa (`canGerenciarUsuarios`). Item da sidebar: "DP".
     })`, depois insere `usuarios_perfis` com o `role` **lido do banco a
     partir do `funcao_id`** (nunca confia num `role` vindo do form). Se o
     insert falhar, desfaz o `createUser` (evita conta órfã).
-  - **Não existe fluxo de "esqueci minha senha" automático aqui** — a
-    senha é gerada na hora e mostrada **uma única vez** na tela seguinte
+  - A senha é gerada na hora e mostrada **uma única vez** na tela seguinte
     (`credenciais-panel.tsx`), com botões pra mandar por **WhatsApp**
     (`wa.me` com mensagem pronta) ou **e-mail** (`mailto:` com
     assunto/corpo prontos) — decisão explícita do usuário, trocando um
@@ -1037,6 +1110,11 @@ Só `gerencia` acessa (`canGerenciarUsuarios`). Item da sidebar: "DP".
   - Editar pessoa e ligar o acesso que estava desligado: gera senha nova
     (`auth.admin.updateUserById(id, { password })`) e mostra o mesmo
     painel de credenciais.
+  - **"Pessoa esqueceu a senha?"** — botão em `dp/[id]/editar` (só
+    aparece se `acesso_sistema` já estiver ligado) chama `redefinirSenha`,
+    que gera outra senha aleatória, atualiza via `auth.admin.updateUserById`
+    e reaproveita o mesmo `credenciais-panel.tsx` — reset avulso, sem
+    precisar desligar/religar o acesso.
   - `dp/[id]/kpis-pessoa-form.tsx`: exceção pontual de visibilidade de KPI
     (`usuarios_kpis`, ver 6.18) pra essa pessoa específica, sem mexer no
     cargo dela — mesmos checkboxes de `KpisPorCargoForm` (8.8), só que
