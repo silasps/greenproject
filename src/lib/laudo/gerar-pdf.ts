@@ -3,7 +3,7 @@ import path from "node:path";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import QRCode from "qrcode";
+import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { baixarArquivoInterno, detectarTipoArquivo } from "@/lib/storage/upload";
 import { COMPANY } from "@/lib/legal/company-info";
@@ -446,44 +446,37 @@ export async function gerarLaudoPdf({
     yOpacimetro,
     `Opacímetro modelo: ${equipamento?.modelo ?? "-"}     Serial: ${equipamento?.numero_serie ?? "-"}     Válido até: ${equipamento?.validade ? new Date(equipamento.validade).toLocaleDateString("pt-BR") : "-"}`,
   );
-  linhaEnsaio(y, `Fabricante: ${equipamento?.fabricante ?? "-"}`);
+  y = linhaEnsaio(y, `Fabricante: ${equipamento?.fabricante ?? "-"}`);
 
   // Selo do fabricante (ex.: "Smoke Check 2000 — Opacímetro Portátil"),
-  // opcional, cadastrado por equipamento em /painel/equipamentos — fica à
-  // esquerda do QR code, mesma posição do selo no laudo original.
+  // opcional, cadastrado por equipamento em /painel/equipamentos — grande e
+  // centralizado no espaço em branco que sobra até o rodapé (pedido
+  // explícito: bem maior que o texto acima, não mais um ícone pequeno
+  // encostado nele). Altura desejada cede pro espaço real disponível na
+  // página, nunca invade o rodapé.
   const seloBuf = await baixarArquivoInterno(equipamento?.selo_imagem_path);
-  const qrSize = 20;
-  let seloW = 0;
   if (seloBuf) {
     try {
-      const seloTipo = detectarTipoArquivo(seloBuf);
-      const props = doc.getImageProperties(seloBuf);
-      const seloH = 16;
-      seloW = seloH * (props.width / props.height);
-      doc.addImage(
-        seloBuf,
-        seloTipo === "webp" ? "WEBP" : seloTipo === "png" ? "PNG" : "JPEG",
-        pageW - margin - qrSize - 4 - seloW,
-        yOpacimetro - 3,
-        seloW,
-        seloH,
-      );
+      // O arquivo enviado no cadastro costuma vir com bastante espaço em
+      // branco ao redor do selo de verdade (recorte de print feito à mão)
+      // — apara essa margem antes de desenhar, senão aumentar o tamanho só
+      // aumenta o vazio, não o selo em si.
+      const seloAparado = await sharp(seloBuf).trim().png().toBuffer();
+      const props = doc.getImageProperties(seloAparado);
+      const razao = props.width / props.height;
+      const yImagemSelo = y + 14;
+      const espacoDisponivel = doc.internal.pageSize.getHeight() - yImagemSelo - 20;
+      let seloH = Math.min(70, espacoDisponivel);
+      let seloW = seloH * razao;
+      const larguraMax = pageW - margin * 2;
+      if (seloW > larguraMax) {
+        seloW = larguraMax;
+        seloH = seloW / razao;
+      }
+      doc.addImage(seloAparado, "PNG", (pageW - seloW) / 2, yImagemSelo, seloW, seloH);
     } catch {
-      // imagem em formato não suportado pelo jsPDF — segue sem travar a emissão
-      seloW = 0;
+      // imagem em formato não suportado (pelo sharp ou pelo jsPDF) — segue sem travar a emissão
     }
-  }
-
-  // QR code de verificação pública — mesma posição (canto direito do bloco
-  // "Dados do Opacímetro/Software") do QR code impresso pelo Syscon no
-  // laudo original, mas gerado por nós e apontando pra nossa própria
-  // página de verificação (o QR do Syscon aponta pro sistema deles, sem
-  // utilidade nenhuma fora de lá).
-  try {
-    const qrDataUrl = await QRCode.toDataURL(`${COMPANY.siteUrl}/laudo/${codigoPublico}`, { margin: 0, width: 240 });
-    doc.addImage(qrDataUrl, "PNG", pageW - margin - qrSize, yOpacimetro - 3, qrSize, qrSize);
-  } catch {
-    // geração de QR code falhou — segue sem travar a emissão
   }
 
   rodape();

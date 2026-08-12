@@ -702,7 +702,15 @@ legal de `/sobre` estático de propósito) — **não tem telefone/whatsapp**
 - **`arquivos-internos`** — **privado**, acesso via signed URL
   (`src/lib/storage/upload.ts:signedUrl`, expira em 1h por padrão). Guarda
   fotos do ensaio, PDF original do Syscon, certificados de calibração,
-  imagem de assinatura do responsável técnico — nada disso é público.
+  imagem de assinatura do responsável técnico, selo do equipamento — nada
+  disso é público. `upload.ts` também exporta `baixarArquivoInterno`
+  (baixa como `Buffer`) e `detectarTipoArquivo` (sniff por assinatura de
+  bytes — `%PDF`/JPEG/PNG/RIFF+WEBP, não confia na extensão do path);
+  usados pelo gerador de laudo (seção 8.6) e pela tela de editar
+  equipamento, que mostra o certificado/selo já salvos como prévia
+  (`FileDropInput` com `previaAtualUrl` — e `previaAtualEhImagem={false}`
+  quando o certificado é mesmo um PDF, já que aí não dá pra usar
+  `<Image>`) em vez de uma área de upload vazia.
 
 ## 7. Estrutura de rotas (App Router)
 
@@ -1239,18 +1247,26 @@ documento, não inconsistência.
 - Altitude, temperatura aferida e RPM tolerado (linhas que existem no
   relatório do Syscon) não têm fonte confiável em nenhum lugar do sistema
   — **omitidos**, não fabricados.
-- **QR code + selo do fabricante**, canto inferior direito de "Dados do
-  Opacímetro/Software" (pedido explícito: manter esse formato do relatório
-  original). QR é gerado de verdade a cada laudo (`qrcode`,
-  `QRCode.toDataURL`) codificando `${COMPANY.siteUrl}/laudo/
-  {codigoPublico}` — a verificação pública **da nossa própria plataforma**,
-  não uma cópia do QR do Syscon (que aponta pra algo fora do nosso
-  controle). O selo (ex. carimbo "Smoke Check 2000 — Opacímetro Portátil")
-  é opcional e vem de `equipamentos_teste.selo_imagem_path` (seção 6.8,
-  migration `0029`) — desenhado à esquerda do QR, escalado
-  proporcionalmente pra 16mm de altura; se o equipamento não tiver selo
-  cadastrado, essa parte simplesmente não aparece (não inventamos a
-  imagem).
+- **Selo do fabricante**, grande e centralizado no espaço em branco entre
+  "Dados do Opacímetro/Software" e o rodapé. Opcional, vem de
+  `equipamentos_teste.selo_imagem_path` (seção 6.8, migration `0029`); se o
+  equipamento não tiver selo cadastrado, essa parte simplesmente não
+  aparece (não inventamos a imagem). Chegou a existir um QR code gerado à
+  parte (pacote `qrcode`) do lado do selo, apontando pra
+  `{siteUrl}/laudo/{codigoPublico}` — **removido a pedido da gerência**,
+  que preferiu manter só o selo do laudo original, sem elemento extra
+  nosso.
+  - **Corta a margem em branco da imagem antes de desenhar** (`sharp(buf).
+    trim().png().toBuffer()`) — o arquivo que o usuário sobe no cadastro
+    costuma ser um recorte de print feito à mão, com bastante espaço vazio
+    ao redor do selo de verdade; sem o corte, aumentar o tamanho do bloco
+    só aumentava o vazio, não o selo em si (foi exatamente o que aconteceu
+    numa primeira versão maior sem o `trim`).
+  - Altura alvo de 70mm, mas cede dinamicamente ao espaço vertical real
+    que sobra na página (`pageHeight - yImagemSelo - 20`) e nunca invade o
+    rodapé; largura tem um teto de segurança (`pageW - margin*2`) pro caso
+    de uma imagem muito mais larga que alta. Sempre centralizado
+    horizontalmente.
 
 **Só a página 3 (certificado de calibração) ainda pode ser um documento
 de terceiro mesclado tal como é** — não redesenhamos um certificado de
