@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /** Monta o payload comum a criar/editar — inclusive o upsert de especificacoes_motor, que as duas ações usam igual. */
@@ -91,7 +91,7 @@ async function montarPayloadVeiculo(admin: ReturnType<typeof createAdminClient>,
 }
 
 export async function salvarVeiculo(formData: FormData) {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("clientes");
   const clienteId = String(formData.get("cliente_id"));
   const admin = createAdminClient();
   const payload = await montarPayloadVeiculo(admin, clienteId, formData);
@@ -104,7 +104,7 @@ export async function salvarVeiculo(formData: FormData) {
 }
 
 export async function atualizarVeiculo(veiculoId: string, formData: FormData) {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("clientes");
   const clienteId = String(formData.get("cliente_id"));
   const admin = createAdminClient();
   const payload = await montarPayloadVeiculo(admin, clienteId, formData);

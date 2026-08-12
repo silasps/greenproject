@@ -1,9 +1,9 @@
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ServicoForm } from "../servico-form";
 
 export default async function NovoServicoPage() {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   return (
     <div>
       <ConfirmLeaveButton to="/painel/servicos" label="← Voltar" variant="link" className="px-0 text-neutral-500" />

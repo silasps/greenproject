@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { diasRestantes } from "@/lib/laudo/validade";
 import { formatTelefone } from "@/lib/utils/mascaras";
@@ -12,7 +12,7 @@ function badge(dias: number): { label: string; classe: string } {
 }
 
 export default async function TestesVencendoPage() {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("testes");
   const supabase = await createClient();
 
   const { data: dadosEmpresa } = await supabase.from("dados_empresa").select("dias_alerta_vencimento").single();

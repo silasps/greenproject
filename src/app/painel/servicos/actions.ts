@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadArquivo, publicUrl } from "@/lib/storage/upload";
 
@@ -46,7 +46,7 @@ async function subirImagemSeNecessario(
 }
 
 export async function salvarServico(formData: FormData) {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
 
   const idExistente = String(formData.get("id") || "");
   const servicoId = idExistente || crypto.randomUUID();
@@ -154,7 +154,7 @@ export async function salvarServico(formData: FormData) {
 }
 
 export async function excluirServico(id: string) {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const admin = createAdminClient();
   const { error } = await admin.from("servicos").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -163,7 +163,7 @@ export async function excluirServico(id: string) {
 }
 
 export async function alternarPublicado(id: string, publicado: boolean) {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const admin = createAdminClient();
   const { error } = await admin.from("servicos").update({ publicado }).eq("id", id);
   if (error) throw new Error(error.message);
@@ -172,7 +172,7 @@ export async function alternarPublicado(id: string, publicado: boolean) {
 }
 
 export async function alternarExibirNaHome(id: string, exibirNaHome: boolean) {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const admin = createAdminClient();
   const { error } = await admin.from("servicos").update({ exibir_na_home: exibirNaHome }).eq("id", id);
   if (error) throw new Error(error.message);
@@ -181,7 +181,7 @@ export async function alternarExibirNaHome(id: string, exibirNaHome: boolean) {
 }
 
 export async function moverOrdem(id: string, direcao: "cima" | "baixo") {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const admin = createAdminClient();
 
   const { data: servicos, error } = await admin

@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadArquivo, publicUrl } from "@/lib/storage/upload";
 import { HERO_SERVICO_MAX, HERO_DESCRICAO_MAX } from "@/lib/content/hero-slides";
 
 export async function salvarSlide(formData: FormData) {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
 
   const idExistente = String(formData.get("id") || "");
   const slideId = idExistente || crypto.randomUUID();
@@ -69,7 +69,7 @@ export async function salvarSlide(formData: FormData) {
 }
 
 export async function excluirSlide(id: string) {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const admin = createAdminClient();
 
   const { count } = await admin.from("hero_slides").select("id", { count: "exact", head: true });
@@ -84,7 +84,7 @@ export async function excluirSlide(id: string) {
 }
 
 export async function moverOrdemSlide(id: string, direcao: "cima" | "baixo") {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const admin = createAdminClient();
 
   const { data: slides, error } = await admin.from("hero_slides").select("id, ordem").order("ordem");

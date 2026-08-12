@@ -1,10 +1,10 @@
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ResponsavelForm } from "../responsavel-form";
 
 export default async function NovoResponsavelPage() {
-  await requireRole(["gerencia"]);
+  await requireArea("responsaveis_tecnicos");
   const supabase = await createClient();
   const { data: usuarios } = await supabase.from("usuarios_perfis").select("id, nome").order("nome");
 

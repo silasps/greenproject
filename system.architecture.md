@@ -102,6 +102,12 @@ Três variantes, **nunca** misturar:
     `null`.
   - `requireRole(roles[])` — chama `requireAuth()`, redireciona pra
     `/acesso-negado` se o `role` não estiver na lista.
+  - `requireArea(area: KpiSecaoKey)` — gate alternativo, **não** baseado no
+    `role` fixo da conta: resolve acesso pelo mesmo mecanismo de
+    cargo/pessoa de `getSecoesVisiveis` (seção 6.18). Usado só por
+    `/painel/site/**` e `/painel/servicos/**` (ver seção 10) — a gerência
+    pode liberar essa área pra outros cargos via toggle em Configurações,
+    sem tocar em código.
 - `src/lib/auth/permissions.ts`:
   - `Role = "tecnico" | "escritorio" | "gerencia"`, com hierarquia
     numérica (`10/50/80`) usada por `getRoleLevel`.
@@ -109,10 +115,11 @@ Três variantes, **nunca** misturar:
     string de role direto): `canVerAgendaCompleta`, `canGerenciarClientes`,
     `canGerenciarEquipamentos`, `canGerenciarEspecificacoesMotor`,
     `canImportarPdfSyscon`, `canRevisarELiberarLaudo`,
-    `canGerenciarUsuarios`, `canGerenciarResponsaveisTecnicos`,
-    `canGerenciarSite` (serviços + informações de contato do site, ver
-    seção 10) — todas `>= escritorio` exceto liberar laudo/gerenciar
-    usuários/responsáveis técnicos/site, que são `gerencia`-only.
+    `canGerenciarUsuarios`, `canGerenciarResponsaveisTecnicos` — todas
+    `>= escritorio` exceto liberar laudo/gerenciar usuários/responsáveis
+    técnicos, que são `gerencia`-only. **Não existe `canGerenciarSite`** —
+    acesso a `/painel/site` é o único caso que usa `requireArea` (acima)
+    em vez de uma função de permissão fixa por role.
   - `usuarios_perfis.is_superadmin` (migration 0022): flag adicional sobre
     a conta gerência, não um novo nível de role — permite "vestir" a sessão
     de outro usuário (impersonação) pra validar o que cada papel vê.
@@ -445,6 +452,73 @@ cards resultantes (`KpiCard`, `src/components/kpi-card.tsx`) aparecem no
 dashboard (`/painel/page.tsx`) — ver nota na seção 12, esse item **saiu**
 de "fora de escopo".
 
+**`KpiSecaoDef.tipo: "kpi" | "acesso"`** separa as duas coisas que esse
+catálogo hoje faz: `"kpi"` é card de métrica na tela inicial do painel
+(as 5 seções originais); `"acesso"` controla se a pessoa consegue abrir
+uma área inteira do sistema (hoje só `"site"`, ver abaixo). Os dois
+formulários de toggle (`kpis-por-cargo-form.tsx`,
+`dp/[id]/kpis-pessoa-form.tsx`) filtram por `tipo`
+(`KPI_SECOES_DASHBOARD`/`KPI_SECOES_ACESSO`, exportados de
+`catalogo.ts`) e renderizam dois grupos separados — em DP, dois cards
+**colapsáveis** (`src/components/ui/collapsible.tsx`, wrapper de
+`@base-ui/react/collapsible`, mesmo padrão dos outros primitivos em
+`components/ui/`; ambos começam fechados e usam `keepMounted` no painel
+pra continuar submetendo os dois grupos juntos com o card fechado —
+`salvarUsuarioKpis`/`salvarFuncaoKpis` continuam recebendo **um único
+FormData com as duas seções**, então nunca viraram dois `<form>`
+separados). A resolução em `getSecoesVisiveis` é idêntica pros dois
+tipos — só a apresentação/gravação nos formulários muda:
+
+- **`tipo: "kpi"`** — radio de 3 estados (`SecaoRadios`, tanto em
+  `kpis-por-cargo-form.tsx` quanto em `kpis-pessoa-form.tsx`): "Seguir
+  cargo" apaga o override (volta a herdar), "Sempre mostrar"/"Sempre
+  esconder" grava explícito. É um ajuste pontual em cima do padrão do
+  cargo — pensado pra exceção, não pra configuração permanente.
+- **`tipo: "acesso"`** — checkbox direto (`SecaoCheckboxes` em
+  `kpis-pessoa-form.tsx`, mesmo visual de `GrupoCheckboxes` em
+  `kpis-por-cargo-form.tsx`), **sem** estado "seguir cargo": marcado ou
+  desmarcado grava sempre um valor explícito em `usuarios_kpis`, igual ao
+  que já acontecia por cargo em `funcoes_kpis`/`salvarFuncaoKpis`. Não dá
+  pra "resetar" pra seguir o cargo por essa UI — é a mesma limitação que
+  já existia no toggle por cargo, só replicada por pessoa.
+
+**Chaves com `tipo: "acesso"`** não viram card do dashboard
+(`/painel/page.tsx` não tem `case` pra elas — nenhum fetch, nenhum
+`KpiCard` renderizado). Existem só pra reaproveitar a mesma resolução de
+acesso (pessoa > cargo > nível padrão) como controle de acesso a uma área
+inteira do painel, via `requireArea(key)` (seção 5) em vez de um
+`canGerenciarX` fixo. `nivelPadrao` de cada uma reproduz **exatamente** o
+`requireRole` que a área já tinha hardcoded antes — zero mudança de
+comportamento até a gerência mexer num toggle:
+
+| key | área | `nivelPadrao` |
+| --- | --- | --- |
+| `site` | `/painel/site/**`, `/painel/servicos/**` | gerencia |
+| `testes` | `/painel/testes`, `/painel/testes/vencendo` (lista completa — `/painel/testes/[id]` continua só `requireAuth`, técnico vê o próprio teste) | escritorio |
+| `clientes` | `/painel/clientes/**` | escritorio |
+| `equipamentos` | `/painel/equipamentos/**` | escritorio |
+| `responsaveis_tecnicos` | `/painel/responsaveis-tecnicos/**` | gerencia |
+
+**Departamento Pessoal e Configurações ficaram de fora de propósito** —
+continuam com `requireRole(["gerencia"])`/`canGerenciarUsuarios` fixo, não
+viram `KpiSecaoKey`. DP cria conta, reseta senha e muda role/cargo de
+qualquer pessoa; Configurações é onde os próprios toggles de acesso são
+concedidos. Delegar essas duas áreas abriria escalada de privilégio (uma
+exceção mal pensada daria a alguém sem gerência o poder de se conceder
+mais acesso). Se um dia isso mudar, é decisão deliberada, não just mais
+uma entrada no catálogo.
+
+`canVerAgendaCompleta`/`canGerenciarEquipamentos`/
+`canGerenciarResponsaveisTecnicos` (`src/lib/auth/permissions.ts`) foram
+removidas — ficaram sem uso depois que as áreas que elas gateavam
+migraram pra `requireArea`. `canGerenciarClientes` continua existindo
+porque é reaproveitada dentro de Agenda/Testes (`agenda/actions.ts`,
+`agenda/page.tsx`, `testes/actions.ts`) pra decidir quem pode
+agendar/gerenciar teste pra qualquer cliente — permissão de ação dentro
+de um fluxo, diferente de "pode abrir `/painel/clientes`" (que agora é
+`requireArea("clientes")`). Essas duas coisas usam o mesmo nome de função
+por coincidência histórica, não a mesma regra — não foram unificadas.
+
 ### 6.19 `auditoria_log` (log de auditoria — só ações críticas)
 ```
 id uuid PK, usuario_id uuid references usuarios_perfis(id) on delete set null,
@@ -472,7 +546,7 @@ criado_por/atualizado_por uuid references usuarios_perfis(id),
 criado_em/atualizado_em timestamptz not null default now()
 ```
 Substitui o array hardcoded que existia em `src/lib/content/servicos.ts` —
-gerenciado por `gerencia` em `/painel/servicos` (`canGerenciarSite`, ver
+gerenciado em `/painel/servicos` (acesso via `requireArea("site")`, ver
 seção 10), alcançado a partir do hub `/painel/site`.
 `galeria`/`metodologia` são jsonb (mesmo padrão de `propostas.custos_extras`
 e `testes_opacidade.fotos_extras`, seção 6.13/6.14) em vez de tabelas
@@ -694,6 +768,14 @@ já existia lá.
   Máquinas em Mineradoras** ainda usam fotos de banco de imagens (mesmas
   do site antigo) — a empresa nunca teve foto de campo própria pra esses
   dois; a gerência pode trocar a qualquer momento pelo painel, sem deploy.
+  **`getMosaicImages` intercala 1 foto por serviço a cada rodada** (não
+  pega as N primeiras na ordem de `ordem`) — bug corrigido depois que a
+  gerência relatou que marcar destaque num "4º serviço" não tinha efeito:
+  com Opacidade e Líquido Penetrante sozinhos já somando 5 fotos marcadas
+  (o limite do mosaico), qualquer outro serviço nunca ganhava vaga. Não
+  era a marcação sendo desfeita — ela persistia certinho no banco — só
+  nunca aparecia. O round-robin garante que todo serviço com pelo menos
+  1 foto marcada entra antes de qualquer serviço "duplicar" com uma 2ª.
 - **`Hero` (`marketing/hero.tsx`)** — carrossel de fundo com 1 slide por
   serviço (`SLIDES`, mesmo array que gera os cards), migração
   automática a cada `SLIDE_INTERVAL_MS` (5s), pausada se

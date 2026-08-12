@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { formatCpfCnpj } from "@/lib/utils/documento";
 import { diasRestantes } from "@/lib/laudo/validade";
@@ -14,7 +14,7 @@ function badgeValidade(validade: string): { label: string; classe: string } {
 }
 
 export default async function ClienteDetalhePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("clientes");
   const { id } = await params;
   const supabase = await createClient();
 

@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ArrowRight, Wrench, Building2, Images } from "lucide-react";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { VerNoSiteButton } from "@/components/ver-no-site-button";
 import { ContatoForm } from "./contato-form";
 
 export default async function SitePainelPage() {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const supabase = await createClient();
   const { data: dadosEmpresa } = await supabase
     .from("dados_empresa")

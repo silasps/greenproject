@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { VerNoSiteButton } from "@/components/ver-no-site-button";
@@ -7,7 +7,7 @@ import { getServicos } from "@/lib/content/servicos";
 import { SlideForm, type SlideParaEditar } from "../../slide-form";
 
 export default async function EditarSlidePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const { id } = await params;
   const supabase = await createClient();
 

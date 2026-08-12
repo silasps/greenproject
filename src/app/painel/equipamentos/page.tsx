@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateBr } from "@/lib/utils/data";
 
 export default async function EquipamentosPage() {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("equipamentos");
   const supabase = await createClient();
   const { data: equipamentos } = await supabase
     .from("equipamentos_teste")

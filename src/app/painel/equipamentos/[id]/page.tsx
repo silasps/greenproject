@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { signedUrl } from "@/lib/storage/upload";
 import { formatDateBr } from "@/lib/utils/data";
@@ -9,7 +9,7 @@ import { ImagePreview } from "@/components/image-preview";
 const IMAGE_EXT = ["jpg", "jpeg", "png", "webp", "gif"];
 
 export default async function EquipamentoDetalhePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("equipamentos");
   const { id } = await params;
   const supabase = await createClient();
 

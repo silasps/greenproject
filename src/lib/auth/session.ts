@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Role } from "@/lib/auth/permissions";
 import { getLoginDestination } from "@/lib/auth/permissions";
+import { getSecoesVisiveis } from "@/lib/kpis/visibilidade";
+import type { KpiSecaoKey } from "@/lib/kpis/catalogo";
 
 export type Perfil = {
   id: string;
@@ -39,6 +41,22 @@ export async function requireAuth() {
 export async function requireRole(allowedRoles: readonly Role[]) {
   const session = await requireAuth();
   if (!allowedRoles.includes(session.perfil.role)) {
+    redirect("/acesso-negado");
+  }
+  return session;
+}
+
+/**
+ * Gate de acesso a uma área configurável por cargo/pessoa (mesma resolução
+ * de src/lib/kpis/visibilidade.ts: exceção da pessoa > override do cargo >
+ * nível padrão do catálogo). Diferente de requireRole, que só olha o role
+ * fixo (tecnico/escritorio/gerencia) da conta.
+ */
+export async function requireArea(area: KpiSecaoKey) {
+  const session = await requireAuth();
+  const supabase = await createClient();
+  const secoesVisiveis = await getSecoesVisiveis(supabase, session.perfil);
+  if (!secoesVisiveis.has(area)) {
     redirect("/acesso-negado");
   }
   return session;

@@ -219,9 +219,18 @@ export async function salvarUsuarioKpis(formData: FormData) {
   const paraCargo: string[] = [];
   const paraUpsert: { usuario_id: string; kpi_secao: string; visivel: boolean }[] = [];
   for (const secao of KPI_SECOES) {
-    const valor = String(formData.get(`kpi_${secao.key}`) ?? "cargo");
-    if (valor === "cargo") paraCargo.push(secao.key);
-    else paraUpsert.push({ usuario_id: usuarioId, kpi_secao: secao.key, visivel: valor === "mostrar" });
+    if (secao.tipo === "kpi") {
+      // Exceção de KPI: radio de 3 estados — "cargo" apaga qualquer
+      // override existente (volta a seguir o cargo).
+      const valor = String(formData.get(`kpi_${secao.key}`) ?? "cargo");
+      if (valor === "cargo") paraCargo.push(secao.key);
+      else paraUpsert.push({ usuario_id: usuarioId, kpi_secao: secao.key, visivel: valor === "mostrar" });
+    } else {
+      // Acesso: checkbox direto, mesmo padrão do cargo em
+      // salvarFuncaoKpis (configuracoes/actions.ts) — sempre grava um
+      // valor explícito, não tem estado "seguir cargo" pra essa pessoa.
+      paraUpsert.push({ usuario_id: usuarioId, kpi_secao: secao.key, visivel: formData.get(`kpi_${secao.key}`) === "on" });
+    }
   }
 
   const admin = createAdminClient();

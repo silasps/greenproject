@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { KPI_SECOES } from "@/lib/kpis/catalogo";
+import { KPI_SECOES_DASHBOARD, KPI_SECOES_ACESSO, type KpiSecaoDef } from "@/lib/kpis/catalogo";
 import { getRoleLevel, ROLE_LEVEL, ROLE_LABELS, type Role } from "@/lib/auth/permissions";
 import { salvarFuncaoKpis } from "./actions";
 
@@ -13,10 +13,10 @@ type OverridesPorCargo = Record<string, Record<string, boolean>>;
 export function KpisPorCargoForm({ funcoes, overrides }: { funcoes: Funcao[]; overrides: OverridesPorCargo }) {
   return (
     <div className="mt-8">
-      <h2 className="text-lg font-semibold text-neutral-900">Visibilidade de KPIs por cargo</h2>
+      <h2 className="text-lg font-semibold text-neutral-900">Visibilidade e acesso por cargo</h2>
       <p className="text-sm text-neutral-500">
-        O que cada cargo vê por padrão na tela inicial do painel. Pra abrir exceção pra uma pessoa específica sem
-        mudar o cargo dela, use a ficha dela em DP.
+        O que cada cargo vê por padrão na tela inicial do painel e quais áreas do sistema consegue abrir. Pra abrir
+        exceção pra uma pessoa específica sem mudar o cargo dela, use a ficha dela em DP.
       </p>
 
       {funcoes.length === 0 && <p className="mt-4 text-sm text-neutral-500">Nenhum cargo cadastrado ainda.</p>}
@@ -48,8 +48,30 @@ function LinhaCargo({ funcao, overridesCargo }: { funcao: Funcao; overridesCargo
           {pending ? "..." : "Salvar"}
         </Button>
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
-        {KPI_SECOES.map((secao) => {
+      <GrupoCheckboxes titulo="Tela inicial do painel" secoes={KPI_SECOES_DASHBOARD} funcao={funcao} overridesCargo={overridesCargo} comBorda={false} />
+      <GrupoCheckboxes titulo="Acesso a áreas do sistema" secoes={KPI_SECOES_ACESSO} funcao={funcao} overridesCargo={overridesCargo} comBorda />
+    </form>
+  );
+}
+
+function GrupoCheckboxes({
+  titulo,
+  secoes,
+  funcao,
+  overridesCargo,
+  comBorda,
+}: {
+  titulo: string;
+  secoes: KpiSecaoDef[];
+  funcao: Funcao;
+  overridesCargo: Record<string, boolean>;
+  comBorda: boolean;
+}) {
+  return (
+    <div className={comBorda ? "mt-3 border-t border-neutral-100 pt-3" : "mt-3"}>
+      <p className="text-xs font-medium tracking-wide text-neutral-400 uppercase">{titulo}</p>
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+        {secoes.map((secao) => {
           const padrao = getRoleLevel(funcao.nivel_acesso) >= ROLE_LEVEL[secao.nivelPadrao];
           const valorAtual = overridesCargo[secao.key] ?? padrao;
           return (
@@ -64,6 +86,6 @@ function LinhaCargo({ funcao, overridesCargo }: { funcao: Funcao; overridesCargo
           );
         })}
       </div>
-    </form>
+    </div>
   );
 }

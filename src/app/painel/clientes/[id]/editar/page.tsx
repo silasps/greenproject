@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ClienteForm } from "../../cliente-form";
@@ -11,7 +11,7 @@ export default async function EditarClientePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ voltar?: string }>;
 }) {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("clientes");
   const { id } = await params;
   const { voltar } = await searchParams;
   const supabase = await createClient();

@@ -1,9 +1,9 @@
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ClienteForm } from "../cliente-form";
 
 export default async function NovoClientePage() {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("clientes");
   return (
     <div className="mx-auto max-w-lg">
       <ConfirmLeaveButton to="/painel/clientes" label="← Voltar" variant="link" className="px-0 text-neutral-500" />

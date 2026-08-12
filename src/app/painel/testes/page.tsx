@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { diasRestantes } from "@/lib/laudo/validade";
 import { TestesListaCliente, type LinhaTeste } from "./testes-lista-cliente";
 import { NovoTesteButton } from "./novo-teste-button";
 
 export default async function TestesPage() {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("testes");
   const supabase = await createClient();
 
   const [{ data }, { data: dadosEmpresa }, { data: validades }] = await Promise.all([

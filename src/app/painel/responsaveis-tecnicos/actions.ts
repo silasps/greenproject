@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadArquivo } from "@/lib/storage/upload";
 
 export async function salvarResponsavelTecnico(formData: FormData) {
-  await requireRole(["gerencia"]);
+  await requireArea("responsaveis_tecnicos");
 
   const nome = String(formData.get("nome")).trim();
   const formacao = String(formData.get("formacao") || "").trim();

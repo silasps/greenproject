@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { formatCpfCnpj } from "@/lib/utils/documento";
 
 export default async function ClientesPage() {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("clientes");
   const supabase = await createClient();
   const { data: clientes } = await supabase
     .from("clientes")

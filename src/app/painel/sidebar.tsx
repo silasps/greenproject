@@ -19,7 +19,7 @@ import {
   ClipboardCheck,
   Globe,
 } from "lucide-react";
-import { ROLE_LABELS, canVerAgendaCompleta, type Role } from "@/lib/auth/permissions";
+import { ROLE_LABELS, type Role } from "@/lib/auth/permissions";
 import type { UsuarioImpersonavel } from "@/lib/auth/impersonation";
 import { LogoutButton } from "./logout-button";
 import { IdentitySwitcher } from "./identity-switcher";
@@ -128,10 +128,12 @@ export function Sidebar({
     }
   }, [pathname]);
 
-  // Mesma ideia em Testes, mas só pra quem tem a lista (escritório+) — um
-  // técnico executando o teste dele em /painel/testes/[id] não devia ver um
-  // menu de filtros de uma lista que ele nem acessa.
-  const naTestes = emAreaTestes && canVerAgendaCompleta(perfil.role);
+  // Mesma ideia em Testes, mas só pra quem tem a lista — um técnico
+  // executando o teste dele em /painel/testes/[id] não devia ver um menu de
+  // filtros de uma lista que ele nem acessa. Deriva de navItems (já filtrado
+  // por acesso em layout.tsx) em vez de checar role direto, pra acompanhar
+  // qualquer exceção de cargo/pessoa liberada em Configurações.
+  const naTestes = emAreaTestes && navItems.some((item) => item.key === "testes");
 
   const navPrincipal = (
     <nav className="flex-1 space-y-1 px-3">

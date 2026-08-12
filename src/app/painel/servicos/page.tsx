@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { VerNoSiteButton } from "@/components/ver-no-site-button";
 import { ServicoLinha } from "./servico-linha";
 
 export default async function ServicosPainelPage() {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const supabase = await createClient();
   const { data: servicos } = await supabase
     .from("servicos")

@@ -1,9 +1,9 @@
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { VeiculoForm } from "../veiculo-form";
 
 export default async function NovoVeiculoPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("clientes");
   const { id } = await params;
   return (
     <div className="mx-auto max-w-lg">

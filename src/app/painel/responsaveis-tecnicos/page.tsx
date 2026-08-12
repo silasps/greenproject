@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ResponsaveisTecnicosPage() {
-  await requireRole(["gerencia"]);
+  await requireArea("responsaveis_tecnicos");
   const supabase = await createClient();
   const { data: responsaveis } = await supabase
     .from("responsaveis_tecnicos")

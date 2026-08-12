@@ -122,24 +122,36 @@ export async function getMosaicImages(limit = 5): Promise<MosaicImage[]> {
 
   if (error) throw new Error(`Falha ao carregar mosaico: ${error.message}`);
 
-  const pool: MosaicImage[] = [];
+  // Fotos marcadas em destaque, agrupadas por serviço (capa primeiro, depois
+  // galeria, na ordem em que aparecem no cadastro).
+  const porServico: MosaicImage[][] = [];
   for (const row of (data ?? []) as Pick<
     ServicoRow,
     "slug" | "titulo" | "cover_image_url" | "cover_image_alt" | "cover_destaque_mosaico" | "galeria"
   >[]) {
+    const fotos: MosaicImage[] = [];
     if (row.cover_destaque_mosaico) {
-      pool.push({
-        src: row.cover_image_url,
-        alt: row.cover_image_alt,
-        label: row.titulo,
-        servicoSlug: row.slug,
-      });
+      fotos.push({ src: row.cover_image_url, alt: row.cover_image_alt, label: row.titulo, servicoSlug: row.slug });
     }
     for (const imagem of row.galeria) {
       if (imagem.destaque_mosaico) {
-        pool.push({ src: imagem.url, alt: imagem.alt, label: row.titulo, servicoSlug: row.slug });
+        fotos.push({ src: imagem.url, alt: imagem.alt, label: row.titulo, servicoSlug: row.slug });
       }
     }
+    if (fotos.length > 0) porServico.push(fotos);
   }
-  return pool.slice(0, limit);
+
+  // Intercala 1 foto por serviço a cada rodada, em vez de simplesmente
+  // pegar as N primeiras na ordem dos serviços. Sem isso, um serviço com
+  // várias fotos marcadas (ex.: capa + 2 da galeria) sozinho já enche as 5
+  // vagas do mosaico, e marcar uma foto de um 4º/5º serviço nunca aparece
+  // — não é a marcação que "desativa sozinha", ela só nunca ganha vaga.
+  const pool: MosaicImage[] = [];
+  for (let rodada = 0; pool.length < limit && porServico.some((fotos) => fotos.length > rodada); rodada++) {
+    for (const fotos of porServico) {
+      if (pool.length >= limit) break;
+      if (fotos[rodada]) pool.push(fotos[rodada]);
+    }
+  }
+  return pool;
 }
