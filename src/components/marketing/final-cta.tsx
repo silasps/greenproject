@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
-import { COMPANY } from "@/lib/legal/company-info";
 import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
 import { ScrollReveal } from "./scroll-reveal";
 
@@ -12,11 +11,13 @@ export function FinalCta({
   headline,
   description,
   whatsappMessage,
+  whatsapp,
 }: {
   eyebrow?: string;
   headline: string;
   description: string;
   whatsappMessage: string;
+  whatsapp: string;
 }) {
   return (
     <section className="bg-background py-16 sm:py-20">
@@ -33,7 +34,7 @@ export function FinalCta({
           <p className="mx-auto mt-4 max-w-xl text-lg text-white/70">{description}</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link
-              href={linkWhatsapp(COMPANY.whatsapp, whatsappMessage)}
+              href={linkWhatsapp(whatsapp, whatsappMessage)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand px-6 py-3 font-semibold text-white hover:bg-brand-dark"

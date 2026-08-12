@@ -45,7 +45,8 @@ export const canGerenciarUsuarios = (role: string | null | undefined) =>
 export const canGerenciarResponsaveisTecnicos = (role: string | null | undefined) =>
   getRoleLevel(role) >= ROLE_LEVEL.gerencia;
 
-export const canGerenciarServicos = (role: string | null | undefined) =>
+// Serviços, informações de contato do site etc. — tudo dentro de /painel/site.
+export const canGerenciarSite = (role: string | null | undefined) =>
   getRoleLevel(role) >= ROLE_LEVEL.gerencia;
 
 export const canExcluirTeste = (role: string | null | undefined) => getRoleLevel(role) >= ROLE_LEVEL.gerencia;

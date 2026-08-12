@@ -2,6 +2,11 @@ import type { MetadataRoute } from "next";
 import { COMPANY } from "@/lib/legal/company-info";
 import { getServicos } from "@/lib/content/servicos";
 
+// Sem isso o Next cacheia a lista de serviços no build (mesmo motivo do
+// (public)/layout.tsx) — um serviço novo criado no painel não apareceria
+// aqui sem redeploy.
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = COMPANY.siteUrl;
   const servicos = await getServicos();

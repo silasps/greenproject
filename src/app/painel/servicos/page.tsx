@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { VerNoSiteButton } from "@/components/ver-no-site-button";
 import { ServicoLinha } from "./servico-linha";
 
 export default async function ServicosPainelPage() {
@@ -15,14 +16,17 @@ export default async function ServicosPainelPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-neutral-900">Serviços do site</h1>
-        <Link
-          href="/painel/servicos/novo"
-          className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
-        >
-          Novo serviço
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <VerNoSiteButton href="/servicos" />
+          <Link
+            href="/painel/servicos/novo"
+            className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
+          >
+            Novo serviço
+          </Link>
+        </div>
       </div>
       <p className="mt-2 max-w-2xl text-sm text-neutral-500">
         Controla o que aparece em &ldquo;Serviços&rdquo; no site público — textos, fotos e a

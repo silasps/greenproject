@@ -110,9 +110,9 @@ Três variantes, **nunca** misturar:
     `canGerenciarEquipamentos`, `canGerenciarEspecificacoesMotor`,
     `canImportarPdfSyscon`, `canRevisarELiberarLaudo`,
     `canGerenciarUsuarios`, `canGerenciarResponsaveisTecnicos`,
-    `canGerenciarServicos` — todas `>= escritorio` exceto liberar laudo/
-    gerenciar usuários/responsáveis técnicos/serviços do site, que são
-    `gerencia`-only.
+    `canGerenciarSite` (serviços + informações de contato do site, ver
+    seção 10) — todas `>= escritorio` exceto liberar laudo/gerenciar
+    usuários/responsáveis técnicos/site, que são `gerencia`-only.
   - `usuarios_perfis.is_superadmin` (migration 0022): flag adicional sobre
     a conta gerência, não um novo nível de role — permite "vestir" a sessão
     de outro usuário (impersonação) pra validar o que cada papel vê.
@@ -442,7 +442,7 @@ só `gerencia` escreve. UI: cargo em Configurações → aba "Visibilidade e
 acesso" (`kpis-por-cargo-form.tsx`); pessoa em DP →
 `dp/[id]/kpis-pessoa-form.tsx` (exceção pontual sem mudar o cargo). Os
 cards resultantes (`KpiCard`, `src/components/kpi-card.tsx`) aparecem no
-dashboard (`/painel/page.tsx`) — ver nota na seção 11, esse item **saiu**
+dashboard (`/painel/page.tsx`) — ver nota na seção 12, esse item **saiu**
 de "fora de escopo".
 
 ### 6.19 `auditoria_log` (log de auditoria — só ações críticas)
@@ -472,7 +472,8 @@ criado_por/atualizado_por uuid references usuarios_perfis(id),
 criado_em/atualizado_em timestamptz not null default now()
 ```
 Substitui o array hardcoded que existia em `src/lib/content/servicos.ts` —
-gerenciado por `gerencia` em `/painel/servicos` (`canGerenciarServicos`).
+gerenciado por `gerencia` em `/painel/servicos` (`canGerenciarSite`, ver
+seção 10), alcançado a partir do hub `/painel/site`.
 `galeria`/`metodologia` são jsonb (mesmo padrão de `propostas.custos_extras`
 e `testes_opacidade.fotos_extras`, seção 6.13/6.14) em vez de tabelas
 filhas, porque sempre são lidos/gravados como uma unidade só. RLS: SELECT
@@ -486,12 +487,19 @@ fica travado depois (o form não permite editar), pra não quebrar URL/SEO
 publicado. Upload de foto (capa, galeria, foto de cada etapa da
 metodologia) comprime pra WebP no navegador (`comprimirParaWebp`, mesma
 função usada no wizard de teste) antes de subir pro bucket `servicos`.
-Como o conteúdo agora é dinâmico, `/`, `/servicos` e `/servicos/[slug]`
-deixaram de ser SSG — viraram renderização dinâmica (sem
-`generateStaticParams`), então uma edição no painel aparece no site sem
-precisar de redeploy. `exibir_na_home` (migration 0024) é independente de
-`ordem`: a home mostra os serviços marcados com a estrela em
-`/painel/servicos`, não simplesmente os 3 primeiros da lista.
+Como o conteúdo agora é dinâmico, `/servicos/[slug]` deixou de ter
+`generateStaticParams` (senão um serviço novo exigiria redeploy pra
+existir). **Isso sozinho não bastava**: `(public)/layout.tsx` busca
+`servicos`/`dados_empresa` via `createAdminClient()` (não é `fetch()`
+nativo, então o Next não detecta a rota como dinâmica sozinho) e o Next
+prerenderizava `/`, `/servicos`, `/sitemap.xml` etc. como HTML estático no
+build — uma edição no painel não aparecia no site até o próximo deploy.
+Corrigido com `export const dynamic = "force-dynamic"` em
+`(public)/layout.tsx` (cobre todo o site público, já que o layout busca
+dado dinâmico em toda página) e em `src/app/sitemap.ts`. `exibir_na_home`
+(migration 0024) é independente de `ordem`: a home mostra os serviços
+marcados com a estrela em `/painel/servicos`, não simplesmente os 3
+primeiros da lista.
 
 Na home, o bloco "Nossos serviços" (`marketing/servicos-carousel.tsx`,
 `ServicosCarousel`) é sempre um carrossel — `embla-carousel-react` +
@@ -507,6 +515,43 @@ só o autoplay realmente precisa saber o breakpoint em JS
 (`useSyncExternalStore` + `matchMedia`, mesmo padrão do relógio da sidebar
 do painel), e ativa sempre que sobra serviço fora da vista na tela atual —
 não só no mobile.
+
+### 6.21 `dados_empresa` (singleton — 1 linha só)
+```
+id boolean PK check (id),   -- sempre `true`, trava a tabela em 1 linha
+razao_social/cnpj/endereco/telefone text not null,
+whatsapp text not null,     -- 0025: dígitos com DDI 55, links tel:/wa.me
+dias_alerta_vencimento integer[] not null default '{60,30}',
+updated_at timestamptz not null default now()
+```
+Criada na migration 0015 pro rodapé do PDF de laudo/orçamento
+(`src/lib/laudo/gerar-pdf.ts`), com edição em Configurações → aba
+"Empresa" (seção 8.8). A migration 0025 acrescentou `whatsapp` — mesmo
+telefone da empresa, só que em formato de dígitos (`5531997901568`) em vez
+de texto formatado (`(31) 99790-1568`), porque o site público precisa das
+duas formas (texto pro cabeçalho/rodapé, dígitos pros links `tel:`/`wa.me`
+via `linkWhatsapp()`). RLS: SELECT pra qualquer staff, UPDATE só
+`gerencia`. Leitura pública segue o padrão de `servicos`/`laudo`/`proposta`
+— `getDadosEmpresa()` (`src/lib/legal/dados-empresa.ts`, retorna
+razaoSocial/cnpj/endereco/telefone/whatsapp) usa `createAdminClient()`,
+sem RLS pro visitante anônimo. **Dois lugares gravam a mesma linha**: o
+form completo em Configurações → Empresa (razão social/CNPJ/endereço/
+telefone) e o form simples em `/painel/site` (seção 10, só telefone/
+whatsapp — um único campo digitado, o server action `salvarContato` deriva
+as duas colunas com `formatTelefone`/`onlyDigits` de
+`src/lib/utils/mascaras.ts`, pra nunca ficarem dessincronizadas). Não é
+duplicação de dado, é a mesma tabela vista por duas telas com propósitos
+diferentes.
+
+`COMPANY` (`src/lib/legal/company-info.ts`) continua com cópia estática de
+razão social/CNPJ/endereço (usada em `/termos`, `/privacidade`, `/contato`,
+rodapé do site, rodapé de `/sobre` etc. — **não** foram migrados pra
+`dados_empresa` nessa rodada, só o rodapé do PDF do laudo
+`gerar-pdf.ts` foi tratado, porque `dados_empresa` foi criada
+originalmente pra isso; ver seção 10.1 sobre a decisão de deixar o rodapé
+legal de `/sobre` estático de propósito) — **não tem telefone/whatsapp**
+(removidos de propósito: mudam com frequência, então viraram
+`getDadosEmpresa()`, único lugar que os fornece).
 
 ### Migrations, em ordem (útil pra recriar o histórico exato)
 1. `0001_initial_schema.sql` — tudo de 6.1 a 6.16 (menos as colunas
@@ -552,13 +597,24 @@ não só no mobile.
 24. `0024_servicos_exibir_na_home.sql` — `servicos.exibir_na_home` (ver
     6.20), com os mesmos 3 serviços que já apareciam na home marcados por
     padrão (zero mudança de comportamento no momento da migration).
+25. `0025_dados_empresa_whatsapp.sql` — `dados_empresa.whatsapp` (ver
+    6.21), backfill a partir do número já usado no site.
+26. `0026_pagina_sobre.sql` — cria `pagina_sobre` (ver 10.1), seed com o
+    texto que já existia hardcoded em `(public)/sobre/page.tsx`.
+27. `0027_pagina_sobre_rich_text.sql` — funde `como_trabalhamos_1`/`_2`
+    (ver 10.1) num campo `como_trabalhamos` de HTML só, migrando o
+    conteúdo existente sem perder texto.
+28. `0028_hero_slides.sql` — cria `hero_slides` (ver 10.2), seed dos 7
+    slides que já existiam hardcoded em `marketing/hero.tsx`.
 
 ### Storage buckets (criados fora de migration — via dashboard/CLI, não SQL)
 - **`laudos`** — público, sem limite de tamanho/mime. `${codigo_publico}.pdf`.
 - **`propostas`** — público, mesma config de `laudos`. `${token}.pdf`.
 - **`servicos`** — público, mime restrito a `image/webp|jpeg|png`, limite
   10MB/arquivo. Fotos de capa/galeria/metodologia da tabela `servicos`
-  (seção 6.20), enviadas pelo painel já em WebP.
+  (seção 6.20), enviadas pelo painel já em WebP. Também guarda as fotos do
+  Hero (seção 10.2) sob o prefixo `hero/` — reaproveitado em vez de criar
+  bucket próprio só pra isso.
 - **`arquivos-internos`** — **privado**, acesso via signed URL
   (`src/lib/storage/upload.ts:signedUrl`, expira em 1h por padrão). Guarda
   fotos do ensaio, PDF original do Syscon, certificados de calibração,
@@ -599,10 +655,11 @@ src/app/
     equipamentos/                   # CRUD equipamentos_teste
     responsaveis-tecnicos/          # CRUD responsaveis_tecnicos
     testes/[testeId]/               # execução do ensaio (ver seção 8.3)
-    servicos/                       # CRUD da tabela servicos (ver 6.20) — conteúdo do site público,
-                                     # gerencia-only
+    site/                           # hub "Gerenciamento do site" (ver seção 10), gerencia-only
+    servicos/                       # CRUD da tabela servicos (ver 6.20) — aberto a partir de /painel/site,
+                                     # não tem item próprio na sidebar
     dp/                              # RH — ver seção 9
-    configuracoes/                  # abas: Orçamento (valor/km, fator, tipos de serviço) | Visibilidade e acesso (KPIs por cargo)
+    configuracoes/                  # abas: Orçamento (valor/km, fator, tipos de serviço) | Visibilidade e acesso (KPIs por cargo) | Empresa (razão social/CNPJ/endereço/telefone, ver 6.21/8.8)
 ```
 
 Todo diretório de página tem seu `loading.tsx` (usa
@@ -627,8 +684,8 @@ já existia lá.
 - **`src/lib/content/servicos.ts`** — desde a migration 0023 (ver 6.20),
   lê a tabela `servicos` no Postgres (`getServicos`, `getServicoBySlug`,
   `getMosaicImages`), **não é mais um array hardcoded**. Gerenciado pela
-  gerência em `/painel/servicos` (`canGerenciarServicos`), com upload de
-  foto convertido pra WebP no navegador. Seed inicial (migration 0023)
+  gerência em `/painel/servicos` (`canGerenciarSite`, ver seção 10), com
+  upload de foto convertido pra WebP no navegador. Seed inicial (migration 0023)
   reproduziu os **7 serviços** que existiam no array antigo; Opacidade e
   Líquido Penetrante tinham fotos 100% reais de campo (3 cada). Transporte
   Escolar, Treinamento PEMT e Apreciação de Risco NR-12 têm cover real mas
@@ -1004,7 +1061,7 @@ depois de enviados, enquanto o laudo não é liberado — `campo-edit-form.tsx`
 troca a que vier preenchida — upload sobrescreve o mesmo path de sempre).
 Bloqueado quando `status='aprovado'` (laudo já é documento oficial
 emitido). Acessível também pelos subpassos da execução em
-`agenda/[id]/page.tsx` (ver nota do stepper na seção 10.14).
+`agenda/[id]/page.tsx` (ver nota do stepper na seção 11.14).
 
 Fotos em qualquer tela de teste (dados de campo, arquivos extras da
 revisão) aparecem como miniatura clicável de 64px
@@ -1055,7 +1112,7 @@ valores com `jspdf-autotable`, rodapé com dados da empresa e link
 Só `gerencia` (`requireRole(["gerencia"])`). `page.tsx` busca tudo em
 paralelo (`Promise.all`) e passa pra `configuracoes-tabs.tsx` (Client
 Component, `Tabs`/`TabsList`/`TabsTrigger`/`TabsContent` de
-`components/ui/tabs.tsx`, primitiva `@base-ui/react/tabs`), duas abas:
+`components/ui/tabs.tsx`, primitiva `@base-ui/react/tabs`), três abas:
 - **Orçamento**: `max-w-2xl`, **ancorado à esquerda, não centralizado**
   (settings de app maduro — Stripe/GitHub/Linear — não centraliza uma
   coluna estreita no meio da tela; isso é padrão de form de criar 1
@@ -1085,6 +1142,11 @@ Component, `Tabs`/`TabsList`/`TabsTrigger`/`TabsContent` de
   seções de KPI cruas, crescendo junto com novas áreas do app e
   derivando os KPIs visíveis a partir do acesso concedido — hoje as duas
   coisas (KPI visível × área acessível) ainda são conceitos separados.
+- **Empresa**: razão social, CNPJ, endereço e telefone — mesma tabela
+  singleton `dados_empresa` (seção 6.21) usada no rodapé do PDF de laudo/
+  orçamento. `DadosEmpresaForm`/`salvarDadosEmpresa`. O telefone aqui é o mesmo
+  campo que `/painel/site` (seção 10) edita por um form mais simples,
+  focado só no que o site público usa.
 
 ## 9. Módulo DP — "Departamento Pessoal" (`src/app/painel/dp/`)
 
@@ -1154,7 +1216,129 @@ sem precisar de state extra no submit. `richTextClasses` (export nomeado)
 read-only do HTML salvo (`dangerouslySetInnerHTML` — conteúdo é sempre
 autoria interna de `gerencia`, nunca input público).
 
-## 10. Padrões de UI/UX que são regra do projeto (não só deste módulo)
+## 10. Módulo Site (`src/app/painel/site/`)
+
+Hub "Gerenciamento do site" — informações do site institucional que
+mudam com frequência sem precisar mexer em código. Só `gerencia`
+(`canGerenciarSite`, ver seção 5), item "Site" na sidebar (ícone `Globe`).
+Antes desse hub, "Serviços" tinha item próprio na sidebar; agora fica
+acessível só a partir daqui, junto de futuras áreas de conteúdo do site.
+Toda página de edição desse módulo (o hub, a lista de serviços, editar um
+serviço, a página Sobre, os slides do Hero) tem um botão **"Ver no site"**
+(`src/components/ver-no-site-button.tsx`, link com `target="_blank"` pro
+trecho correspondente do site público — `/` a partir do hub e dos slides
+do Hero, `/servicos`/`/servicos/{slug}` a partir de Serviços, `/sobre` a
+partir da página Sobre) — sempre visível, sem precisar caçar a URL certa
+pra conferir o resultado.
+
+`page.tsx` mostra:
+- Um card-link pra `/painel/servicos` (seção 6.20) — CRUD completo dos
+  serviços, permanece como página própria por ser grande demais pra caber
+  inline aqui.
+- Um card-link pra `/painel/site/hero` — slides do carrossel da home (ver
+  10.2).
+- Um card-link pra `/painel/site/sobre` — textos de `/sobre` (ver abaixo).
+- **Informações de contato** (`ContatoForm`, inline na própria página, sem
+  navegação extra — deliberadamente simples): **um único campo** de
+  telefone, mascarado com `formatTelefone` (`src/lib/utils/mascaras.ts`,
+  mesmo padrão usado em `dp/pessoa-form.tsx`). O server action
+  `salvarContato` (`src/app/painel/site/actions.ts`) deriva as duas formas
+  que o site precisa a partir desse único valor — texto formatado
+  (`telefone`) e dígitos com DDI 55 (`whatsapp`) — e grava as duas colunas
+  de `dados_empresa` (seção 6.21) numa `update` só. A pessoa nunca edita
+  `whatsapp` diretamente, evitando as duas formas ficarem
+  dessincronizadas.
+
+Esse telefone/whatsapp alimenta o site inteiro: cabeçalho (`tel:` +
+botão de WhatsApp), botão flutuante de WhatsApp, Hero, `FinalCta`,
+`/contato`, cada página de serviço e o JSON-LD `LocalBusiness`/`Service`
+(seção 7.1) — todos client components relevantes recebem o valor via
+props vindas de `(public)/layout.tsx` (que busca uma vez com
+`getDadosEmpresa()`, seção 6.21) ou, nas páginas server-only, buscam
+direto. Nenhum componente client busca o dado sozinho.
+
+### 10.1 Página Sobre (`/painel/site/sobre`)
+
+Tabela singleton `pagina_sobre` (migration 0026, mesmo truque de
+`dados_empresa`/`servicos` — `id boolean primary key default true`):
+`headline`, `introducao` (texto simples), `como_trabalhamos` (HTML rico —
+ver abaixo) e `diferenciais` jsonb (`[{titulo, descricao}]`, sempre 3
+itens). RLS: SELECT staff, UPDATE `gerencia`; leitura pública via
+`getPaginaSobre()` (`src/lib/content/pagina-sobre.ts`), mesmo padrão
+`createAdminClient()` de `servicos`/`dados_empresa`.
+
+`como_trabalhamos` era 2 colunas de parágrafo fixo (`_1`/`_2`) até a
+migration 0027, que uniu num campo só de HTML — a gerência escreve livre e
+quebra em quantos parágrafos quiser, com negrito/itálico/sublinhado/listas
+via `RichTextEditor` (`src/components/rich-text-editor.tsx`, Tiptap —
+mesmo componente já usado em DP → Funções, seção 9.2; ganhou um botão de
+sublinhado nessa rodada, extensão `underline` já vem embutida no
+`StarterKit` v3, só não tinha botão pra ela). Leitura em `/sobre`:
+`dangerouslySetInnerHTML` com `richTextClasses` (mesmo padrão de
+`dp/funcoes/[id]/page.tsx`) — seguro porque só `gerencia` escreve esse
+campo (RLS), mesmo modelo de confiança do resto do rich text no app.
+
+Os **ícones dos 3 diferenciais são fixos no código**
+(`MapPinned`/`ClipboardCheck`/`ShieldCheck`, `ICONES_DIFERENCIAIS` em
+`(public)/sobre/page.tsx`) — a gerência não escolhe ícone, só edita
+título/descrição de cada card, casados por posição (`diferenciais[0]` usa
+sempre o 1º ícone etc.). `SobreForm` (`/painel/site/sobre/sobre-form.tsx`)
+não usa lista dinâmica de adicionar/remover (tamanho fixo em 3) — cada
+diferencial vira 2 campos indexados no FormData
+(`diferencial_0_titulo`/`_descricao` etc.), reconstruídos em array pela
+Server Action `salvarPaginaSobre`.
+
+O bloco "Dados da empresa" no rodapé de `/sobre` (razão social/CNPJ/
+endereço) **continua estático** (`COMPANY`, não `dados_empresa`) — mesmo
+texto usado em `/termos`, `/privacidade`, `/contato` e no rodapé do site;
+deixado de fora deliberadamente pra não descasar desses outros lugares
+sem mexer neles também (fora do pedido original).
+
+### 10.2 Slides da home (Hero, `/painel/site/hero`)
+
+Tabela `hero_slides` (migration 0028): `servico` (até 40 caracteres),
+`descricao` (até 160), `imagem_url`/`imagem_alt`, `posicao`
+(`object-position` CSS, ex. `"30% 62%"`), `link_href` e `ordem` — mesmo
+padrão de RLS/leitura pública de `servicos` (`getHeroSlides()`,
+`src/lib/content/hero-slides.ts`, `createAdminClient()` sem depender de
+RLS pro visitante). `Hero` (`src/components/marketing/hero.tsx`) recebe
+`slides: HeroSlide[]` via prop em vez do array `SLIDES` hardcoded que
+existia antes; `(public)/page.tsx` busca com `getHeroSlides()` e repassa.
+
+**Limites de caracteres são obrigação tripla** (pedido explícito do
+usuário — sem isso o card sobreposto na foto do Hero pode ficar alto
+demais e atropelar o layout): `HERO_SERVICO_MAX`/`HERO_DESCRICAO_MAX`
+(`hero-slides.ts`) valem como `maxLength` no formulário
+(`slide-form.tsx`, com contador de caracteres visível), validação na
+Server Action (`salvarSlide`, `hero/actions.ts`) e `check` no banco
+(migration 0028).
+
+**`link_href` é um `<select>` alimentado por `getServicos()`** (não texto
+livre) — a gerência escolhe o serviço de destino do botão "Saiba mais"
+entre os já cadastrados em `/painel/servicos`, o que impede link quebrado
+por erro de digitação. Componente `Select` do `@base-ui/react` (mesmo
+usado em `equipamentos`/DP), controlado (`value`/`onValueChange`) com
+`name="link_href"` pra viajar no FormData nativo do form.
+
+**`posicao` não é editável pelo formulário do painel** — simplificação
+consciente: os 7 slides herdados do array antigo tinham um recorte
+(object-position) ajustado a dedo por slide, e um formulário completo com
+esse controle seria mais complexo que o benefício justifica. O valor fica
+gravado no banco (usado no `style={{objectPosition}}` do slide) mas troca
+de foto sempre usa a posição já salva; ajuste fino de enquadramento
+continua sendo tarefa de dev, direto no banco, se algum dia for preciso.
+
+O array antigo tinha duas imagens por slide (recorte próprio pra mobile e
+desktop); a tabela nova guarda **uma imagem só** por slide — simplifica o
+formulário do painel e o componente `Hero`, ao custo de não ter mais um
+recorte dedicado pro mobile (aceitável: o `object-position` salvo já cobre
+razoavelmente as duas telas pros 7 slides seed).
+
+**Exclusão é bloqueada se só sobrar 1 slide** (`excluirSlide`, verifica
+`count` antes de apagar) — o carrossel da home sempre precisa de pelo
+menos um slide pra não ficar vazio.
+
+## 11. Padrões de UI/UX que são regra do projeto (não só deste módulo)
 
 1. **Erro de formulário sempre em modal**, nunca texto vermelho inline.
    Componente compartilhado `src/components/error-modal.tsx`
@@ -1267,7 +1451,7 @@ autoria interna de `gerencia`, nunca input público).
     força um app específico e é redundante com essa detecção nativa. Ver
     `montarTextoOrcamentoWhatsapp` em `src/lib/orcamento/texto-whatsapp.ts`.
 
-## 11. Fora de escopo / conhecido como não implementado
+## 12. Fora de escopo / conhecido como não implementado
 
 Pra quem for reconstruir: estas peças **existem no schema ou foram
 cogitadas mas não têm UI/lógica funcionando** — implementar do zero é
@@ -1291,7 +1475,7 @@ opção, não obrigação, pra ter um sistema equivalente ao atual:
   (`agenda/[id]/page.tsx`) — só o modal (8.3) faz isso; a página é
   read-only.
 
-## 12. Como validar uma reconstrução
+## 13. Como validar uma reconstrução
 
 1. `npx tsc --noEmit` e `npm run lint` limpos.
 2. Aplicar as migrations em ordem (`supabase db push`) — reproduz o

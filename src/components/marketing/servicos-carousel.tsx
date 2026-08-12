@@ -85,16 +85,25 @@ export function ServicosCarousel({ servicos }: { servicos: Servico[] }) {
     <div className="relative">
       <div className="overflow-hidden" ref={emblaRef} aria-roledescription="carrossel">
         <div className="-ml-5 flex">
-          {servicos.map((servico, index) => (
+          {servicos.map((servico) => (
             <div
               key={servico.slug}
               className="min-w-0 shrink-0 grow-0 basis-full pl-5 sm:basis-1/2 lg:basis-1/3"
             >
-              <ServicoCard servico={servico} destaque={index === 0} />
+              <ServicoCard servico={servico} />
             </div>
           ))}
         </div>
       </div>
+
+      {/* Fixo no container, não dentro do card — fica parado no lugar
+          enquanto os cards passam por baixo, em vez de rolar junto com o
+          primeiro slide. */}
+      {servicos.length > 0 && (
+        <span className="pointer-events-none absolute top-3 left-3 z-10 rounded-sm bg-brand px-2 py-1 font-mono text-[10px] font-semibold tracking-widest text-white uppercase">
+          Serviço em destaque
+        </span>
+      )}
 
       {servicos.length > 1 && <Setas className="sm:hidden" emblaApi={emblaApi} />}
       {servicos.length > 2 && <Setas className="hidden sm:block lg:hidden" emblaApi={emblaApi} />}

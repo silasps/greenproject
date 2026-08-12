@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MapPinned, ClipboardCheck, ShieldCheck } from "lucide-react";
+import { MapPinned, ClipboardCheck, ShieldCheck, ArrowRight } from "lucide-react";
 import { COMPANY } from "@/lib/legal/company-info";
+import { getPaginaSobre } from "@/lib/content/pagina-sobre";
+import { richTextClasses } from "@/components/rich-text-editor";
 
 export const metadata: Metadata = {
   title: "Sobre | Greenproject Engenharia",
@@ -12,7 +14,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function SobrePage() {
+// Ícones dos 3 diferenciais são fixos no código (não editáveis pela
+// gerência) — só título/descrição vêm do banco, na mesma ordem.
+const ICONES_DIFERENCIAIS = [MapPinned, ClipboardCheck, ShieldCheck];
+
+export default async function SobrePage() {
+  const sobre = await getPaginaSobre();
+
   return (
     <div className="bg-background">
       <section className="border-b border-neutral-200 bg-neutral-50">
@@ -21,58 +29,44 @@ export default function SobrePage() {
             Sobre a Greenproject
           </p>
           <h1 className="mt-3 max-w-3xl text-3xl font-bold text-neutral-900 sm:text-4xl">
-            Engenharia mecânica com responsabilidade técnica, no lugar onde sua
-            operação acontece
+            {sobre.headline}
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-neutral-600">
-            Somos uma empresa de engenharia mecânica e segurança do trabalho voltada a
-            inspeções, testes e laudos técnicos, com atendimento direto na garagem,
-            empresa ou local de operação do cliente.
+            {sobre.introducao}
           </p>
         </div>
       </section>
 
       <section className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
         <h2 className="text-xl font-bold text-neutral-900">Como trabalhamos</h2>
-        <p className="mt-4 leading-7 text-neutral-600">
-          A {COMPANY.razaoSocial} conduz seus ensaios e laudos in loco, evitando que o
-          cliente precise deslocar veículos ou parar a rotina de operação para ser
-          atendido. Cada serviço é conduzido por engenharia especializada, com foco em
-          conformidade, segurança e rastreabilidade dos resultados.
-        </p>
-        <p className="mt-4 leading-7 text-neutral-600">
-          O foco atual da operação é o laudo de opacidade e fumaça preta para frotas a
-          diesel, atendendo aos critérios do CONAMA e do IBAMA. Além dele, oferecemos
-          todo o portfólio de laudos, inspeções e treinamentos de engenharia mecânica e
-          segurança do trabalho listados em{" "}
-          <Link href="/servicos" className="text-brand underline hover:text-brand-dark">
-            nossos serviços
-          </Link>
-          .
-        </p>
+        <div
+          className={`mt-4 text-base leading-7 text-neutral-600 ${richTextClasses}`}
+          dangerouslySetInnerHTML={{ __html: sobre.comoTrabalhamos }}
+        />
+        <Link
+          href="/servicos"
+          className="group/link mt-4 inline-flex items-center gap-2 font-semibold text-brand hover:text-brand-dark"
+        >
+          Ver nosso portfólio de serviços
+          <ArrowRight
+            className="h-4 w-4 transition-transform duration-200 group-hover/link:translate-x-0.5"
+            aria-hidden
+          />
+        </Link>
 
         <div className="mt-10 grid gap-5 sm:grid-cols-3">
-          <div>
-            <MapPinned className="h-5 w-5 text-neutral-500" aria-hidden />
-            <h3 className="mt-3 font-semibold text-neutral-900">Atendimento em campo</h3>
-            <p className="mt-2 text-sm leading-6 text-neutral-600">
-              A equipe vai até você, reduzindo deslocamento e parada da operação.
-            </p>
-          </div>
-          <div>
-            <ClipboardCheck className="h-5 w-5 text-neutral-500" aria-hidden />
-            <h3 className="mt-3 font-semibold text-neutral-900">Registro técnico claro</h3>
-            <p className="mt-2 text-sm leading-6 text-neutral-600">
-              Laudos organizados para auditorias, fiscalizações e gestão interna.
-            </p>
-          </div>
-          <div>
-            <ShieldCheck className="h-5 w-5 text-neutral-500" aria-hidden />
-            <h3 className="mt-3 font-semibold text-neutral-900">Responsabilidade técnica</h3>
-            <p className="mt-2 text-sm leading-6 text-neutral-600">
-              Serviços conduzidos por engenharia especializada, com foco em conformidade.
-            </p>
-          </div>
+          {sobre.diferenciais.map((diferencial, index) => {
+            const Icone = ICONES_DIFERENCIAIS[index];
+            return (
+              <div key={diferencial.titulo}>
+                {Icone && <Icone className="h-5 w-5 text-neutral-500" aria-hidden />}
+                <h3 className="mt-3 font-semibold text-neutral-900">{diferencial.titulo}</h3>
+                <p className="mt-2 text-sm leading-6 text-neutral-600">
+                  {diferencial.descricao}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </section>
 

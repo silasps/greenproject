@@ -5,6 +5,7 @@ import autoTable from "jspdf-autotable";
 import { PDFDocument } from "pdf-lib";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { COMPANY } from "@/lib/legal/company-info";
+import { getDadosEmpresa } from "@/lib/legal/dados-empresa";
 import { textoConclusao } from "./texto-conclusao";
 
 const BRAND: [number, number, number] = [16, 155, 21]; // #109B15
@@ -41,6 +42,7 @@ export async function gerarLaudoPdf({
   );
   const hoje = new Date().toLocaleDateString("pt-BR");
   const veiculoLabel = `${veiculo?.marca ?? ""} ${veiculo?.modelo ?? ""} - ${veiculo?.identificador ?? ""}`.trim();
+  const { razaoSocial, cnpj, endereco, telefone } = await getDadosEmpresa();
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -76,7 +78,7 @@ export async function gerarLaudoPdf({
     doc.setFontSize(7.5);
     doc.setTextColor(120, 120, 120);
     doc.text(
-      `${COMPANY.razaoSocial} · CNPJ ${COMPANY.cnpj} · ${COMPANY.endereco} · ${COMPANY.telefone}`,
+      `${razaoSocial} · CNPJ ${cnpj} · ${endereco} · ${telefone}`,
       pageW / 2,
       h - 8,
       { align: "center" },

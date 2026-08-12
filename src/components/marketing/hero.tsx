@@ -5,157 +5,27 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight, MessageCircle, Phone } from "lucide-react";
-import { COMPANY } from "@/lib/legal/company-info";
 import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
-
-// Um slide por serviço do portfólio (mesmo número que o site antigo usava).
-// Cada slide define o recorte (object-position) ideal pra versão mobile
-// (faixa 3:2 no topo) e desktop (fundo cheio do hero), além do nome do
-// serviço que aparece sobreposto no canto da foto. Todos os 7 já têm página
-// própria em /servicos, então todos ganham descrição + botão "Saiba mais".
-// Nota: "reclassificacao-sinistro" e "mineradoras" ainda usam fotos de banco
-// de imagens — são os únicos 2 serviços sem registro fotográfico próprio da
-// Greenproject até agora. Trocar assim que houver fotos reais.
-const SLIDES = [
-  {
-    servico: "Opacidade / Fumaça Preta",
-    alt: "Opacímetro sendo utilizado durante teste de fumaça preta em campo",
-    desktop: {
-      src: "/hero/opacidade-slide-original.jpg",
-      position: "30% 62%",
-    },
-    mobile: {
-      // recorte próprio pra faixa 3:2 do mobile — evidencia melhor o opacímetro nesse formato
-      src: "/servicos/opacidade-fumaca-preta/opacidade-fumaca-preta-01-hero-mobile-v2.jpg",
-      position: "50% 50%",
-    },
-    cta: {
-      descricao:
-        "Medição da emissão de fumaça em veículos e equipamentos a diesel, com laudo técnico para controle ambiental e regularização.",
-      href: "/servicos/opacidade-fumaca-preta",
-    },
-  },
-  {
-    servico: "Líquido Penetrante",
-    alt: "Técnico da Greenproject aplicando líquido penetrante em gancho de guindaste",
-    desktop: {
-      src: "/hero/liquido-penetrante-slide-original.jpg",
-      position: "72% 38%",
-    },
-    mobile: {
-      src: "/hero/liquido-penetrante-slide-original.jpg",
-      position: "68% 35%",
-    },
-    cta: {
-      descricao:
-        "Ensaio não destrutivo para revelar descontinuidades superficiais em soldas, peças e componentes metálicos.",
-      href: "/servicos/liquido-penetrante",
-    },
-  },
-  {
-    servico: "Vistoria de Transporte Escolar",
-    alt: "Frota de veículos de transporte escolar durante vistoria",
-    desktop: {
-      src: "/hero/transporte-escolar.jpg",
-      position: "60% 55%",
-    },
-    mobile: {
-      src: "/hero/transporte-escolar.jpg",
-      position: "55% 55%",
-    },
-    cta: {
-      descricao:
-        "Inspeção semestral de veículos de transporte escolar conforme a Portaria do DETRAN-MG, com laudo técnico e ART.",
-      href: "/servicos/vistoria-transporte-escolar",
-    },
-  },
-  {
-    servico: "Treinamento PEMT (NR-18)",
-    alt: "Treinamento de operação segura de plataforma elevatória",
-    desktop: {
-      src: "/hero/treinamento-pemt.jpg",
-      position: "50% 30%",
-    },
-    mobile: {
-      src: "/hero/treinamento-pemt.jpg",
-      position: "50% 25%",
-    },
-    cta: {
-      descricao:
-        "Capacitação de operadores de plataformas elevatórias móveis de trabalho conforme a NR-18, com certificado.",
-      href: "/servicos/treinamento-pemt-nr18",
-    },
-  },
-  {
-    servico: "Apreciação de Risco NR-12",
-    alt: "Máquinas e equipamentos em operação de terraplanagem",
-    desktop: {
-      src: "/hero/apreciacao-risco-nr12.jpg",
-      position: "50% 55%",
-    },
-    mobile: {
-      src: "/hero/apreciacao-risco-nr12.jpg",
-      position: "50% 55%",
-    },
-    cta: {
-      descricao:
-        "Análise de risco de máquinas e equipamentos conforme a NR-12, com laudo técnico, plano de ação e ART.",
-      href: "/servicos/apreciacao-risco-nr12",
-    },
-  },
-  {
-    servico: "Reclassificação de Sinistros",
-    alt: "Veículo sinistrado para laudo de reclassificação",
-    desktop: {
-      src: "/hero/reclassificacao-sinistro.jpg",
-      position: "70% 55%",
-    },
-    mobile: {
-      src: "/hero/reclassificacao-sinistro.jpg",
-      position: "65% 55%",
-    },
-    cta: {
-      descricao:
-        "Laudo de recuperabilidade para reclassificar veículos com dano de média ou grande monta, conforme a Resolução Contran nº 810/2020.",
-      href: "/servicos/reclassificacao-sinistro",
-    },
-  },
-  {
-    servico: "Vistoria de Máquinas",
-    alt: "Máquina de mineração em processo de mobilização",
-    desktop: {
-      src: "/hero/mineradoras.jpg",
-      position: "65% 50%",
-    },
-    mobile: {
-      src: "/hero/mineradoras.jpg",
-      position: "60% 50%",
-    },
-    cta: {
-      descricao:
-        "Projetos mecânicos e elétricos de sistemas de segurança de máquinas para mobilização em mineradoras, conforme a NR-12.",
-      href: "/servicos/vistoria-maquinas-mineradoras",
-    },
-  },
-] as const;
+import type { HeroSlide } from "@/lib/content/hero-slides";
 
 const SLIDE_INTERVAL_MS = 5000;
 
-function useHeroSlide() {
+function useHeroSlide(slideCount: number) {
   // prevIndex fica igual a index até a primeira troca — assim nenhum slide
   // nasce marcado como "saindo" no primeiro render.
   const [{ index, prevIndex }, setState] = useState({ index: 0, prevIndex: 0 });
 
   useEffect(() => {
+    if (slideCount <= 1) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const id = setInterval(() => {
       setState((current) => ({
         prevIndex: current.index,
-        index: (current.index + 1) % SLIDES.length,
+        index: (current.index + 1) % slideCount,
       }));
     }, SLIDE_INTERVAL_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [slideCount]);
 
   return { activeIndex: index, prevIndex };
 }
@@ -268,8 +138,8 @@ function SlideLabel({
   );
 }
 
-export function Hero() {
-  const { activeIndex, prevIndex } = useHeroSlide();
+export function Hero({ slides, whatsapp }: { slides: HeroSlide[]; whatsapp: string }) {
+  const { activeIndex, prevIndex } = useHeroSlide(slides.length);
 
   return (
     <motion.section
@@ -282,9 +152,9 @@ export function Hero() {
           no mobile o texto principal fica ancorado embaixo (degradê vertical),
           no desktop fica à esquerda (degradê horizontal) */}
       <div className="absolute inset-0">
-        {SLIDES.map((slide, index) => (
+        {slides.map((slide, index) => (
           <motion.div
-            key={slide.desktop.src}
+            key={slide.id}
             className={`absolute inset-0 ${index === activeIndex ? "" : "pointer-events-none"}`}
             animate={{
               x: slideX(index, activeIndex, prevIndex),
@@ -293,22 +163,13 @@ export function Hero() {
             transition={{ duration: 1, ease: [0.76, 0, 0.24, 1] }}
           >
             <Image
-              src={slide.mobile.src}
-              alt={slide.alt}
+              src={slide.imagemUrl}
+              alt={slide.imagemAlt}
               fill
-              sizes="(max-width: 639px) 100vw, 0px"
+              sizes="100vw"
               preload={index === 0}
-              className="object-cover sm:hidden"
-              style={{ objectPosition: slide.mobile.position }}
-            />
-            <Image
-              src={slide.desktop.src}
-              alt={slide.alt}
-              fill
-              sizes="(min-width: 640px) 100vw, 0px"
-              preload={index === 0}
-              className="hidden object-cover sm:block"
-              style={{ objectPosition: slide.desktop.position }}
+              className="object-cover"
+              style={{ objectPosition: slide.posicao }}
             />
             {/* selo do serviço: no mobile fica encostado no topo da foto, no
                 desktop embaixo à direita — os dois nunca competem com o
@@ -318,7 +179,7 @@ export function Hero() {
               active={index === activeIndex}
               wrapperClassName="sm:items-end sm:justify-end sm:pr-10 sm:pb-10 lg:pr-16"
               cardClassName="text-right"
-              cta={slide.cta}
+              cta={{ descricao: slide.descricao, href: slide.linkHref }}
             />
           </motion.div>
         ))}
@@ -353,7 +214,7 @@ export function Hero() {
           <motion.div variants={item} className="mt-8 flex flex-wrap gap-3">
             <Link
               href={linkWhatsapp(
-                COMPANY.whatsapp,
+                whatsapp,
                 "Olá! Gostaria de solicitar um orçamento para teste de opacidade / fumaça preta."
               )}
               target="_blank"
@@ -364,7 +225,7 @@ export function Hero() {
               Falar no WhatsApp
             </Link>
             <Link
-              href={`tel:+${COMPANY.whatsapp}`}
+              href={`tel:+${whatsapp}`}
               className="inline-flex min-h-11 items-center gap-2 rounded-md border border-white/40 px-6 py-3 font-semibold text-white hover:bg-white/10"
             >
               <Phone className="h-4 w-4" aria-hidden />
@@ -392,9 +253,9 @@ export function Hero() {
           </motion.dl>
 
           <div className="mt-8 flex gap-1.5" role="tablist" aria-label="Serviços em destaque">
-            {SLIDES.map((slide, index) => (
+            {slides.map((slide, index) => (
               <span
-                key={slide.desktop.src}
+                key={slide.id}
                 role="tab"
                 aria-selected={index === activeIndex}
                 className={`h-1 rounded-full transition-all duration-500 ${

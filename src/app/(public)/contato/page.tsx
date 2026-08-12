@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MessageCircle, Phone, Mail, MapPin } from "lucide-react";
 import { COMPANY } from "@/lib/legal/company-info";
+import { getDadosEmpresa } from "@/lib/legal/dados-empresa";
 import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
 import { ContactForm } from "./contact-form";
 
@@ -14,7 +15,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ContatoPage() {
+export default async function ContatoPage() {
+  const { telefone, whatsapp } = await getDadosEmpresa();
+
   return (
     <div className="bg-background">
       <section className="border-b border-neutral-200 bg-neutral-50">
@@ -40,10 +43,7 @@ export default function ContatoPage() {
 
           <div className="space-y-6">
             <Link
-              href={linkWhatsapp(
-                COMPANY.whatsapp,
-                "Olá! Gostaria de falar com a Greenproject."
-              )}
+              href={linkWhatsapp(whatsapp, "Olá! Gostaria de falar com a Greenproject.")}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 rounded-md border border-neutral-200 p-4 hover:border-brand/40"
@@ -51,18 +51,18 @@ export default function ContatoPage() {
               <MessageCircle className="h-5 w-5 shrink-0 text-neutral-500" aria-hidden />
               <div>
                 <p className="text-sm font-semibold text-neutral-900">WhatsApp</p>
-                <p className="text-sm text-neutral-600">{COMPANY.telefone}</p>
+                <p className="text-sm text-neutral-600">{telefone}</p>
               </div>
             </Link>
 
             <Link
-              href={`tel:+${COMPANY.whatsapp}`}
+              href={`tel:+${whatsapp}`}
               className="flex items-center gap-3 rounded-md border border-neutral-200 p-4 hover:border-brand/40"
             >
               <Phone className="h-5 w-5 shrink-0 text-neutral-500" aria-hidden />
               <div>
                 <p className="text-sm font-semibold text-neutral-900">Telefone</p>
-                <p className="text-sm text-neutral-600">{COMPANY.telefone}</p>
+                <p className="text-sm text-neutral-600">{telefone}</p>
               </div>
             </Link>
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { KPI_SECOES } from "@/lib/kpis/catalogo";
+import { onlyDigits, formatTelefone } from "@/lib/utils/mascaras";
 
 export async function salvarValorKm(formData: FormData) {
   await requireRole(["gerencia"]);
@@ -35,23 +36,37 @@ export async function salvarFatorCorrecaoDistancia(formData: FormData) {
   revalidatePath("/painel/configuracoes");
 }
 
+// O telefone salvo aqui é o mesmo número usado no site inteiro (cabeçalho,
+// botão de WhatsApp, "Ligar agora" — ver /painel/site → Informações de
+// contato). Por isso deriva `whatsapp` a partir do mesmo dígitos, com a
+// mesma lógica de salvarContato (src/app/painel/site/actions.ts) — editar
+// só o telefone aqui, sem atualizar o whatsapp junto, deixaria os dois
+// dessincronizados.
 export async function salvarDadosEmpresa(formData: FormData) {
   await requireRole(["gerencia"]);
 
   const razaoSocial = String(formData.get("razao_social") ?? "").trim();
   const cnpj = String(formData.get("cnpj") ?? "").trim();
   const endereco = String(formData.get("endereco") ?? "").trim();
-  const telefone = String(formData.get("telefone") ?? "").trim();
-  if (!razaoSocial || !cnpj || !endereco || !telefone) throw new Error("Preencha todos os dados da empresa.");
+  const digitosTelefone = onlyDigits(String(formData.get("telefone") ?? ""));
+  if (!razaoSocial || !cnpj || !endereco) throw new Error("Preencha todos os dados da empresa.");
+  if (digitosTelefone.length < 10 || digitosTelefone.length > 11) {
+    throw new Error("Telefone inválido — informe DDD + número.");
+  }
+
+  const telefone = formatTelefone(digitosTelefone);
+  const whatsapp = `55${digitosTelefone}`;
 
   const admin = createAdminClient();
   const { error } = await admin
     .from("dados_empresa")
-    .update({ razao_social: razaoSocial, cnpj, endereco, telefone, updated_at: new Date().toISOString() })
+    .update({ razao_social: razaoSocial, cnpj, endereco, telefone, whatsapp, updated_at: new Date().toISOString() })
     .eq("id", true);
   if (error) throw new Error(error.message);
 
   revalidatePath("/painel/configuracoes");
+  revalidatePath("/painel/site");
+  revalidatePath("/", "layout");
 }
 
 export async function criarTipoServico(formData: FormData) {

@@ -17,7 +17,7 @@ import {
   Loader2,
   LayoutDashboard,
   ClipboardCheck,
-  Wrench,
+  Globe,
 } from "lucide-react";
 import { ROLE_LABELS, canVerAgendaCompleta, type Role } from "@/lib/auth/permissions";
 import type { UsuarioImpersonavel } from "@/lib/auth/impersonation";
@@ -80,7 +80,7 @@ const ICONS = {
   equipamentos: Gauge,
   "responsaveis-tecnicos": BadgeCheck,
   dp: Contact,
-  servicos: Wrench,
+  site: Globe,
   configuracoes: Settings,
 } as const;
 

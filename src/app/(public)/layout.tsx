@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { IBM_Plex_Sans, IBM_Plex_Sans_Condensed, IBM_Plex_Mono } from "next/font/google";
 import { MotionConfig } from "motion/react";
 import { COMPANY } from "@/lib/legal/company-info";
+import { getDadosEmpresa } from "@/lib/legal/dados-empresa";
 import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import { PublicHeader } from "@/components/public-header";
@@ -10,26 +10,13 @@ import { JsonLd } from "@/lib/seo/json-ld";
 import { buildLocalBusinessSchema } from "@/lib/seo/schema";
 import { getServicos } from "@/lib/content/servicos";
 
-// Tipografia própria do site público — IBM Plex nasceu como fonte técnica da IBM
-// pra documentação de engenharia, o que conversa direto com "laudo técnico".
-// Escopada só a este layout pra não alterar a tipografia do /painel interno.
-const plexSans = IBM_Plex_Sans({
-  variable: "--font-plex-sans",
-  subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600"],
-});
-
-const plexSansCondensed = IBM_Plex_Sans_Condensed({
-  variable: "--font-plex-sans-condensed",
-  subsets: ["latin", "latin-ext"],
-  weight: ["500", "600", "700"],
-});
-
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
-  subsets: ["latin", "latin-ext"],
-  weight: ["500", "600"],
-});
+// Todo o site público lê `servicos`/`dados_empresa` do banco a cada
+// request (cabeçalho, rodapé e botão de WhatsApp mostram telefone/whatsapp
+// atuais em toda página). Sem isso, o Next detecta as buscas do Supabase
+// como "estáticas" (não são fetch() nativo, então o auto-detect de rota
+// dinâmica não pega) e cacheia o HTML inteiro no build — uma edição no
+// painel não apareceria no site sem novo deploy.
+export const dynamic = "force-dynamic";
 
 const NAV_SECUNDARIA = [
   { href: "/", label: "Início" },
@@ -44,16 +31,15 @@ export default async function PublicLayout({
   children: React.ReactNode;
 }) {
   const servicos = await getServicos();
+  const { telefone, whatsapp } = await getDadosEmpresa();
 
   return (
     // reducedMotion="user" desliga as animações do `motion` para quem tem
     // "reduzir movimento" ativado no sistema operacional.
     <MotionConfig reducedMotion="user">
-      <div
-        className={`public-shell bg-background font-sans ${plexSans.variable} ${plexSansCondensed.variable} ${plexMono.variable} flex min-h-screen flex-col`}
-      >
-        <JsonLd data={buildLocalBusinessSchema()} />
-        <PublicHeader />
+      <div className="flex min-h-screen flex-col bg-background font-sans">
+        <JsonLd data={buildLocalBusinessSchema(telefone)} />
+        <PublicHeader telefone={telefone} whatsapp={whatsapp} />
 
         <main className="flex-1">{children}</main>
 
@@ -93,15 +79,12 @@ export default async function PublicLayout({
                 <ul className="mt-2 space-y-1.5">
                   <li>
                     <Link
-                      href={linkWhatsapp(
-                        COMPANY.whatsapp,
-                        "Olá! Gostaria de falar com a Greenproject."
-                      )}
+                      href={linkWhatsapp(whatsapp, "Olá! Gostaria de falar com a Greenproject.")}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="hover:text-brand"
                     >
-                      WhatsApp {COMPANY.telefone}
+                      WhatsApp {telefone}
                     </Link>
                   </li>
                   <li>
@@ -144,6 +127,7 @@ export default async function PublicLayout({
         <CookieConsentBanner />
         <WhatsappFloatButton
           servicos={servicos.map((servico) => ({ slug: servico.slug, titulo: servico.titulo }))}
+          whatsapp={whatsapp}
         />
       </div>
     </MotionConfig>

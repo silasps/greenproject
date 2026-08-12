@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
+import { VerNoSiteButton } from "@/components/ver-no-site-button";
 import { ServicoForm, type ServicoParaEditar } from "../../servico-form";
 
 export default async function EditarServicoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -19,12 +20,18 @@ export default async function EditarServicoPage({ params }: { params: Promise<{ 
     .maybeSingle();
 
   if (!servico) notFound();
+  const servicoTipado = servico as unknown as ServicoParaEditar;
 
   return (
     <div>
-      <ConfirmLeaveButton to="/painel/servicos" label="← Voltar" variant="link" className="px-0 text-neutral-500" />
-      <h1 className="mt-2 text-2xl font-bold text-neutral-900">Editar serviço</h1>
-      <ServicoForm servico={servico as unknown as ServicoParaEditar} cancelHref="/painel/servicos" />
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <ConfirmLeaveButton to="/painel/servicos" label="← Voltar" variant="link" className="px-0 text-neutral-500" />
+          <h1 className="mt-2 text-2xl font-bold text-neutral-900">Editar serviço</h1>
+        </div>
+        <VerNoSiteButton href={`/servicos/${servicoTipado.slug}`} />
+      </div>
+      <ServicoForm servico={servicoTipado} cancelHref="/painel/servicos" />
     </div>
   );
 }

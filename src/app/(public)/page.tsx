@@ -12,6 +12,8 @@ import { ReviewsSection } from "@/components/marketing/reviews-section";
 import { Faq } from "@/components/marketing/faq";
 import { FinalCta } from "@/components/marketing/final-cta";
 import { getMosaicImages, getServicos } from "@/lib/content/servicos";
+import { getDadosEmpresa } from "@/lib/legal/dados-empresa";
+import { getHeroSlides } from "@/lib/content/hero-slides";
 
 export const metadata: Metadata = {
   title: "Greenproject Engenharia | Laudos Técnicos em Campo em Contagem e Grande BH",
@@ -36,10 +38,12 @@ export default async function HomePage() {
   // /servicos.
   const servicosHome = servicos.filter((servico) => servico.exibirNaHome);
   const mosaicImages = await getMosaicImages();
+  const { whatsapp } = await getDadosEmpresa();
+  const heroSlides = await getHeroSlides();
 
   return (
     <div>
-      <Hero />
+      <Hero slides={heroSlides} whatsapp={whatsapp} />
 
       <CertificationsBand />
 
@@ -83,6 +87,7 @@ export default async function HomePage() {
         headline="Pronto para regularizar sua frota?"
         description="Fale com a gente e agende o teste de opacidade sem sair da sua garagem."
         whatsappMessage="Olá! Gostaria de solicitar um orçamento para teste de opacidade / fumaça preta."
+        whatsapp={whatsapp}
       />
     </div>
   );

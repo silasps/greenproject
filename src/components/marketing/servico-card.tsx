@@ -15,12 +15,10 @@ export function ServicoCard({
   servico,
   className,
   preloadImage = false,
-  destaque = false,
 }: {
   servico: Servico;
   className?: string;
   preloadImage?: boolean;
-  destaque?: boolean;
 }) {
   return (
     <Link
@@ -38,11 +36,6 @@ export function ServicoCard({
             preload={preloadImage}
             className="object-cover transition-transform duration-500 group-hover/card:scale-105"
           />
-          {destaque && (
-            <span className="absolute top-3 left-3 rounded-sm bg-brand px-2 py-1 font-mono text-[10px] font-semibold tracking-widest text-white uppercase">
-              Serviço em destaque
-            </span>
-          )}
         </div>
         <CardHeader className="px-5 pt-5 pb-4">
           {servico.normas && (
