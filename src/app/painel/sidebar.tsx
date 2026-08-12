@@ -19,7 +19,9 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { ROLE_LABELS, canVerAgendaCompleta, type Role } from "@/lib/auth/permissions";
+import type { UsuarioImpersonavel } from "@/lib/auth/impersonation";
 import { LogoutButton } from "./logout-button";
+import { IdentitySwitcher } from "./identity-switcher";
 import { useAgendaNav } from "./agenda-nav-context";
 import { MiniCalendario } from "./agenda/mini-calendario";
 import { CategoriasFiltro } from "./agenda/categorias-filtro";
@@ -85,9 +87,11 @@ type NavItem = { href: string; label: string; key: keyof typeof ICONS };
 export function Sidebar({
   navItems,
   perfil,
+  identitySwitcher,
 }: {
   navItems: NavItem[];
-  perfil: { nome: string; role: Role };
+  perfil: { nome: string; role: Role; is_superadmin?: boolean };
+  identitySwitcher?: { usuarios: UsuarioImpersonavel[]; impersonando: boolean };
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -140,11 +144,16 @@ export function Sidebar({
             href={item.href}
             onClick={() => setOpen(false)}
             aria-current={ativo ? "page" : undefined}
-            className={`flex items-center gap-3 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
-              ativo ? "bg-brand text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white"
+            className={`relative flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium transition-colors ${
+              ativo ? "bg-brand/10 text-brand" : "text-neutral-400 hover:bg-white/5 hover:text-white"
             }`}
           >
-            <Icon className="h-4 w-4 shrink-0" />
+            {ativo && <span className="absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand" />}
+            <span
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${ativo ? "bg-brand text-white" : ""}`}
+            >
+              <Icon className="h-4 w-4" />
+            </span>
             {item.label}
           </Link>
         );
@@ -215,23 +224,33 @@ export function Sidebar({
 
       <div className="border-t border-white/10 p-4">
         <p className="truncate text-sm font-medium text-white">{perfil.nome}</p>
-        <p className="text-xs text-neutral-400">{ROLE_LABELS[perfil.role]}</p>
+        <p className="flex items-center gap-1.5 text-xs text-neutral-400">
+          {ROLE_LABELS[perfil.role]}
+          {perfil.is_superadmin && (
+            <span className="rounded-full bg-brand/20 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-brand uppercase">
+              Superadmin
+            </span>
+          )}
+        </p>
         <div className="mt-3">
           <LogoutButton />
         </div>
       </div>
+      {identitySwitcher && (
+        <IdentitySwitcher usuarios={identitySwitcher.usuarios} impersonando={identitySwitcher.impersonando} />
+      )}
     </>
   );
 
   return (
     <>
       {/* Desktop: sidebar fixa */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-neutral-900 md:flex print:hidden">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-neutral-800 md:flex print:hidden">
         {conteudo}
       </aside>
 
       {/* Mobile: topo com botão que abre a sidebar como painel deslizante */}
-      <div className="flex items-center justify-between bg-neutral-900 px-4 py-3 md:hidden print:hidden">
+      <div className="flex items-center justify-between bg-neutral-800 px-4 py-3 md:hidden print:hidden">
         <span className="inline-flex items-center rounded-full bg-white px-3 py-1.5">
           <Image src="/brand/logo.png" alt="Greenproject Engenharia" width={140} height={34} className="h-5 w-auto" />
         </span>
@@ -249,7 +268,7 @@ export function Sidebar({
       {open && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col overflow-y-auto bg-neutral-900 shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col overflow-y-auto bg-neutral-800 shadow-xl">
             <button
               type="button"
               aria-label="Fechar menu"

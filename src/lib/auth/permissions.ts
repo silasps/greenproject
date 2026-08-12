@@ -39,9 +39,6 @@ export const canGerenciarEspecificacoesMotor = (role: string | null | undefined)
 export const canImportarPdfSyscon = (role: string | null | undefined) =>
   getRoleLevel(role) >= ROLE_LEVEL.escritorio;
 
-export const canRevisarELiberarLaudo = (role: string | null | undefined) =>
-  getRoleLevel(role) >= ROLE_LEVEL.gerencia;
-
 export const canGerenciarUsuarios = (role: string | null | undefined) =>
   getRoleLevel(role) >= ROLE_LEVEL.gerencia;
 

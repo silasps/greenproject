@@ -1,17 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { requireAuth, requireRole } from "@/lib/auth/session";
-import { canImportarPdfSyscon, canRevisarELiberarLaudo, canGerenciarClientes } from "@/lib/auth/permissions";
+import { requireAuth, getMeuResponsavelTecnicoId } from "@/lib/auth/session";
+import { canImportarPdfSyscon, canGerenciarClientes } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadArquivo } from "@/lib/storage/upload";
 import { parseEnsaioSyscon } from "@/lib/syscon/parse-ensaio";
 import { gerarLaudoPdf } from "@/lib/laudo/gerar-pdf";
+import { enviarLaudoPorEmail } from "@/lib/laudo/enviar-email";
 import { registrarAuditoria } from "@/lib/auditoria/registrar";
-import { enviarEmail } from "@/lib/email/enviar";
-import { COMPANY } from "@/lib/legal/company-info";
 
 async function uploadSeEnviado(bucket: "arquivos-internos", path: string, file: FormDataEntryValue | null) {
   if (file instanceof File && file.size > 0) {
@@ -148,7 +145,7 @@ export async function importarPdfSyscon(testeId: string, formData: FormData) {
 
   if (ensaio.numeroEnsaio && teste.numero_teste && ensaio.numeroEnsaio !== teste.numero_teste) {
     throw new Error(
-      `O número do ensaio no PDF (${ensaio.numeroEnsaio}) não bate com o número digitado em campo (${teste.numero_teste}). Confira se é o PDF certo.`,
+      `O número do ensaio no PDF (${ensaio.numeroEnsaio}) não bate com o número digitado em campo (${teste.numero_teste}). Confira se é o PDF certo, ou corrija o número em "Dados de campo" acima (lembre de clicar em Salvar antes de tentar importar de novo).`,
     );
   }
 
@@ -189,8 +186,8 @@ export async function importarPdfSyscon(testeId: string, formData: FormData) {
  * jeito — mesmo devolvendo só pro escritório, o PDF antigo não vale mais.
  */
 export async function devolverRevisao(testeId: string, destino: "campo" | "escritorio", motivo?: string) {
-  const { perfil } = await requireRole(["gerencia"]);
-  if (!canRevisarELiberarLaudo(perfil.role)) throw new Error("Sem permissão.");
+  const { perfil } = await requireAuth();
+  if (!(await getMeuResponsavelTecnicoId(perfil.id))) throw new Error("Sem permissão.");
 
   const admin = createAdminClient();
   const { data: teste } = await admin.from("testes_opacidade").select("status").eq("id", testeId).single();
@@ -222,11 +219,12 @@ export async function devolverRevisao(testeId: string, destino: "campo" | "escri
 }
 
 export async function liberarLaudo(testeId: string, formData: FormData) {
-  const { perfil } = await requireRole(["gerencia"]);
-  if (!canRevisarELiberarLaudo(perfil.role)) throw new Error("Sem permissão.");
+  const { perfil } = await requireAuth();
+  if (!(await getMeuResponsavelTecnicoId(perfil.id))) throw new Error("Sem permissão.");
 
   const responsavelTecnicoId = String(formData.get("responsavel_tecnico_id") || "");
   if (!responsavelTecnicoId) throw new Error("Selecione o responsável técnico.");
+  const enviarEmailAoValidar = formData.get("enviar_email") === "true";
 
   const admin = createAdminClient();
 
@@ -281,7 +279,30 @@ export async function liberarLaudo(testeId: string, formData: FormData) {
     detalhes: { numero, codigo_publico: codigoPublico },
   });
 
+  // Envio automático é best-effort: o laudo já foi liberado e emitido de
+  // verdade, então uma falha aqui (ex.: cliente sem e-mail cadastrado) não
+  // pode desfazer a liberação — o botão manual "Enviar por e-mail" continua
+  // disponível na tela do laudo emitido pra tentar de novo depois.
+  let emailEnviado = false;
+  let emailErro: string | null = null;
+  if (enviarEmailAoValidar) {
+    try {
+      await enviarLaudoPorEmail(testeId);
+      emailEnviado = true;
+      await registrarAuditoria({
+        usuarioId: perfil.id,
+        acao: "enviar_laudo_email",
+        entidade: "laudo",
+        entidadeId: testeId,
+        detalhes: { via: "validar_teste" },
+      });
+    } catch (e) {
+      emailErro = e instanceof Error ? e.message : "Não foi possível enviar o e-mail.";
+    }
+  }
+
   revalidatePath(`/painel/testes/${testeId}`);
+  return { emailEnviado, emailErro };
 }
 
 /** Envia o laudo já emitido por e-mail — mesmo texto/dados da mensagem de WhatsApp, formatado em HTML. */
@@ -289,45 +310,7 @@ export async function enviarLaudoEmail(testeId: string) {
   const { perfil } = await requireAuth();
   if (!canGerenciarClientes(perfil.role)) throw new Error("Sem permissão.");
 
-  const admin = createAdminClient();
-  const { data: laudo, error } = await admin
-    .from("laudos")
-    .select(
-      "numero, codigo_publico, teste:testes_opacidade(resultado, veiculos_maquinas(identificador, marca, modelo), agendamentos(data_hora, clientes(nome, email)))",
-    )
-    .eq("teste_id", testeId)
-    .single();
-  if (error) throw new Error(error.message);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const teste = laudo.teste as any;
-  const veiculo = teste?.veiculos_maquinas;
-  const agendamento = teste?.agendamentos;
-  const cliente = agendamento?.clientes;
-  if (!cliente?.email) throw new Error("Cliente não tem e-mail cadastrado.");
-
-  const aprovado = teste?.resultado === "aprovado";
-  const dataHoraTexto = agendamento?.data_hora
-    ? format(new Date(agendamento.data_hora), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })
-    : "-";
-  const link = `${COMPANY.siteUrl}/laudo/${laudo.codigo_publico}`;
-
-  await enviarEmail({
-    para: cliente.email,
-    assunto: `Laudo de opacidade nº ${laudo.numero} — ${COMPANY.razaoSocial}`,
-    html: `
-      <p>Olá ${cliente.nome ?? ""},</p>
-      <p>Segue o laudo do teste de opacidade realizado em ${dataHoraTexto}.</p>
-      <p>
-        <strong>Empresa:</strong> ${COMPANY.razaoSocial}<br>
-        ${veiculo ? `<strong>Veículo/equipamento:</strong> ${veiculo.identificador} ${[veiculo.marca, veiculo.modelo].filter(Boolean).join(" ")}<br>` : ""}
-        <strong>Resultado:</strong> <span style="display:inline-block;padding:1px 10px;border-radius:9999px;font-weight:bold;background:${aprovado ? "#dcfce7" : "#fee2e2"};color:${aprovado ? "#166534" : "#991b1b"}">${aprovado ? "APROVADO" : "REPROVADO"}</span><br>
-        <strong>Laudo nº:</strong> ${laudo.numero}
-      </p>
-      <p><a href="${link}">Ver e baixar o laudo</a></p>
-      <p>Qualquer dúvida, estamos à disposição — ${COMPANY.razaoSocial}.</p>
-    `,
-  });
+  await enviarLaudoPorEmail(testeId);
 
   await registrarAuditoria({
     usuarioId: perfil.id,

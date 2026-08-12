@@ -182,29 +182,61 @@ export function AgendaCalendario({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-neutral-900">
-        Agenda {dataRef.getFullYear()}
-        <span
-          className={cn(
-            "ml-2 text-lg font-normal capitalize",
-            visao === "dia" && isSameDay(dataRef, new Date()) ? "text-blue-700" : "text-neutral-500",
-          )}
-        >
-          – {rotuloPeriodo(visao, dataRef)}
-        </span>
-      </h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl">
+          Agenda <span className="text-neutral-400">{dataRef.getFullYear()}</span>
+          <span
+            className={cn(
+              "ml-2 block text-base font-medium capitalize sm:inline",
+              visao === "dia" && isSameDay(dataRef, new Date()) ? "text-brand" : "text-neutral-500",
+            )}
+          >
+            – {rotuloPeriodo(visao, dataRef)}
+          </span>
+        </h1>
 
-      <div className="sticky top-0 z-20 space-y-2 bg-neutral-50 py-2 print:hidden">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1">
+        <div className="flex items-center gap-1.5 print:hidden">
+          <BuscaAgenda onIrParaData={(data) => irPara("dia", data)} />
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-full text-neutral-500 hover:text-brand"
+            onClick={() => document.getElementById("agenda-do-periodo")?.scrollIntoView({ behavior: "smooth" })}
+            aria-label="Ver lista do período"
+          >
+            <ArrowDown className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-full text-neutral-500 hover:text-brand"
+            onClick={() => window.print()}
+            aria-label="Imprimir"
+          >
+            <Printer className="size-4" />
+          </Button>
+          <Button
+            size="sm"
+            className="rounded-full bg-brand pl-3 hover:bg-brand-dark"
+            onClick={() => abrirCriar(dataRef)}
+          >
+            <Plus className="size-3.5" />
+            Criar
+          </Button>
+        </div>
+      </div>
+
+      <div className="sticky top-0 z-20 mt-4 bg-neutral-50/95 py-2 backdrop-blur-sm print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-sm">
+          <div className="flex items-center gap-1">
             {VISOES.map((v) => (
               <button
                 key={v.valor}
                 type="button"
                 onClick={() => irPara(v.valor, dataRef)}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                  visao === v.valor ? "bg-brand/10 text-brand" : "text-neutral-600 hover:bg-neutral-100",
+                  "rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors sm:px-4",
+                  visao === v.valor ? "bg-brand text-white shadow-sm" : "text-neutral-600 hover:bg-neutral-100",
                 )}
               >
                 {v.label}
@@ -212,51 +244,38 @@ export function AgendaCalendario({
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
               size="icon"
-              className="text-brand"
+              className="rounded-full border-neutral-200 text-neutral-500 shadow-sm hover:text-brand"
               onClick={() => irPara(visao, navegarPeriodo(visao, dataRef, -1))}
+              aria-label="Período anterior"
             >
               <ChevronLeft />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => irPara("dia", new Date())}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full border-neutral-200 px-4 shadow-sm"
+              onClick={() => irPara("dia", new Date())}
+            >
               Hoje
             </Button>
             <Button
               variant="outline"
               size="icon"
-              className="text-brand"
+              className="rounded-full border-neutral-200 text-neutral-500 shadow-sm hover:text-brand"
               onClick={() => irPara(visao, navegarPeriodo(visao, dataRef, 1))}
+              aria-label="Próximo período"
             >
               <ChevronRight />
             </Button>
           </div>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <BuscaAgenda onIrParaData={(data) => irPara("dia", data)} />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => document.getElementById("agenda-do-periodo")?.scrollIntoView({ behavior: "smooth" })}
-          >
-            <ArrowDown className="size-3.5" />
-            Ver lista
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
-            <Printer className="size-3.5" />
-            Imprimir
-          </Button>
-          <Button size="sm" className="bg-brand hover:bg-brand-dark" onClick={() => abrirCriar(dataRef)}>
-            <Plus className="size-3.5" />
-            Criar
-          </Button>
-        </div>
       </div>
 
-      <div className="mt-2">
+      <div className="mt-4">
         {visao === "mes" && (
           <GradeMes dataRef={dataRef} porDia={porDia} feriados={feriados} aoClicarDia={abrirCriar} aoAbrirEvento={abrirEvento} />
         )}
@@ -284,11 +303,13 @@ export function AgendaCalendario({
         )}
       </div>
 
-      <div id="agenda-do-periodo" className="mt-6 scroll-mt-16 print:mt-4">
+      <div id="agenda-do-periodo" className="mt-8 scroll-mt-16 print:mt-4">
         <h2 className="text-sm font-semibold tracking-wide text-neutral-500 uppercase">Agenda do período</h2>
-        <div className="mt-2 space-y-3">
+        <div className="mt-3 space-y-3">
           {agendamentosNoPeriodo.length === 0 && (
-            <p className="text-sm text-neutral-500">Nenhum agendamento no período.</p>
+            <p className="rounded-xl border border-dashed border-neutral-200 bg-white/60 p-6 text-center text-sm text-neutral-500">
+              Nenhum agendamento no período.
+            </p>
           )}
           {agendamentosNoPeriodo.map((item) => (
             <ItemLinha key={item.id} item={item} usuarioId={usuarioId} aoAbrirEvento={abrirEvento} />
@@ -353,10 +374,10 @@ function GradeMes({
   const hoje = new Date();
 
   return (
-    <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
-      <div className="grid grid-cols-7 border-b border-neutral-200 bg-neutral-50 text-center text-xs font-medium text-neutral-500">
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="grid grid-cols-7 border-b border-neutral-200 bg-neutral-50/70 text-center text-xs font-semibold tracking-wide text-neutral-500 uppercase">
         {DIAS_SEMANA_LABEL.map((label) => (
-          <div key={label} className="py-2">
+          <div key={label} className="py-2.5">
             {label}
           </div>
         ))}
@@ -378,25 +399,27 @@ function GradeMes({
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && aoClicarDia(dia)}
               aria-label={`Criar em ${format(dia, "d/MM")}`}
               className={cn(
-                "flex min-h-24 cursor-pointer flex-col gap-1 border-b border-r border-neutral-100 p-1.5 text-left align-top last:border-r-0 hover:bg-neutral-50/80",
-                foraDoMes && "bg-neutral-50/60 text-neutral-400",
-                ehHoje && "bg-blue-50/70",
+                "flex min-h-28 cursor-pointer flex-col gap-1 border-b border-r border-neutral-100 p-2 text-left align-top transition-colors last:border-r-0 hover:bg-neutral-50",
+                foraDoMes && "bg-neutral-50/50 text-neutral-400",
+                ehHoje && "bg-blue-50/60",
               )}
             >
               <span
                 className={cn(
-                  "flex size-6 items-center justify-center rounded-full text-sm font-medium",
+                  "flex size-7 items-center justify-center rounded-full text-sm font-semibold",
                   ehHoje && "bg-blue-600 text-white",
                 )}
               >
                 {format(dia, "d")}
               </span>
               <BannerFeriado feriado={feriado} />
-              <div className="flex flex-1 flex-col gap-0.5">
+              <div className="flex flex-1 flex-col gap-1">
                 {itens.slice(0, 3).map((item) => (
                   <ItemResumo key={item.id} item={item} aoAbrirEvento={aoAbrirEvento} />
                 ))}
-                {itens.length > 3 && <span className="text-[11px] text-neutral-400">+{itens.length - 3} mais</span>}
+                {itens.length > 3 && (
+                  <span className="px-1 text-[11px] font-medium text-neutral-400">+{itens.length - 3} mais</span>
+                )}
               </div>
             </div>
           );
@@ -485,7 +508,7 @@ function CardEvento({ bloco, aoAbrirEvento }: { bloco: BlocoEvento; aoAbrirEvent
   const topoPx = ((inicio.getTime() - inicioGrade.getTime()) / 60_000) * (ALTURA_HORA_PX / 60);
   const alturaPx = Math.max(((fim.getTime() - inicio.getTime()) / 60_000) * (ALTURA_HORA_PX / 60), 20);
   const larguraPct = 100 / totalColunas;
-  const cor = item.categoria?.cor ?? (item.tipo === "evento" ? "#8b5cf6" : "#16a34a");
+  const cor = corDoItem(item);
   const label = item.tipo === "evento" ? item.titulo : item.cliente;
 
   const style = {
@@ -498,7 +521,7 @@ function CardEvento({ bloco, aoAbrirEvento }: { bloco: BlocoEvento; aoAbrirEvent
     color: cor,
   };
   const className =
-    "absolute z-10 overflow-hidden rounded-md px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm ring-1 ring-black/5 hover:z-20 hover:shadow-md";
+    "absolute z-10 overflow-hidden rounded-lg px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm ring-1 ring-black/5 transition-shadow hover:z-20 hover:shadow-md";
   const conteudo = (
     <>
       <p className="truncate font-medium">{label}</p>
@@ -660,7 +683,7 @@ function BannerMultiDia({
   aoAbrirEvento: AoAbrirEvento;
   style?: CSSProperties;
 }) {
-  const cor = item.categoria?.cor ?? (item.tipo === "evento" ? "#8b5cf6" : "#16a34a");
+  const cor = corDoItem(item);
   const label = item.tipo === "evento" ? item.titulo : item.cliente;
   const entalhe = "5px";
   const clipPath =
@@ -737,8 +760,8 @@ function GradeSemana({
   const linhasMultiDia = faixasMultiDia.length === 0 ? 0 : Math.max(...faixasMultiDia.map((f) => f.linha)) + 1;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
-      <div className="flex border-b border-neutral-200">
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="flex border-b border-neutral-200 bg-neutral-50/70">
         <div className="w-12 shrink-0" />
         {dias.map((dia) => {
           const feriado = feriados[format(dia, "yyyy-MM-dd")];
@@ -748,9 +771,11 @@ function GradeSemana({
               key={dia.toISOString()}
               type="button"
               onClick={() => irPara("dia", dia)}
-              className="min-w-0 flex-1 border-l border-neutral-100 py-2 text-center hover:bg-neutral-50"
+              className="min-w-0 flex-1 border-l border-neutral-100 py-2.5 text-center transition-colors hover:bg-neutral-100/60"
             >
-              <p className="text-xs font-medium text-neutral-500 uppercase">{DIAS_SEMANA_LABEL[dia.getDay()]}</p>
+              <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+                {DIAS_SEMANA_LABEL[dia.getDay()]}
+              </p>
               <p
                 className={cn(
                   "mx-auto mt-0.5 flex size-7 items-center justify-center rounded-full text-sm font-semibold",
@@ -824,7 +849,7 @@ function GradeDia({
     .map((item) => ({ item, ...spanNaSemana(item, [dataRef]) }));
 
   return (
-    <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
       <div className="h-2" />
       {feriado && (
         <p
@@ -885,15 +910,15 @@ function GradeAno({
         const dias = eachDayOfInterval({ start: inicio, end: fim });
 
         return (
-          <div key={nomeMes} className="rounded-lg border border-neutral-200 bg-white p-2">
+          <div key={nomeMes} className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm">
             <button
               type="button"
               onClick={() => irPara("mes", mesRef)}
-              className="mb-1 text-sm font-semibold text-neutral-900 hover:text-brand"
+              className="mb-1.5 text-sm font-semibold text-neutral-900 hover:text-brand"
             >
               {nomeMes}
             </button>
-            <div className="grid grid-cols-7 gap-y-0.5 text-center text-[10px]">
+            <div className="grid grid-cols-7 gap-y-1 text-center text-[10px]">
               {dias.map((dia) => {
                 const key = format(dia, "yyyy-MM-dd");
                 const itens = porDia[key] ?? [];
@@ -907,9 +932,9 @@ function GradeAno({
                     type="button"
                     onClick={() => aoClicarDia(dia)}
                     className={cn(
-                      "relative flex aspect-square items-center justify-center rounded",
+                      "relative flex aspect-square items-center justify-center rounded-full transition-colors hover:bg-neutral-100",
                       foraDoMes && "text-neutral-300",
-                      ehHoje && "bg-blue-600 text-white",
+                      ehHoje && "bg-blue-600 text-white hover:bg-blue-600",
                     )}
                   >
                     {format(dia, "d")}
@@ -933,19 +958,22 @@ function GradeAno({
   );
 }
 
+/** Cor do item — usa a cor da categoria quando o item tem uma, senão cai no padrão por tipo. */
+function corDoItem(item: AgendamentoItem): string {
+  return item.categoria?.cor ?? (item.tipo === "evento" ? "#8b5cf6" : "#109b15");
+}
+
 /** Bolinha de cor — usa a cor da categoria quando o item tem uma, senão cai no padrão por tipo. */
 function PontoCor({ item, className }: { item: AgendamentoItem; className: string }) {
-  if (item.categoria) return <span className={className} style={{ backgroundColor: item.categoria.cor }} />;
-  return <span className={cn(className, item.tipo === "evento" ? "bg-violet-500" : "bg-brand")} />;
+  return <span className={className} style={{ backgroundColor: corDoItem(item) }} />;
 }
 
 function ItemResumo({ item, aoAbrirEvento }: { item: AgendamentoItem; aoAbrirEvento: AoAbrirEvento }) {
   const label = item.tipo === "evento" ? item.titulo : item.cliente;
-  const className =
-    "flex w-full items-center gap-1 truncate rounded bg-neutral-100 px-1 py-0.5 text-left text-[11px] text-neutral-700 hover:bg-neutral-200";
+  const cor = corDoItem(item);
   const conteudo = (
     <>
-      <PontoCor item={item} className="size-1.5 shrink-0 rounded-full" />
+      <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: cor }} />
       <span className="truncate">
         {format(new Date(item.data_hora), "HH:mm")} {label}
       </span>
@@ -961,10 +989,31 @@ function ItemResumo({ item, aoAbrirEvento }: { item: AgendamentoItem; aoAbrirEve
         e.stopPropagation();
         aoAbrirEvento(item);
       }}
-      className={className}
+      style={{ backgroundColor: `${cor}17`, color: cor }}
+      className="flex w-full items-center gap-1.5 truncate rounded-md px-1.5 py-1 text-left text-[11px] font-medium hover:brightness-95"
     >
       {conteudo}
     </button>
+  );
+}
+
+/** Rótulo/cor pro status de um agendamento (não confundir com o status interno do teste de opacidade em si). */
+const STATUS_AGENDAMENTO: Record<string, { label: string; cor: string }> = {
+  agendado: { label: "Agendado", cor: "#64748b" },
+  em_andamento: { label: "Em andamento", cor: "#ca8a04" },
+  concluido: { label: "Concluído", cor: "#109b15" },
+  cancelado: { label: "Cancelado", cor: "#dc2626" },
+};
+
+function StatusPill({ status }: { status: string }) {
+  const info = STATUS_AGENDAMENTO[status] ?? { label: status.replace("_", " "), cor: "#64748b" };
+  return (
+    <span
+      className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize"
+      style={{ backgroundColor: `${info.cor}1a`, color: info.cor }}
+    >
+      {info.label}
+    </span>
   );
 }
 
@@ -982,6 +1031,7 @@ function ItemLinha({
   const inicio = new Date(item.data_hora);
   const fim = item.data_hora_fim ? new Date(item.data_hora_fim) : null;
   const mesmoDia = !fim || isSameDay(inicio, fim);
+  const cor = corDoItem(item);
 
   // Evento de vários dias: mostra o período completo, não só o horário de início.
   const hora = mesmoDia
@@ -991,43 +1041,42 @@ function ItemLinha({
       : `${format(inicio, "dd/MM/yyyy HH:mm")} – ${format(fim, "dd/MM/yyyy HH:mm")}`;
   const label = item.tipo === "evento" ? item.titulo : item.cliente;
 
-  const conteudo = (
-    <div className="flex min-w-0 items-center justify-between gap-2">
-      <div className="min-w-0">
-        {compacto ? (
-          <p className="truncate text-[11px] font-medium text-neutral-900">
-            <PontoCor item={item} className="mr-1 inline-block size-1.5 rounded-full align-middle" />
-            {hora} · {label}
-          </p>
-        ) : (
-          <>
-            <p className="truncate text-sm font-semibold text-neutral-900">
-              <PontoCor item={item} className="mr-1.5 inline-block size-1.5 rounded-full align-middle" />
-              {label}
+  const conteudo = compacto ? (
+    <p className="truncate text-[11px] font-medium text-neutral-900">
+      <PontoCor item={item} className="mr-1 inline-block size-1.5 rounded-full align-middle" />
+      {hora} · {label}
+    </p>
+  ) : (
+    <>
+      <span className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: cor }} />
+      <div className="flex min-w-0 items-start gap-3 pl-2">
+        <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ backgroundColor: cor }} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <p className="truncate text-sm font-semibold text-neutral-900">{label}</p>
+            {item.tipo === "teste_opacidade" && <StatusPill status={item.status} />}
+          </div>
+          <p className="mt-0.5 truncate text-xs text-neutral-500">{hora}</p>
+          {item.tipo === "evento" && item.participantes.length > 0 && (
+            <p className="mt-1 truncate text-xs text-neutral-500">
+              Com: {item.participantes.map((p) => (p.id === usuarioId ? "Você" : p.nome)).join(", ")}
             </p>
-            <p className="truncate pl-3 text-xs text-neutral-500">{hora}</p>
-          </>
-        )}
-        {!compacto && item.tipo === "evento" && item.participantes.length > 0 && (
-          <p className="truncate pl-3 text-xs text-neutral-500">
-            Com: {item.participantes.map((p) => (p.id === usuarioId ? "Você" : p.nome)).join(", ")}
-          </p>
-        )}
-        {!compacto && item.tipo === "teste_opacidade" && (
-          <p className="truncate pl-3 text-xs text-neutral-500">
-            {item.veiculo ? `${item.veiculo} · Técnico: ${item.tecnico ?? "-"}` : "Aguardando cadastro do cliente/veículo"}
-          </p>
-        )}
+          )}
+          {item.tipo === "teste_opacidade" && (
+            <p className="mt-1 truncate text-xs text-neutral-500">
+              {item.veiculo ? `${item.veiculo} · Técnico: ${item.tecnico ?? "-"}` : "Aguardando cadastro do cliente/veículo"}
+            </p>
+          )}
+        </div>
       </div>
-      {!compacto && item.tipo === "teste_opacidade" && (
-        <span className="shrink-0 text-xs text-neutral-400 capitalize">{item.status.replace("_", " ")}</span>
-      )}
-    </div>
+    </>
   );
 
   const className = cn(
-    "block hover:bg-neutral-50",
-    compacto ? "rounded px-1 py-0.5" : "rounded-lg border border-neutral-200 bg-white p-4",
+    "group relative block overflow-hidden transition-shadow",
+    compacto
+      ? "rounded px-1 py-0.5 hover:bg-neutral-50"
+      : "rounded-xl border border-neutral-200 bg-white p-4 shadow-sm hover:shadow-md",
   );
 
   if (aoAbrirEvento) {

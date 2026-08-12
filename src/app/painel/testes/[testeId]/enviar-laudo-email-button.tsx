@@ -22,23 +22,23 @@ export function EnviarLaudoEmailButton({ testeId }: { testeId: string }) {
   }
 
   return (
-    <div className="flex w-20 flex-col items-center">
+    <div>
       <button
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="flex w-20 flex-col items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-2 text-center text-xs text-brand hover:border-brand/40 hover:bg-brand/5 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex items-center gap-1.5 rounded-full border-2 border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? (
           <Loader2 className="size-4 animate-spin" />
         ) : enviado ? (
-          <Check className="size-4" />
+          <Check className="size-4 text-brand" />
         ) : (
           <Mail className="size-4" />
         )}
         {pending ? "Enviando..." : enviado ? "E-mail enviado" : "Enviar por e-mail"}
       </button>
-      {erro && <p className="mt-1 text-center text-[10px] text-red-600">{erro}</p>}
+      {erro && <p className="mt-1 text-xs text-red-600">{erro}</p>}
     </div>
   );
 }

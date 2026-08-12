@@ -8,6 +8,7 @@ export type Perfil = {
   nome: string;
   role: Role;
   funcao_id: string | null;
+  is_superadmin: boolean;
 };
 
 export async function getSession(): Promise<{ perfil: Perfil } | null> {
@@ -20,7 +21,7 @@ export async function getSession(): Promise<{ perfil: Perfil } | null> {
 
   const { data: perfil } = await supabase
     .from("usuarios_perfis")
-    .select("id, nome, role, funcao_id, acesso_sistema")
+    .select("id, nome, role, funcao_id, acesso_sistema, is_superadmin")
     .eq("id", user.id)
     .single();
 
@@ -41,6 +42,22 @@ export async function requireRole(allowedRoles: readonly Role[]) {
     redirect("/acesso-negado");
   }
   return session;
+}
+
+/**
+ * Id do responsável técnico (quem assina laudos) vinculado a essa conta de
+ * acesso, se houver — usado pra decidir quem pode liberar laudo (é
+ * cargo/cadastro em responsaveis_tecnicos, não o role tecnico/escritorio/
+ * gerencia) e pra pré-selecionar o próprio nome no formulário de liberação.
+ */
+export async function getMeuResponsavelTecnicoId(usuarioId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("responsaveis_tecnicos")
+    .select("id")
+    .eq("usuario_id", usuarioId)
+    .maybeSingle();
+  return data?.id ?? null;
 }
 
 export { getLoginDestination };

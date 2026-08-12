@@ -15,7 +15,7 @@ type ItemArquivo = { label: string; url: string; path: string };
  * novo com `path` — sem isso, se a pessoa demorar pra clicar, o link já
  * pode ter expirado e o modal mostra um erro de token em vez da imagem.
  */
-export function FotoPreview({ url, path, label }: ItemArquivo) {
+export function FotoPreview({ url, path, label, size = "sm" }: ItemArquivo & { size?: "sm" | "lg" }) {
   const [aberta, setAberta] = useState(false);
   const [urlGrande, setUrlGrande] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
@@ -30,6 +30,42 @@ export function FotoPreview({ url, path, label }: ItemArquivo) {
     } finally {
       setCarregando(false);
     }
+  }
+
+  if (size === "lg") {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={abrir}
+          title={`Ver ${label}`}
+          aria-label={`Ver ${label}`}
+          className="group flex w-full flex-col items-center gap-1.5"
+        >
+          <span className="relative block aspect-4/3 w-full shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
+            <Image src={url} alt={label} fill sizes="(min-width: 640px) 33vw, 100vw" unoptimized className="object-cover" />
+            <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
+              <Maximize2 className="size-6" />
+            </span>
+          </span>
+          <span className="text-center text-sm text-neutral-600">{label}</span>
+        </button>
+
+        <Dialog open={aberta} onOpenChange={setAberta}>
+          <DialogContent className="max-w-[calc(100%-2rem)] p-2 sm:max-w-4xl">
+            <DialogTitle className="sr-only">{label}</DialogTitle>
+            {carregando || !urlGrande ? (
+              <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-neutral-300" />
+              </div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={urlGrande} alt={label} className="max-h-[85vh] w-full rounded-lg object-contain" />
+            )}
+          </DialogContent>
+        </Dialog>
+      </>
+    );
   }
 
   return (
@@ -68,7 +104,17 @@ export function FotoPreview({ url, path, label }: ItemArquivo) {
 }
 
 /** Ícone clicável de um PDF já salvo — mesmo padrão do FotoPreview (link fresco buscado ao abrir), num modal com o leitor de PDF do navegador. */
-export function PdfPreview({ url, path, label = "PDF do ensaio" }: { url: string; path: string; label?: string }) {
+export function PdfPreview({
+  url,
+  path,
+  label = "PDF do ensaio",
+  size = "sm",
+}: {
+  url: string;
+  path: string;
+  label?: string;
+  size?: "sm" | "lg";
+}) {
   const [aberto, setAberto] = useState(false);
   const [urlGrande, setUrlGrande] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
@@ -83,6 +129,39 @@ export function PdfPreview({ url, path, label = "PDF do ensaio" }: { url: string
     } finally {
       setCarregando(false);
     }
+  }
+
+  if (size === "lg") {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={abrir}
+          title={`Ver ${label}`}
+          aria-label={`Ver ${label}`}
+          className="group flex w-full items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-left hover:bg-neutral-100"
+        >
+          <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-neutral-200 bg-white text-neutral-400">
+            <FileText className="size-6" />
+          </span>
+          <span className="flex-1 text-sm font-medium text-neutral-700">{label}</span>
+          <Maximize2 className="size-4 text-neutral-400 transition group-hover:text-neutral-600" />
+        </button>
+
+        <Dialog open={aberto} onOpenChange={setAberto}>
+          <DialogContent className="max-w-[calc(100%-2rem)] p-2 sm:max-w-4xl">
+            <DialogTitle className="sr-only">{label}</DialogTitle>
+            {carregando || !urlGrande ? (
+              <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-neutral-300" />
+              </div>
+            ) : (
+              <iframe src={urlGrande} title={label} className="h-[85vh] w-full rounded-lg border border-neutral-200" />
+            )}
+          </DialogContent>
+        </Dialog>
+      </>
+    );
   }
 
   return (

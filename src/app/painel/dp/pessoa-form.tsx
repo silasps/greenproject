@@ -12,7 +12,7 @@ import { type Role } from "@/lib/auth/permissions";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ErrorModal } from "@/components/error-modal";
 import { formatTelefone } from "@/lib/utils/mascaras";
-import { criarPessoa, editarPessoa, type Credenciais } from "./actions";
+import { criarPessoa, editarPessoa, redefinirSenha, type Credenciais } from "./actions";
 import { CredenciaisPanel } from "./credenciais-panel";
 
 type Funcao = { id: string; nome: string };
@@ -55,6 +55,18 @@ export function PessoaForm({ pessoa, funcoes }: { pessoa?: Pessoa; funcoes: Func
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível salvar a pessoa.");
     }
+  }
+
+  function handleRedefinirSenha() {
+    if (!pessoa) return;
+    setErro(null);
+    startTransition(async () => {
+      try {
+        setCredenciais(await redefinirSenha(pessoa.id));
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : "Não foi possível redefinir a senha.");
+      }
+    });
   }
 
   if (credenciais) {
@@ -135,6 +147,23 @@ export function PessoaForm({ pessoa, funcoes }: { pessoa?: Pessoa; funcoes: Func
           por WhatsApp ou e-mail.
         </p>
       </div>
+
+      {pessoa && pessoa.acesso_sistema && (
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3.5 py-3">
+          <p className="text-sm font-medium text-neutral-900">Pessoa esqueceu a senha?</p>
+          <p className="mt-1 text-xs text-neutral-500">Gera uma senha nova pra enviar por WhatsApp ou e-mail.</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={handleRedefinirSenha}
+            className="mt-2"
+          >
+            {pending ? "Gerando..." : "Redefinir senha"}
+          </Button>
+        </div>
+      )}
 
       <ErrorModal erro={erro} onClose={() => setErro(null)} formRef={formRef} />
 

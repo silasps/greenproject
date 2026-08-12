@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { FileText, Loader2, Upload, ArrowLeftRight, Trash2, Maximize2 } from "lucide-react";
+import { FileText, Loader2, Upload, ArrowLeftRight, Trash2, Maximize2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { comprimirParaWebp } from "@/lib/utils/image-to-webp";
@@ -127,11 +127,11 @@ export function FileDropInput({
           Otimizando imagem...
         </div>
       ) : arquivo ? (
-        <div className="flex items-center gap-3 rounded-md border border-neutral-200 p-3">
-          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-neutral-100">
+        <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm">
+          <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
             {previewUrl ? (
               <>
-                <Image src={previewUrl} alt={arquivo.name} fill sizes="56px" unoptimized className="object-cover" />
+                <Image src={previewUrl} alt={arquivo.name} fill sizes="64px" unoptimized className="object-cover" />
                 <button
                   type="button"
                   title="Ver em tamanho real"
@@ -157,6 +157,7 @@ export function FileDropInput({
               size="icon-sm"
               title="Trocar arquivo"
               aria-label="Trocar arquivo"
+              className="border-brand/40 text-brand-dark hover:border-brand hover:bg-brand/5"
               onClick={() => inputRef.current?.click()}
             >
               <ArrowLeftRight className="size-4" />
@@ -167,7 +168,7 @@ export function FileDropInput({
               size="icon-sm"
               title="Excluir"
               aria-label="Excluir"
-              className="text-red-600 hover:text-red-700"
+              className="text-red-600 hover:border-red-200 hover:bg-red-50 hover:text-red-700"
               onClick={limpar}
             >
               <Trash2 className="size-4" />
@@ -175,21 +176,24 @@ export function FileDropInput({
           </div>
         </div>
       ) : mostrandoAtual ? (
-        <div className="flex items-center gap-3 rounded-md border border-neutral-200 p-3">
+        <div className="flex items-center gap-3 rounded-xl border border-brand/30 bg-white p-3 shadow-sm">
           <button
             type="button"
             title="Ver em tamanho real"
             aria-label="Ver em tamanho real"
             onClick={() => setAmpliada(true)}
-            className="group relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-neutral-100"
+            className="group relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100"
           >
-            <Image src={previaAtualUrl!} alt="Foto atual" fill sizes="56px" unoptimized className="object-cover" />
+            <Image src={previaAtualUrl!} alt="Foto atual" fill sizes="64px" unoptimized className="object-cover" />
             <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
               <Maximize2 className="size-4" />
             </span>
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-neutral-800">Foto atual</p>
+            <p className="flex items-center gap-1.5 text-sm font-medium text-neutral-800">
+              <Check className="size-3.5 shrink-0 text-brand" strokeWidth={3} />
+              Foto atual
+            </p>
           </div>
           <div className="flex shrink-0 gap-2">
             <Button
@@ -198,6 +202,7 @@ export function FileDropInput({
               size="icon-sm"
               title="Trocar"
               aria-label="Trocar"
+              className="border-brand/40 text-brand-dark hover:border-brand hover:bg-brand/5"
               onClick={() => inputRef.current?.click()}
             >
               <ArrowLeftRight className="size-4" />
@@ -208,7 +213,7 @@ export function FileDropInput({
               size="icon-sm"
               title="Excluir"
               aria-label="Excluir"
-              className="text-red-600 hover:text-red-700"
+              className="text-red-600 hover:border-red-200 hover:bg-red-50 hover:text-red-700"
               onClick={() => setAtualRemovida(true)}
             >
               <Trash2 className="size-4" />
@@ -218,10 +223,13 @@ export function FileDropInput({
       ) : (
         <label
           htmlFor={id}
-          className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 hover:border-brand hover:text-brand"
+          className="group flex cursor-pointer flex-col items-center gap-2.5 rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50/60 p-6 text-center transition-colors hover:border-brand hover:bg-brand/5"
         >
-          <Upload className="h-6 w-6" />
-          {label}
+          <span className="flex size-11 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 transition-colors group-hover:border-brand/30 group-hover:text-brand">
+            <Upload className="h-5 w-5" />
+          </span>
+          <span className="text-sm text-neutral-600 group-hover:text-brand-dark">{label}</span>
+          {required && <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-600">Obrigatória</span>}
           {atualRemovida && <span className="text-xs text-amber-600">Foto removida — envie uma nova</span>}
         </label>
       )}
