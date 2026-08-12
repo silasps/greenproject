@@ -26,6 +26,7 @@ export async function salvarEquipamento(formData: FormData) {
   const dataAfericao = String(formData.get("data_afericao") || "") || null;
   const validade = String(formData.get("validade") || "") || null;
   const certificado = formData.get("certificado") as File | null;
+  const seloImagem = formData.get("selo_imagem") as File | null;
 
   if (!modelo || !numeroSerie) throw new Error("Modelo e número de série são obrigatórios.");
 
@@ -62,6 +63,12 @@ export async function salvarEquipamento(formData: FormData) {
     const path = `equipamentos/${equipamentoId}/certificado-calibracao.${extensaoDoArquivo(certificado)}`;
     await uploadArquivo("arquivos-internos", path, certificado);
     await admin.from("equipamentos_teste").update({ pdf_certificado_calibracao_path: path }).eq("id", equipamentoId);
+  }
+
+  if (seloImagem && seloImagem.size > 0) {
+    const path = `equipamentos/${equipamentoId}/selo-imagem.${extensaoDoArquivo(seloImagem)}`;
+    await uploadArquivo("arquivos-internos", path, seloImagem);
+    await admin.from("equipamentos_teste").update({ selo_imagem_path: path }).eq("id", equipamentoId);
   }
 
   revalidatePath("/painel/equipamentos");

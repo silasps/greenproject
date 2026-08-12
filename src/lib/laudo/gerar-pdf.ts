@@ -2,7 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { PDFDocument, StandardFonts, rgb, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import QRCode from "qrcode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { COMPANY } from "@/lib/legal/company-info";
 import { getDadosEmpresa } from "@/lib/legal/dados-empresa";
@@ -54,9 +55,31 @@ export async function gerarLaudoPdf({
   const veiculo = teste.veiculos_maquinas;
   const cliente = veiculo?.clientes;
   const equipamento = teste.equipamentos_teste;
-  const hoje = new Date().toLocaleDateString("pt-BR");
+  const medicoes = (teste.testes_opacidade_medicoes ?? []).sort(
+    (a: { ciclo_aceleracao: number }, b: { ciclo_aceleracao: number }) => a.ciclo_aceleracao - b.ciclo_aceleracao,
+  );
+  const hojeDate = new Date();
+  const hoje = hojeDate.toLocaleDateString("pt-BR");
+  const validadeDate = new Date(hojeDate);
+  validadeDate.setFullYear(validadeDate.getFullYear() + 1);
+  const validade = validadeDate.toLocaleDateString("pt-BR");
   const veiculoLabel = `${veiculo?.marca ?? ""} ${veiculo?.modelo ?? ""} - ${veiculo?.identificador ?? ""}`.trim();
   const { razaoSocial, cnpj, endereco, telefone } = await getDadosEmpresa();
+
+  // Limites do motor (marcha lenta/rotação de corte/opacidade) — cadastro
+  // técnico já existente (ANFAVEA ou manual), vinculado ao veículo. Só
+  // busca se o veículo tiver uma especificação de motor associada.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let especMotor: any = null;
+  if (veiculo?.especificacao_motor_id) {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("especificacoes_motor")
+      .select("marcha_lenta_min, marcha_lenta_max, rotacao_corte_min, rotacao_corte_max, limite_opacidade")
+      .eq("id", veiculo.especificacao_motor_id)
+      .maybeSingle();
+    especMotor = data;
+  }
 
   let logoBuffer: Buffer | null = null;
   try {
@@ -66,22 +89,14 @@ export async function gerarLaudoPdf({
   }
   const logoBase64 = logoBuffer ? `data:image/png;base64,${logoBuffer.toString("base64")}` : null;
 
-  // Páginas 2 (ensaio exportado do Syscon) e 3 (certificado de calibração do
-  // equipamento) não são redesenhadas — são os PDFs reais já anexados no
-  // sistema, mescladas como estão (igual ao laudo original: a capa é nossa,
-  // o resto é o documento de fábrica/do equipamento de medição mesmo).
-  // Carrega os dois antes de desenhar a capa pra já cravar o total de
-  // páginas certo no cabeçalho (jsPDF não sabe esse número de antemão).
-  const ensaioBuffer = await baixarArquivoInterno(teste.pdf_ensaio_original_path);
+  // Página 3 (certificado de calibração do equipamento) não é redesenhada —
+  // é o PDF real anexado no cadastro do equipamento, mesclado como está.
+  // A página 2 (ensaio) já foi redesenhada com dados do próprio sistema —
+  // ver nota mais abaixo. Carrega o certificado antes de desenhar a capa
+  // pra já cravar o total de páginas certo no cabeçalho.
   const certBuffer = await baixarArquivoInterno(equipamento?.pdf_certificado_calibracao_path);
   const certTipo = certBuffer ? detectarTipoArquivo(certBuffer) : null;
-  let ensaioDoc: PDFDocument | null = null;
   let certDoc: PDFDocument | null = null;
-  try {
-    if (ensaioBuffer) ensaioDoc = await PDFDocument.load(ensaioBuffer);
-  } catch {
-    ensaioDoc = null; // PDF corrompido/ilegível — segue sem travar a emissão
-  }
   if (certTipo === "pdf" && certBuffer) {
     try {
       certDoc = await PDFDocument.load(certBuffer);
@@ -93,7 +108,7 @@ export async function gerarLaudoPdf({
   // um PDF de verdade mas é uma imagem reconhecida, ainda entra no laudo,
   // só que como página desenhada (imagem centralizada) em vez de mesclada.
   const certEhImagem = certTipo === "jpeg" || certTipo === "png" || certTipo === "webp";
-  const totalPaginas = 1 + (ensaioDoc?.getPageCount() ?? 0) + (certDoc?.getPageCount() ?? 0) + (certEhImagem ? 1 : 0);
+  const totalPaginas = 2 + (certDoc?.getPageCount() ?? 0) + (certEhImagem ? 1 : 0);
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -339,111 +354,176 @@ export async function gerarLaudoPdf({
 
   rodape();
 
-  const pdfBytes = doc.output("arraybuffer");
-  const finalDoc = await PDFDocument.load(pdfBytes);
-
-  const logoImagemPdfLib = logoBuffer ? await finalDoc.embedPng(logoBuffer).catch(() => null) : null;
-  const fonteCarimbo = await finalDoc.embedFont(StandardFonts.Helvetica);
-  let paginaAtual = 1;
-
-  // Carimba um logo pequeno + "Página X de Y" nas páginas mescladas de
-  // documentos de terceiros (Syscon, certificado) — mesmo tratamento visual
-  // do laudo original, sem redesenhar o conteúdo desses documentos.
-  function carimbarPagina(pagina: PDFPage) {
-    const { width, height } = pagina.getSize();
-    if (logoImagemPdfLib) {
-      const escala = 26 / logoImagemPdfLib.width;
-      pagina.drawImage(logoImagemPdfLib, {
-        x: 14,
-        y: height - 14 - logoImagemPdfLib.height * escala,
-        width: logoImagemPdfLib.width * escala,
-        height: logoImagemPdfLib.height * escala,
-      });
-    }
-    const texto = `Página ${paginaAtual} de ${totalPaginas}`;
-    const tamanho = 8;
-    const larguraTexto = fonteCarimbo.widthOfTextAtSize(texto, tamanho);
-    pagina.drawText(texto, {
-      x: width - 14 - larguraTexto,
-      y: 14,
-      size: tamanho,
-      font: fonteCarimbo,
-      color: rgb(0.35, 0.35, 0.35),
-    });
+  // ---------- Página 2: dados do ensaio ----------
+  // Redesenhada com dados do nosso sistema (não é mais o PDF exportado pelo
+  // Syscon mesclado) — dados cadastrais de cliente/veículo digitados
+  // diretamente no aparelho do opacímetro podem estar errados/desatualizados
+  // (ex.: técnico reaproveitou um teste anterior sem trocar os dados no
+  // equipamento), então a fonte de verdade tem que ser sempre o cadastro
+  // já confirmado aqui na plataforma. `parseEnsaioSyscon`
+  // (src/lib/syscon/parse-ensaio.ts) já seguia essa mesma regra pros dados
+  // de medição — só nunca tinha sido aplicada ao layout do PDF final.
+  // Estrutura desta página segue a mesma organização do relatório que o
+  // Syscon exporta (Dados do Veículo / Dados do Cliente / Dados do Ensaio /
+  // medições / Resultado / Dados do Opacímetro) — texto simples com
+  // divisórias finas, não o estilo de barra verde da capa. Helpers locais
+  // só usados aqui, por isso não sobem pro nível dos outros (blocoGrid etc.).
+  function tituloSecaoEnsaio(titulo: string, startY: number): number {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(20, 20, 20);
+    doc.text(titulo, margin, startY);
+    return startY + 5;
+  }
+  function linhaEnsaio(startY: number, esquerda: string | null, direita?: string | null): number {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(20, 20, 20);
+    if (esquerda) doc.text(esquerda, margin, startY);
+    if (direita) doc.text(direita, pageW / 2 + 10, startY);
+    return startY + 4.6;
+  }
+  function divisorEnsaio(startY: number): number {
+    doc.setDrawColor(190, 190, 190);
+    doc.line(margin, startY, pageW - margin, startY);
+    return startY + 5;
   }
 
-  // comCarimbo=false pra página que já é nossa (tem cabeçalho/rodapé
-  // próprio desenhado, ver construirPaginaCertificadoImagem) — só avança a
-  // contagem de página, sem carimbar de novo em cima.
-  async function mesclar(sourceDoc: PDFDocument | null, comCarimbo = true) {
-    if (!sourceDoc) return;
-    const paginas = await finalDoc.copyPages(sourceDoc, sourceDoc.getPageIndices());
-    paginas.forEach((p) => {
-      finalDoc.addPage(p);
-      paginaAtual += 1;
-      if (comCarimbo) carimbarPagina(p);
-    });
-  }
+  doc.addPage();
+  cabecalho(2);
+  y = 35;
 
-  // Certificado é foto, não PDF — em vez de mesclar um arquivo de terceiro,
-  // desenhamos uma página nossa (mesmo cabeçalho com Nº/Revisão/Data/Página
-  // da capa) com a imagem centralizada. Precisa ser um jsPDF separado (não
-  // dá pra intercalar páginas jsPDF no meio de merges pdf-lib de um mesmo
-  // doc.output()) — construído só depois de saber quantas páginas o ensaio
-  // ocupou, pra cravar o número de página certo no cabeçalho.
-  async function construirPaginaCertificadoImagem(paginaNum: number): Promise<PDFDocument | null> {
-    if (!certEhImagem || !certBuffer) return null;
-    const docImg = new jsPDF({ unit: "mm", format: "a4" });
-    const w = docImg.internal.pageSize.getWidth();
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(20, 20, 20);
+  doc.text(`Ensaio de Opacidade Nº ${teste.numero_teste ?? "-"}`, pageW / 2, y, { align: "center" });
+  y = divisorEnsaio(y + 4);
 
-    docImg.setFillColor(...BRAND);
-    docImg.rect(0, 0, w, 3, "F");
-    if (logoBase64) docImg.addImage(logoBase64, "PNG", margin, 8, 14, 13);
-    docImg.setFontSize(14);
-    docImg.setTextColor(20, 20, 20);
-    docImg.setFont("helvetica", "bold");
-    docImg.text("LAUDO DE OPACIDADE", margin + 20, 15);
+  y = tituloSecaoEnsaio("Dados do Veículo", y);
+  const limiteMarchaLenta =
+    especMotor?.marcha_lenta_min != null && especMotor?.marcha_lenta_max != null
+      ? `${especMotor.marcha_lenta_min} - ${especMotor.marcha_lenta_max}`
+      : "-";
+  const limiteRotacaoCorte =
+    especMotor?.rotacao_corte_min != null && especMotor?.rotacao_corte_max != null
+      ? `${especMotor.rotacao_corte_min} - ${especMotor.rotacao_corte_max}`
+      : "-";
+  const limiteOpacidade = especMotor?.limite_opacidade != null ? String(especMotor.limite_opacidade) : "-";
+  y = linhaEnsaio(y, `Marca: ${veiculo?.marca ?? "-"}`, `Limite marcha lenta: ${limiteMarchaLenta}`);
+  y = linhaEnsaio(y, `Modelo: ${veiculo?.modelo ?? "-"}`);
+  y = linhaEnsaio(
+    y,
+    `Tipo motor: ${veiculo?.identificacao_motor ?? "-"}`,
+    `Limite rotação de corte: ${limiteRotacaoCorte}`,
+  );
+  y = linhaEnsaio(y, null, `Limite opacidade: ${limiteOpacidade}`);
+  y = linhaEnsaio(
+    y,
+    `${veiculo?.tipo_ativo === "veiculo" ? "Placa" : "Identificador"}: ${veiculo?.identificador ?? "-"}     Fabricação: ${veiculo?.ano ?? "-"}`,
+  );
+  y = divisorEnsaio(y + 1);
 
-    const boxW = 46;
-    const boxX = w - margin - boxW;
-    const boxY = 6;
-    const linhaH = 4.6;
-    const linhasBox: [string, string][] = [
-      ["Nº:", numero],
-      ["Revisão:", String(revisao)],
-      ["Data:", hoje],
-      ["Página:", `${paginaNum} de ${totalPaginas}`],
-    ];
-    docImg.setDrawColor(200, 200, 200);
-    docImg.setLineWidth(0.2);
-    docImg.rect(boxX, boxY, boxW, linhaH * linhasBox.length);
-    linhasBox.forEach(([label, valor], i) => {
-      const yy = boxY + linhaH * i;
-      if (i > 0) docImg.line(boxX, yy, boxX + boxW, yy);
-      docImg.setFontSize(7.5);
-      docImg.setFont("helvetica", "bold");
-      docImg.setTextColor(90, 90, 90);
-      docImg.text(label, boxX + 2, yy + linhaH - 1.6);
-      docImg.setFont("helvetica", "normal");
-      docImg.setTextColor(20, 20, 20);
-      docImg.text(valor, boxX + boxW - 2, yy + linhaH - 1.6, { align: "right" });
-    });
-    docImg.setDrawColor(220, 220, 220);
-    docImg.line(margin, 27, w - margin, 27);
+  y = tituloSecaoEnsaio("Dados do Cliente", y);
+  y = linhaEnsaio(y, `${cliente?.nome ?? "-"} - CNPJ/CPF: ${cliente?.cnpj_cpf ?? "-"}`);
+  y = linhaEnsaio(y, `Endereço: ${cliente?.endereco ?? "-"}`);
+  y = linhaEnsaio(y, `Fone: ${cliente?.telefone ?? "-"}`);
+  y = divisorEnsaio(y + 1);
 
-    let yImg = 35;
-    docImg.setFillColor(...BRAND);
-    docImg.rect(margin, yImg, w - margin * 2, 6, "F");
-    docImg.setTextColor(255, 255, 255);
-    docImg.setFontSize(9);
-    docImg.setFont("helvetica", "bold");
-    docImg.text("CERTIFICADO DE CALIBRAÇÃO DO EQUIPAMENTO", margin + 3, yImg + 4.2);
-    yImg += 12;
+  y = tituloSecaoEnsaio("Dados do Ensaio", y);
+  y = linhaEnsaio(y, `Início: ${hoje}`);
+  y += 2;
 
-    const larguraMax = w - margin * 2;
-    const alturaMax = docImg.internal.pageSize.getHeight() - yImg - 20;
+  autoTable(doc, {
+    startY: y,
+    head: [["Aceleração", "Rotação de corte", "Tempo", "Opacidade K(m-1)"]],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    body: medicoes.map((m: any) => [
+      m.ciclo_aceleracao,
+      m.rotacao_corte ?? "-",
+      `${m.tempo_segundos ?? 4} s`,
+      m.opacidade_m1 ?? "-",
+    ]),
+    headStyles: { fillColor: BRAND },
+    styles: { fontSize: 9, halign: "center" },
+    margin: { left: margin, right: margin },
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  y = (doc as any).lastAutoTable.finalY + 5;
+  y = divisorEnsaio(y);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text(
+    `Resultado do Veículo   ${veiculo?.identificador ?? "-"}   Média: ${teste.media_m1 ?? "-"}   ${resultadoTexto}`,
+    margin,
+    y,
+  );
+  y += 7;
+  y = linhaEnsaio(y, `Data do ensaio: ${hoje}     Validade: ${validade}`, `Responsável: ${responsavel.nome ?? "-"}`);
+  y = divisorEnsaio(y + 1);
+
+  const yOpacimetro = tituloSecaoEnsaio("Dados do Opacímetro/Software", y);
+  y = linhaEnsaio(
+    yOpacimetro,
+    `Opacímetro modelo: ${equipamento?.modelo ?? "-"}     Serial: ${equipamento?.numero_serie ?? "-"}     Válido até: ${equipamento?.validade ? new Date(equipamento.validade).toLocaleDateString("pt-BR") : "-"}`,
+  );
+  linhaEnsaio(y, `Fabricante: ${equipamento?.fabricante ?? "-"}`);
+
+  // Selo do fabricante (ex.: "Smoke Check 2000 — Opacímetro Portátil"),
+  // opcional, cadastrado por equipamento em /painel/equipamentos — fica à
+  // esquerda do QR code, mesma posição do selo no laudo original.
+  const seloBuf = await baixarArquivoInterno(equipamento?.selo_imagem_path);
+  const qrSize = 20;
+  let seloW = 0;
+  if (seloBuf) {
     try {
-      const props = docImg.getImageProperties(certBuffer);
+      const seloTipo = detectarTipoArquivo(seloBuf);
+      const props = doc.getImageProperties(seloBuf);
+      const seloH = 16;
+      seloW = seloH * (props.width / props.height);
+      doc.addImage(
+        seloBuf,
+        seloTipo === "webp" ? "WEBP" : seloTipo === "png" ? "PNG" : "JPEG",
+        pageW - margin - qrSize - 4 - seloW,
+        yOpacimetro - 3,
+        seloW,
+        seloH,
+      );
+    } catch {
+      // imagem em formato não suportado pelo jsPDF — segue sem travar a emissão
+      seloW = 0;
+    }
+  }
+
+  // QR code de verificação pública — mesma posição (canto direito do bloco
+  // "Dados do Opacímetro/Software") do QR code impresso pelo Syscon no
+  // laudo original, mas gerado por nós e apontando pra nossa própria
+  // página de verificação (o QR do Syscon aponta pro sistema deles, sem
+  // utilidade nenhuma fora de lá).
+  try {
+    const qrDataUrl = await QRCode.toDataURL(`${COMPANY.siteUrl}/laudo/${codigoPublico}`, { margin: 0, width: 240 });
+    doc.addImage(qrDataUrl, "PNG", pageW - margin - qrSize, yOpacimetro - 3, qrSize, qrSize);
+  } catch {
+    // geração de QR code falhou — segue sem travar a emissão
+  }
+
+  rodape();
+
+  // ---------- Página 3: certificado de calibração (só quando é imagem) ----------
+  // Certificado em PDF de verdade é mesclado depois (ver mesclar() abaixo,
+  // preserva o documento original). Se for foto, desenhamos aqui mesmo,
+  // ainda dentro do `doc` principal — mais simples que antes porque não tem
+  // mais nenhuma mesclagem *antes* dela (o ensaio virou página nossa, não
+  // mesclada).
+  if (certEhImagem && certBuffer) {
+    doc.addPage();
+    cabecalho(3);
+    let yImg = 35;
+    yImg = barraSecao("CERTIFICADO DE CALIBRAÇÃO DO EQUIPAMENTO", yImg) + 6;
+    const larguraMax = pageW - margin * 2;
+    const alturaMax = doc.internal.pageSize.getHeight() - yImg - 20;
+    try {
+      const props = doc.getImageProperties(certBuffer);
       const razao = props.width / props.height;
       let iw = larguraMax;
       let ih = iw / razao;
@@ -452,38 +532,47 @@ export async function gerarLaudoPdf({
         iw = ih * razao;
       }
       const x = margin + (larguraMax - iw) / 2;
-      docImg.addImage(
-        certBuffer,
-        certTipo === "webp" ? "WEBP" : certTipo === "png" ? "PNG" : "JPEG",
-        x,
-        yImg,
-        iw,
-        ih,
-      );
+      doc.addImage(certBuffer, certTipo === "webp" ? "WEBP" : certTipo === "png" ? "PNG" : "JPEG", x, yImg, iw, ih);
     } catch {
       // imagem em formato não suportado pelo jsPDF — segue sem travar a emissão
     }
-
-    docImg.setFontSize(7.5);
-    docImg.setTextColor(120, 120, 120);
-    const hh = docImg.internal.pageSize.getHeight();
-    docImg.text(`${razaoSocial} · CNPJ ${cnpj} · ${endereco} · ${telefone}`, w / 2, hh - 8, { align: "center" });
-    docImg.text(`Verificação pública: ${COMPANY.siteUrl}/laudo/${codigoPublico}`, w / 2, hh - 4, {
-      align: "center",
-    });
-
-    return PDFDocument.load(docImg.output("arraybuffer"));
+    rodape();
   }
 
-  // Mesma ordem do laudo original: ensaio (Syscon) sempre antes do
-  // certificado de calibração, seja ele mesclado de verdade ou desenhado
-  // como imagem.
-  await mesclar(ensaioDoc);
-  if (certEhImagem) {
-    const certImagemDoc = await construirPaginaCertificadoImagem(paginaAtual + 1);
-    await mesclar(certImagemDoc, false);
-  } else {
-    await mesclar(certDoc);
+  const pdfBytes = doc.output("arraybuffer");
+  const finalDoc = await PDFDocument.load(pdfBytes);
+
+  // Certificado real em PDF é mesclado como está (não redesenhado) — só
+  // recebe um carimbo pequeno (logo + "Página X de Y") por cima, igual ao
+  // laudo original, já que o conteúdo dele não é nosso.
+  if (certDoc) {
+    const logoImagemPdfLib = logoBuffer ? await finalDoc.embedPng(logoBuffer).catch(() => null) : null;
+    const fonteCarimbo = await finalDoc.embedFont(StandardFonts.Helvetica);
+    let paginaAtual = 2;
+    const paginas = await finalDoc.copyPages(certDoc, certDoc.getPageIndices());
+    paginas.forEach((p) => {
+      finalDoc.addPage(p);
+      paginaAtual += 1;
+      const { width, height } = p.getSize();
+      if (logoImagemPdfLib) {
+        const escala = 26 / logoImagemPdfLib.width;
+        p.drawImage(logoImagemPdfLib, {
+          x: 14,
+          y: height - 14 - logoImagemPdfLib.height * escala,
+          width: logoImagemPdfLib.width * escala,
+          height: logoImagemPdfLib.height * escala,
+        });
+      }
+      const texto = `Página ${paginaAtual} de ${totalPaginas}`;
+      const larguraTexto = fonteCarimbo.widthOfTextAtSize(texto, 8);
+      p.drawText(texto, {
+        x: width - 14 - larguraTexto,
+        y: 14,
+        size: 8,
+        font: fonteCarimbo,
+        color: rgb(0.35, 0.35, 0.35),
+      });
+    });
   }
 
   return finalDoc.save();

@@ -257,11 +257,21 @@ Staff lê; `escritorio+` insere/atualiza.
 id uuid PK, tipo text check in ('opacimetro','tacometro'), modelo text not null,
 numero_serie text not null unique, fabricante text, numero_inmetro text,
 data_afericao date, validade date, pdf_certificado_calibracao_path text,
+selo_imagem_path text,  -- 0029, opcional
 criado_por/atualizado_por uuid references usuarios_perfis(id) on delete set null,
 atualizado_em timestamptz, created_at
 ```
 (`criado_por`/`atualizado_por`/`atualizado_em` vieram de uma migration
 posterior, `0002`.) Staff lê; `escritorio+` gerencia tudo.
+
+`selo_imagem_path` (migration `0029`) — selo de verificação do fabricante
+do equipamento (ex.: "Smoke Check 2000 — Opacímetro Portátil"), imagem
+opcional anexada em `/painel/equipamentos` junto com o certificado de
+calibração (mesmo campo `FileDropInput`, `accept="image/*"`, path
+`equipamentos/{id}/selo-imagem.{ext}`). Usada só no PDF do laudo (seção
+8.6) — não temos esse arquivo em nenhum outro lugar do sistema, então sem
+o upload manual essa parte da página 2 simplesmente não aparece (não é
+inventada).
 
 ### 6.9 `agendamentos` (agenda + pipeline comercial — o núcleo do painel)
 Tabela **polimórfica**: um registro é ou um teste de opacidade agendado,
@@ -1186,44 +1196,92 @@ sempre descarta `resultado`/`media_m1`/`pdf_ensaio_original_path` e as
 de qualquer jeito.
 
 ### 8.6 PDF do laudo (`src/lib/laudo/gerar-pdf.ts`)
-Só a **capa (página 1)** é desenhada por nós (`jspdf`/`jspdf-autotable`).
-Da página 2 em diante é sempre um **PDF real anexado no sistema,
-mesclado como está** via `pdf-lib` — o ensaio exportado do Syscon
-(`testes_opacidade.pdf_ensaio_original_path`, anexado em "Importar PDF
-Syscon") e o certificado de calibração do equipamento
-(`equipamentos_teste.pdf_certificado_calibracao_path`). Redesenhar esses
-dois documentos foi tentado numa rodada anterior (tabela de medições +
-dados do opacímetro desenhados à mão) e **abandonado**: o laudo real que
-os clientes recebiam antes do sistema já vinha com esses documentos de
-terceiros mesclados tal como são (inclusive um carimbo pequeno — logo +
-"Página X de Y" — colado em cada página mesclada), e é isso que o layout
-final replica.
+**Páginas 1 (capa) e 2 (ensaio) são sempre desenhadas por nós**
+(`jspdf`/`jspdf-autotable`), com dados vindos do banco — nunca do PDF cru
+exportado pelo Syscon. Isso já era a regra pros dados de *medição*
+(`src/lib/syscon/parse-ensaio.ts` já tinha o comentário "só lê dados de
+medição — não dados cadastrais de cliente/veículo, que já existem nesta
+plataforma"), mas até uma rodada anterior a página 2 do PDF final
+**mesclava** o arquivo cru do Syscon como veio — e esse arquivo tem sua
+própria seção "Dados do Veículo"/"Dados do Cliente" digitada por quem
+operou o opacímetro no campo, que pode estar errada ou desatualizada
+(reaproveitar o aparelho de um teste anterior sem trocar os dados nele,
+por exemplo). Um cliente reclamou de uma divergência assim, e a página 2
+passou a ser redesenhada com os mesmos dados cadastrais confiáveis da
+capa, mais o que é específico do ensaio.
 
-**Total de páginas é calculado antes de desenhar a capa** (`totalPaginas`
-= 1 + páginas do ensaio + páginas do certificado), porque o cabeçalho da
-capa já precisa mostrar "Página 1 de N" correto — os dois PDFs de
-terceiros são baixados e carregados via `PDFDocument.load` **antes** de
-criar o `jsPDF`, só pra saber `getPageCount()` de cada um.
+**A estrutura visual da página 2 imita a organização do relatório do
+Syscon** (Dados do Veículo → Dados do Cliente → Dados do Ensaio →
+medições → Resultado → Dados do Opacímetro/Software, com títulos em
+negrito e divisórias finas — `tituloSecaoEnsaio`/`linhaEnsaio`/
+`divisorEnsaio`, helpers locais só usados nessa página) — **não** usa o
+estilo de barra verde/grade com borda da capa (`barraSecao`/`blocoGrid`).
+Primeira tentativa de corrigir a fonte dos dados trocou a estrutura
+inteira pro estilo da capa; pedido explícito da gerência foi manter a
+organização antiga (a mesma do Syscon) e só trocar de onde os valores
+vêm — layout são dois estilos deliberadamente diferentes dentro do mesmo
+documento, não inconsistência.
+- `especificacoes_motor` (marcha lenta/rotação de corte/limite de
+  opacidade), buscada à parte se `veiculo.especificacao_motor_id` estiver
+  preenchido — mostra "-" quando o veículo não tem especificação
+  vinculada, nunca inventa um valor.
+- Tabela de medições vem de `testes_opacidade_medicoes` (Aceleração,
+  Rotação de corte, Tempo — fixo em 4s, não é parseado do PDF —,
+  Opacidade K(m-1)). **`rotacao_corte` existe como coluna mas nunca é
+  populada** pelo parser atual (`parseEnsaioSyscon` só extrai ciclo +
+  opacidade) — a coluna continua na tabela (mesma estrutura de 4 colunas
+  do Syscon) mas sempre mostra "-"; precisaria de um parser melhor pra
+  vir preenchida.
+- Validade = data de emissão + 1 ano (mesma regra da view
+  `veiculos_validade`, seção 6.x).
+- Dados do opacímetro (modelo/serial/fabricante/validade) vêm de
+  `equipamentos_teste`, já carregado em `teste.equipamentos_teste`.
+- Altitude, temperatura aferida e RPM tolerado (linhas que existem no
+  relatório do Syscon) não têm fonte confiável em nenhum lugar do sistema
+  — **omitidos**, não fabricados.
+- **QR code + selo do fabricante**, canto inferior direito de "Dados do
+  Opacímetro/Software" (pedido explícito: manter esse formato do relatório
+  original). QR é gerado de verdade a cada laudo (`qrcode`,
+  `QRCode.toDataURL`) codificando `${COMPANY.siteUrl}/laudo/
+  {codigoPublico}` — a verificação pública **da nossa própria plataforma**,
+  não uma cópia do QR do Syscon (que aponta pra algo fora do nosso
+  controle). O selo (ex. carimbo "Smoke Check 2000 — Opacímetro Portátil")
+  é opcional e vem de `equipamentos_teste.selo_imagem_path` (seção 6.8,
+  migration `0029`) — desenhado à esquerda do QR, escalado
+  proporcionalmente pra 16mm de altura; se o equipamento não tiver selo
+  cadastrado, essa parte simplesmente não aparece (não inventamos a
+  imagem).
+
+**Só a página 3 (certificado de calibração) ainda pode ser um documento
+de terceiro mesclado tal como é** — não redesenhamos um certificado de
+calibração de fábrica, isso não é dado que já exista noutro lugar do
+sistema para preferir a versão nossa. Se `equipamentos_teste.
+pdf_certificado_calibracao_path` for um PDF de verdade, é mesclado via
+`pdf-lib` com um carimbo por cima (`page.drawImage`/`page.drawText`,
+`StandardFonts.Helvetica` + `rgb()`, coordenadas em pontos com origem no
+canto inferior esquerdo — diferente do `jsPDF`, que usa mm com origem no
+canto superior): logo pequeno no topo-esquerdo + "Página X de Y" no
+rodapé-direito, sem alterar o conteúdo original do documento.
 
 **Certificado de calibração aceita "PDF ou foto"** no cadastro do
 equipamento (`equipamentos/equipamento-form.tsx`, `accept="application/
 pdf,image/*"`) — `detectarTipoArquivo` lê os primeiros bytes do arquivo
 baixado (assinatura `%PDF`/JPEG/PNG/RIFF+WEBP) em vez de confiar na
 extensão salva no path (encontrado um caso real onde o path terminava em
-`.pdf` mas o conteúdo era WebP). Se for imagem, vira uma página desenhada
-por nós (título "CERTIFICADO DE CALIBRAÇÃO DO EQUIPAMENTO" + imagem
-centralizada, redimensionada mantendo proporção) em vez de mesclada — e
-essa página entra na conta de `totalPaginas` também. Se o PDF do ensaio
-ou o certificado estiver ausente/corrompido, a mesclagem correspondente é
-pulada silenciosamente (nunca trava a emissão do laudo) — só reduz o
-total de páginas.
+`.pdf` mas o conteúdo era WebP). Se for imagem, vira uma página nossa
+(título "CERTIFICADO DE CALIBRAÇÃO DO EQUIPAMENTO" + imagem centralizada,
+redimensionada mantendo proporção) desenhada como página 3 do mesmo `doc`
+principal — só quando o certificado é um PDF de verdade é que existe
+mesclagem via `pdf-lib` depois do `doc.output()`. Se o certificado
+estiver ausente/corrompido, a página 3 simplesmente não é criada — nunca
+trava a emissão do laudo, só reduz o total de páginas.
 
-**Carimbo nas páginas mescladas** (`carimbarPagina`, usa `pdf-lib`
-direto — `page.drawImage`/`page.drawText` com `StandardFonts.Helvetica`
-+ `rgb()`, coordenadas em pontos com origem no canto inferior esquerdo,
-diferente do `jsPDF` que usa mm com origem no canto superior): logo
-pequeno no topo-esquerdo + "Página X de Y" no rodapé-direito, sem alterar
-o conteúdo original do documento mesclado.
+**Total de páginas é calculado antes de desenhar a capa**
+(`totalPaginas` = 2 (capa + ensaio) + páginas do certificado, se houver),
+porque o cabeçalho da capa já precisa mostrar "Página 1 de N" correto —
+o certificado é baixado e carregado via `PDFDocument.load` **antes** de
+criar o `jsPDF`, só pra saber `getPageCount()` (quando é PDF) ou decidir
+que vai virar +1 página nossa (quando é imagem).
 
 **Capa (página 1)**: cabeçalho com caixinha bordada no canto direito
 (`caixaCabecalho`) com Nº/Revisão/Data/Página — `revisao` é parâmetro

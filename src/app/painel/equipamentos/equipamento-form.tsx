@@ -159,6 +159,22 @@ export function EquipamentoForm({
         />
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="selo_imagem">
+          Selo/imagem do modelo (opcional){equipamento ? " — enviar substitui o atual" : ""}
+        </Label>
+        <FileDropInput
+          id="selo_imagem"
+          name="selo_imagem"
+          accept="image/*"
+          label="Clique para enviar o selo do fabricante (imagem)"
+        />
+        <p className="text-xs text-neutral-500">
+          Selo de verificação do fabricante (ex.: &ldquo;Smoke Check 2000 — Opacímetro Portátil&rdquo;), usado no PDF do
+          laudo junto com o QR code de verificação.
+        </p>
+      </div>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex gap-3">
