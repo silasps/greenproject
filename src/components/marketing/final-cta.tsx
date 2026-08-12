@@ -37,6 +37,7 @@ export function FinalCta({
               href={linkWhatsapp(whatsapp, whatsappMessage)}
               target="_blank"
               rel="noopener noreferrer"
+              suppressHydrationWarning
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand px-6 py-3 font-semibold text-white hover:bg-brand-dark"
             >
               <MessageCircle className="h-5 w-5" aria-hidden />

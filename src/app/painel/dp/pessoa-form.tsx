@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,14 @@ import { type Role } from "@/lib/auth/permissions";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ErrorModal } from "@/components/error-modal";
 import { formatTelefone } from "@/lib/utils/mascaras";
-import { criarPessoa, editarPessoa, redefinirSenha, type Credenciais } from "./actions";
+import {
+  criarPessoa,
+  editarPessoa,
+  redefinirSenha,
+  buscarEmailUsuario,
+  alterarEmailUsuario,
+  type Credenciais,
+} from "./actions";
 import { CredenciaisPanel } from "./credenciais-panel";
 
 type Funcao = { id: string; nome: string };
@@ -32,7 +39,17 @@ function hoje() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function PessoaForm({ pessoa, funcoes }: { pessoa?: Pessoa; funcoes: Funcao[] }) {
+export function PessoaForm({
+  pessoa,
+  funcoes,
+  onSucesso,
+  onCancelar,
+}: {
+  pessoa?: Pessoa;
+  funcoes: Funcao[];
+  onSucesso?: () => void;
+  onCancelar?: () => void;
+}) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -43,12 +60,54 @@ export function PessoaForm({ pessoa, funcoes }: { pessoa?: Pessoa; funcoes: Func
   const [erro, setErro] = useState<string | null>(null);
   const action = pessoa ? editarPessoa : criarPessoa;
 
+  const [email, setEmail] = useState<string | null>(null);
+  const [carregandoEmail, setCarregandoEmail] = useState(!!pessoa);
+  const [editandoEmail, setEditandoEmail] = useState(false);
+  const [novoEmail, setNovoEmail] = useState("");
+  const [salvandoEmail, setSalvandoEmail] = useState(false);
+
+  useEffect(() => {
+    if (!pessoa) return;
+    let ativo = true;
+    setCarregandoEmail(true);
+    buscarEmailUsuario(pessoa.id).then((resultado) => {
+      if (ativo) {
+        setEmail(resultado);
+        setCarregandoEmail(false);
+      }
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [pessoa]);
+
+  function iniciarAlteracaoEmail() {
+    setNovoEmail(email ?? "");
+    setEditandoEmail(true);
+  }
+
+  async function confirmarAlteracaoEmail() {
+    setErro(null);
+    setSalvandoEmail(true);
+    try {
+      const resultado = await alterarEmailUsuario(pessoa!.id, novoEmail);
+      setEmail(resultado.email);
+      setEditandoEmail(false);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível alterar o e-mail.");
+    } finally {
+      setSalvandoEmail(false);
+    }
+  }
+
   async function handleSubmit(formData: FormData) {
     setErro(null);
     try {
       const resultado = await action(formData);
       if ("credenciais" in resultado) {
         setCredenciais(resultado.credenciais);
+      } else if (onSucesso) {
+        onSucesso();
       } else {
         router.push("/painel/dp");
       }
@@ -70,14 +129,14 @@ export function PessoaForm({ pessoa, funcoes }: { pessoa?: Pessoa; funcoes: Func
   }
 
   if (credenciais) {
-    return <CredenciaisPanel credenciais={credenciais} />;
+    return <CredenciaisPanel credenciais={credenciais} onConcluir={onSucesso} />;
   }
 
   return (
     <form
       ref={formRef}
       action={(formData) => startTransition(() => handleSubmit(formData))}
-      className="mt-6 mx-auto max-w-lg space-y-4"
+      className={onCancelar ? "space-y-4" : "mt-6 mx-auto max-w-lg space-y-4"}
     >
       {pessoa && <input type="hidden" name="id" value={pessoa.id} />}
 
@@ -148,6 +207,50 @@ export function PessoaForm({ pessoa, funcoes }: { pessoa?: Pessoa; funcoes: Func
         </p>
       </div>
 
+      {pessoa && (
+        <div className="space-y-2">
+          <Label>E-mail de acesso</Label>
+          {carregandoEmail ? (
+            <p className="text-sm text-neutral-400">Carregando...</p>
+          ) : editandoEmail ? (
+            <div className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+              <Input
+                type="email"
+                value={novoEmail}
+                onChange={(e) => setNovoEmail(e.target.value)}
+                placeholder="novo@email.com"
+                autoFocus
+              />
+              <p className="text-xs text-amber-600">
+                A pessoa vai passar a entrar no sistema com esse novo e-mail. A senha continua a mesma.
+              </p>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" disabled={salvandoEmail} onClick={confirmarAlteracaoEmail}>
+                  {salvandoEmail ? "Salvando..." : "Confirmar e-mail"}
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setEditandoEmail(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 py-2">
+              <span className="text-sm text-neutral-700">{email ?? "—"}</span>
+              <button
+                type="button"
+                onClick={iniciarAlteracaoEmail}
+                className="text-xs font-semibold text-brand hover:underline"
+              >
+                Alterar e-mail
+              </button>
+            </div>
+          )}
+          <p className="text-xs text-neutral-500">
+            Só altere se a pessoa perdeu acesso a esse e-mail ou ele foi cadastrado errado.
+          </p>
+        </div>
+      )}
+
       {pessoa && pessoa.acesso_sistema && (
         <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3.5 py-3">
           <p className="text-sm font-medium text-neutral-900">Pessoa esqueceu a senha?</p>
@@ -171,7 +274,13 @@ export function PessoaForm({ pessoa, funcoes }: { pessoa?: Pessoa; funcoes: Func
         <Button type="submit" disabled={pending || !cpfValido} className="bg-brand hover:bg-brand-dark">
           {pending ? "Salvando..." : "Salvar"}
         </Button>
-        <ConfirmLeaveButton to="/painel/dp" label="Cancelar" variant="outline" />
+        {onCancelar ? (
+          <Button type="button" variant="outline" onClick={onCancelar}>
+            Cancelar
+          </Button>
+        ) : (
+          <ConfirmLeaveButton to="/painel/dp" label="Cancelar" variant="outline" />
+        )}
       </div>
     </form>
   );

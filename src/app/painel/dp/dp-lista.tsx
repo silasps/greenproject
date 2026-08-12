@@ -1,19 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Search, CheckCircle2, User } from "lucide-react";
 import { ROLE_LABELS, type Role } from "@/lib/auth/permissions";
+import { EditarPessoaButton } from "./editar-pessoa-button";
 
 export type PessoaLinha = {
   id: string;
   nome: string;
-  role: string;
+  role: Role;
+  funcao_id: string | null;
+  cpf: string | null;
+  telefone: string | null;
+  data_admissao: string | null;
   acesso_sistema: boolean;
   funcoes: { nome: string } | null;
 };
+type Funcao = { id: string; nome: string; nivel_acesso: Role };
 
-function ListaPessoas({ titulo, pessoas, ativos }: { titulo: string; pessoas: PessoaLinha[]; ativos: boolean }) {
+function ListaPessoas({
+  titulo,
+  pessoas,
+  ativos,
+  funcoes,
+  overridesCargoPorFuncao,
+  overridesPorPessoa,
+}: {
+  titulo: string;
+  pessoas: PessoaLinha[];
+  ativos: boolean;
+  funcoes: Funcao[];
+  overridesCargoPorFuncao: Record<string, Record<string, boolean>>;
+  overridesPorPessoa: Record<string, Record<string, boolean>>;
+}) {
   if (pessoas.length === 0) return null;
   return (
     <div className="mt-6">
@@ -23,9 +42,8 @@ function ListaPessoas({ titulo, pessoas, ativos }: { titulo: string; pessoas: Pe
       </h2>
       <div className={`mt-2 space-y-3 ${ativos ? "" : "opacity-80"}`}>
         {pessoas.map((p) => (
-          <Link
+          <div
             key={p.id}
-            href={`/painel/dp/${p.id}/editar`}
             className="flex items-center justify-between gap-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
           >
             <div className="flex min-w-0 items-center gap-3">
@@ -35,26 +53,45 @@ function ListaPessoas({ titulo, pessoas, ativos }: { titulo: string; pessoas: Pe
               <div className="min-w-0">
                 <p className="truncate font-semibold text-neutral-900">{p.nome}</p>
                 <p className="text-sm text-neutral-500">
-                  {ROLE_LABELS[p.role as Role]} {p.funcoes?.nome && `· ${p.funcoes.nome}`}
+                  {ROLE_LABELS[p.role]} {p.funcoes?.nome && `· ${p.funcoes.nome}`}
                 </p>
               </div>
             </div>
-            <span
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-                ativos ? "bg-green-100 text-green-800" : "bg-neutral-100 text-neutral-600"
-              }`}
-            >
-              {ativos ? <CheckCircle2 className="size-3.5" /> : <span className="size-1.5 rounded-full bg-neutral-400" />}
-              {ativos ? "Ativo" : "Inativo"}
-            </span>
-          </Link>
+            <div className="flex shrink-0 items-center gap-3">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                  ativos ? "bg-green-100 text-green-800" : "bg-neutral-100 text-neutral-600"
+                }`}
+              >
+                {ativos ? <CheckCircle2 className="size-3.5" /> : <span className="size-1.5 rounded-full bg-neutral-400" />}
+                {ativos ? "Ativo" : "Inativo"}
+              </span>
+              <EditarPessoaButton
+                pessoa={p}
+                funcoes={funcoes}
+                nivelAcessoCargo={(p.funcao_id && funcoes.find((f) => f.id === p.funcao_id)?.nivel_acesso) || p.role}
+                overridesCargo={(p.funcao_id && overridesCargoPorFuncao[p.funcao_id]) || {}}
+                overridesPessoa={overridesPorPessoa[p.id] ?? {}}
+              />
+            </div>
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-export function DpLista({ pessoas }: { pessoas: PessoaLinha[] }) {
+export function DpLista({
+  pessoas,
+  funcoes,
+  overridesCargoPorFuncao,
+  overridesPorPessoa,
+}: {
+  pessoas: PessoaLinha[];
+  funcoes: Funcao[];
+  overridesCargoPorFuncao: Record<string, Record<string, boolean>>;
+  overridesPorPessoa: Record<string, Record<string, boolean>>;
+}) {
   const [busca, setBusca] = useState("");
 
   const filtradas = pessoas.filter((p) => p.nome.toLowerCase().includes(busca.trim().toLowerCase()));
@@ -75,8 +112,22 @@ export function DpLista({ pessoas }: { pessoas: PessoaLinha[] }) {
 
       {filtradas.length === 0 && <p className="mt-6 text-sm text-neutral-500">Nenhuma pessoa encontrada.</p>}
 
-      <ListaPessoas titulo="Ativos" pessoas={ativos} ativos />
-      <ListaPessoas titulo="Inativos" pessoas={inativos} ativos={false} />
+      <ListaPessoas
+        titulo="Ativos"
+        pessoas={ativos}
+        ativos
+        funcoes={funcoes}
+        overridesCargoPorFuncao={overridesCargoPorFuncao}
+        overridesPorPessoa={overridesPorPessoa}
+      />
+      <ListaPessoas
+        titulo="Inativos"
+        pessoas={inativos}
+        ativos={false}
+        funcoes={funcoes}
+        overridesCargoPorFuncao={overridesCargoPorFuncao}
+        overridesPorPessoa={overridesPorPessoa}
+      />
     </div>
   );
 }

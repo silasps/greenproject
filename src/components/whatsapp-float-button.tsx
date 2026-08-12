@@ -30,6 +30,9 @@ export function WhatsappFloatButton({
       href={linkWhatsapp(whatsapp, mensagem)}
       target="_blank"
       rel="noopener noreferrer"
+      // Alguns navegadores/bloqueadores removem target="_blank" de links wa.me
+      // antes da hidratação (anti-tabnabbing) — não é bug nosso, só silencia o aviso.
+      suppressHydrationWarning
       aria-label="Falar no WhatsApp"
       className="animate-in fade-in zoom-in-75 fixed right-4 bottom-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg duration-500 hover:scale-105 hover:bg-brand-dark sm:right-6 sm:bottom-6"
     >

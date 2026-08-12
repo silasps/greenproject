@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { KPI_SECOES } from "@/lib/kpis/catalogo";
 import { getRoleLevel, ROLE_LEVEL, type Role } from "@/lib/auth/permissions";
-import { salvarUsuarioKpis } from "../actions";
+import { salvarUsuarioKpis } from "./actions";
 
 type Estado = "cargo" | "mostrar" | "esconder";
 

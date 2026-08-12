@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { KPI_SECOES } from "@/lib/kpis/catalogo";
+import { registrarAuditoria } from "@/lib/auditoria/registrar";
 
 export type Credenciais = { nome: string; email: string; senha: string; whatsapp: string | null };
 export type ResultadoPessoa = { credenciais: Credenciais } | { ok: true };
@@ -80,7 +81,7 @@ export async function criarPessoa(formData: FormData): Promise<ResultadoPessoa> 
 }
 
 export async function editarPessoa(formData: FormData): Promise<ResultadoPessoa> {
-  await requireRole(["gerencia"]);
+  const { perfil } = await requireRole(["gerencia"]);
 
   const id = String(formData.get("id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
@@ -110,6 +111,18 @@ export async function editarPessoa(formData: FormData): Promise<ResultadoPessoa>
     })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  // Pessoa que muda de ativa pra inativa (ou o contrário) precisa ficar
+  // rastreável — quem desligou/religou o acesso de alguém e quando.
+  if (antes && antes.acesso_sistema !== acessoSistema) {
+    await registrarAuditoria({
+      usuarioId: perfil.id,
+      acao: acessoSistema ? "ativar_pessoa" : "inativar_pessoa",
+      entidade: "pessoa",
+      entidadeId: id,
+      detalhes: { nome },
+    });
+  }
 
   // Acesso acabou de ser liberado (estava desligado) — gera uma senha nova
   // pra enviar, já que não guardamos a anterior.
@@ -153,6 +166,48 @@ export async function redefinirSenha(usuarioId: string): Promise<Credenciais> {
   if (error) throw new Error(error.message);
 
   return { nome: perfil.nome, email: user.email, senha, whatsapp: perfil.telefone };
+}
+
+export async function buscarEmailUsuario(usuarioId: string): Promise<string | null> {
+  await requireRole(["gerencia"]);
+
+  const admin = createAdminClient();
+  const {
+    data: { user },
+  } = await admin.auth.admin.getUserById(usuarioId);
+  return user?.email ?? null;
+}
+
+/** E-mail é o login da pessoa — troca fica separada do "Salvar" geral pra
+ * nunca mudar sem querer junto com outros campos do cadastro. */
+export async function alterarEmailUsuario(usuarioId: string, novoEmail: string): Promise<{ email: string }> {
+  const { perfil } = await requireRole(["gerencia"]);
+
+  const email = novoEmail.trim().toLowerCase();
+  if (!email || !email.includes("@")) throw new Error("Informe um e-mail válido.");
+
+  const admin = createAdminClient();
+  const {
+    data: { user },
+  } = await admin.auth.admin.getUserById(usuarioId);
+  if (!user) throw new Error("Pessoa não encontrada.");
+  if (user.email === email) return { email };
+
+  const { data, error } = await admin.auth.admin.updateUserById(usuarioId, { email, email_confirm: true });
+  if (error) {
+    if (error.code === "email_exists") throw new Error("Esse e-mail já está em uso por outra conta.");
+    throw new Error(error.message);
+  }
+
+  await registrarAuditoria({
+    usuarioId: perfil.id,
+    acao: "alterar_email_pessoa",
+    entidade: "pessoa",
+    entidadeId: usuarioId,
+    detalhes: { emailAnterior: user.email, emailNovo: email },
+  });
+
+  return { email: data.user?.email ?? email };
 }
 
 export async function salvarUsuarioKpis(formData: FormData) {
@@ -202,7 +257,6 @@ export async function criarFuncao(formData: FormData) {
   }
 
   revalidatePath("/painel/dp/funcoes");
-  redirect("/painel/dp/funcoes");
 }
 
 export async function atualizarFuncao(formData: FormData) {
@@ -226,7 +280,7 @@ export async function atualizarFuncao(formData: FormData) {
   }
 
   revalidatePath("/painel/dp/funcoes");
-  redirect(`/painel/dp/funcoes/${id}`);
+  revalidatePath(`/painel/dp/funcoes/${id}`);
 }
 
 export async function excluirFuncao(id: string) {

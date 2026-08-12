@@ -3,6 +3,7 @@ import { Briefcase, HardHat, Building2 } from "lucide-react";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { FuncoesLista } from "./funcoes-lista";
+import { NovaFuncaoButton } from "./nova-funcao-button";
 
 export default async function FuncoesPage() {
   await requireRole(["gerencia"]);
@@ -33,12 +34,7 @@ export default async function FuncoesPage() {
           <h1 className="text-2xl font-bold text-neutral-900">Funções</h1>
           <p className="mt-1 text-neutral-600">Cargos operacionais e administrativos e quantas pessoas ocupam cada um.</p>
         </div>
-        <Link
-          href="/painel/dp/funcoes/novo"
-          className="rounded-full bg-brand px-4 py-2 text-sm font-semibold whitespace-nowrap text-white hover:bg-brand-dark"
-        >
-          Nova função
-        </Link>
+        <NovaFuncaoButton />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

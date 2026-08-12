@@ -55,6 +55,7 @@ export function PublicHeader({ telefone, whatsapp }: { telefone: string; whatsap
               href={linkWhatsapp(whatsapp, "Olá! Gostaria de solicitar um orçamento.")}
               target="_blank"
               rel="noopener noreferrer"
+              suppressHydrationWarning
               className="inline-flex h-10 items-center rounded-md bg-brand px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
             >
               Orçamento

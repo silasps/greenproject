@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Briefcase, Search } from "lucide-react";
 import { ROLE_LABELS, type Role } from "@/lib/auth/permissions";
 import { richTextClasses } from "@/components/rich-text-editor";
+import { EditarFuncaoButton } from "./editar-funcao-button";
 
 export type FuncaoLinha = {
   id: string;
@@ -38,11 +39,11 @@ export function FuncoesLista({ funcoes }: { funcoes: FuncaoLinha[] }) {
           <p className="p-6 text-sm text-neutral-500">Nenhuma função encontrada.</p>
         )}
         {filtradas.map((f) => (
-          <Link
+          <div
             key={f.id}
-            href={`/painel/dp/funcoes/${f.id}`}
-            className="flex flex-col items-start justify-between gap-4 p-5 transition-colors hover:bg-neutral-50 sm:flex-row sm:items-center"
+            className="group relative flex flex-col items-start justify-between gap-4 p-5 transition-colors hover:bg-neutral-50 sm:flex-row sm:items-center"
           >
+            <Link href={`/painel/dp/funcoes/${f.id}`} className="absolute inset-0 z-0" aria-label={f.nome} />
             <div className="flex min-w-0 items-start gap-4">
               <div className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
                 <Briefcase className="size-5" />
@@ -58,13 +59,19 @@ export function FuncoesLista({ funcoes }: { funcoes: FuncaoLinha[] }) {
                 )}
               </div>
             </div>
-            <div className="flex shrink-0 flex-col items-end">
-              <span className="text-2xl font-bold text-neutral-900 tabular-nums">{f.pessoas}</span>
-              <span className="text-xs font-medium tracking-wide text-neutral-400 uppercase">
-                {f.pessoas === 1 ? "pessoa" : "pessoas"}
-              </span>
+            <div className="relative z-10 flex shrink-0 items-center gap-4">
+              <div className="flex flex-col items-end">
+                <span className="text-2xl font-bold text-neutral-900 tabular-nums">{f.pessoas}</span>
+                <span className="text-xs font-medium tracking-wide text-neutral-400 uppercase">
+                  {f.pessoas === 1 ? "pessoa" : "pessoas"}
+                </span>
+              </div>
+              <EditarFuncaoButton
+                iconOnly
+                funcao={{ id: f.id, nome: f.nome, descricao: f.descricao, nivel_acesso: f.nivel_acesso as Role }}
+              />
             </div>
-          </Link>
+          </div>
         ))}
       </div>
     </div>

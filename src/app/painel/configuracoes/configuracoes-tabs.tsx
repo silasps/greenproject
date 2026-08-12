@@ -6,6 +6,7 @@ import { ConfiguracoesForm } from "./configuracoes-form";
 import { TiposServicoLista } from "./tipos-servico-lista";
 import { KpisPorCargoForm } from "./kpis-por-cargo-form";
 import { DadosEmpresaForm } from "./dados-empresa-form";
+import { AuditoriaLista, type LogLinha } from "./auditoria-lista";
 
 type TipoServico = { id: string; nome: string; valor: number };
 type Funcao = { id: string; nome: string; nivel_acesso: Role };
@@ -17,12 +18,14 @@ export function ConfiguracoesTabs({
   funcoes,
   overridesPorCargo,
   dadosEmpresa,
+  auditoriaLog,
 }: {
   configuracoes: { valor_km: number; fator_correcao_distancia: number };
   tiposServico: TipoServico[];
   funcoes: Funcao[];
   overridesPorCargo: Record<string, Record<string, boolean>>;
   dadosEmpresa: DadosEmpresa;
+  auditoriaLog: LogLinha[];
 }) {
   return (
     <Tabs defaultValue="orcamento" className="mt-6">
@@ -30,6 +33,7 @@ export function ConfiguracoesTabs({
         <TabsTrigger value="orcamento">Orçamento</TabsTrigger>
         <TabsTrigger value="visibilidade">Visibilidade e acesso</TabsTrigger>
         <TabsTrigger value="empresa">Empresa</TabsTrigger>
+        <TabsTrigger value="auditoria">Auditoria</TabsTrigger>
       </TabsList>
 
       <TabsContent value="orcamento">
@@ -43,6 +47,10 @@ export function ConfiguracoesTabs({
 
       <TabsContent value="empresa">
         <DadosEmpresaForm dados={dadosEmpresa} />
+      </TabsContent>
+
+      <TabsContent value="auditoria">
+        <AuditoriaLista logs={auditoriaLog} />
       </TabsContent>
     </Tabs>
   );

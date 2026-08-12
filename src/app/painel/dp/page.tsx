@@ -8,14 +8,28 @@ export default async function DpPage() {
   await requireRole(["gerencia"]);
   const supabase = await createClient();
 
-  const { data: pessoas } = await supabase
-    .from("usuarios_perfis")
-    .select("id, nome, role, acesso_sistema, funcoes(nome)")
-    .order("nome");
+  const [{ data: pessoas }, { data: funcoes }, { data: usuariosKpis }, { data: funcoesKpis }] = await Promise.all([
+    supabase
+      .from("usuarios_perfis")
+      .select("id, nome, role, funcao_id, cpf, telefone, data_admissao, acesso_sistema, funcoes(nome)")
+      .order("nome"),
+    supabase.from("funcoes").select("id, nome, nivel_acesso").order("nome"),
+    supabase.from("usuarios_kpis").select("usuario_id, kpi_secao, visivel"),
+    supabase.from("funcoes_kpis").select("funcao_id, kpi_secao, visivel"),
+  ]);
 
   const linhas = pessoas ?? [];
   const ativos = linhas.filter((p) => p.acesso_sistema).length;
   const inativos = linhas.length - ativos;
+
+  const overridesCargoPorFuncao: Record<string, Record<string, boolean>> = {};
+  for (const r of funcoesKpis ?? []) {
+    (overridesCargoPorFuncao[r.funcao_id] ??= {})[r.kpi_secao] = r.visivel;
+  }
+  const overridesPorPessoa: Record<string, Record<string, boolean>> = {};
+  for (const r of usuariosKpis ?? []) {
+    (overridesPorPessoa[r.usuario_id] ??= {})[r.kpi_secao] = r.visivel;
+  }
 
   return (
     <div>
@@ -70,8 +84,13 @@ export default async function DpPage() {
         </div>
       </div>
 
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <DpLista pessoas={linhas as any} />
+      <DpLista
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pessoas={linhas as any}
+        funcoes={funcoes ?? []}
+        overridesCargoPorFuncao={overridesCargoPorFuncao}
+        overridesPorPessoa={overridesPorPessoa}
+      />
     </div>
   );
 }

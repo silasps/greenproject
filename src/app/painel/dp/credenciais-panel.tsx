@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { onlyDigits } from "@/lib/utils/mascaras";
 import type { Credenciais } from "./actions";
 
-export function CredenciaisPanel({ credenciais }: { credenciais: Credenciais }) {
+export function CredenciaisPanel({
+  credenciais,
+  onConcluir,
+}: {
+  credenciais: Credenciais;
+  onConcluir?: () => void;
+}) {
   const router = useRouter();
   const [copiado, setCopiado] = useState(false);
 
@@ -64,7 +70,11 @@ export function CredenciaisPanel({ credenciais }: { credenciais: Credenciais }) 
         </Button>
       </div>
 
-      <Button type="button" className="bg-brand hover:bg-brand-dark" onClick={() => router.push("/painel/dp")}>
+      <Button
+        type="button"
+        className="bg-brand hover:bg-brand-dark"
+        onClick={() => (onConcluir ? onConcluir() : router.push("/painel/dp"))}
+      >
         Concluir
       </Button>
     </div>

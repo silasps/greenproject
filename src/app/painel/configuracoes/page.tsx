@@ -6,14 +6,25 @@ export default async function ConfiguracoesPage() {
   await requireRole(["gerencia"]);
   const supabase = await createClient();
 
-  const [{ data: configuracoes }, { data: tiposServico }, { data: funcoes }, { data: funcoesKpis }, { data: dadosEmpresa }] =
-    await Promise.all([
-      supabase.from("configuracoes_orcamento").select("valor_km, fator_correcao_distancia").single(),
-      supabase.from("tipos_servico").select("id, nome, valor").eq("ativo", true).order("nome"),
-      supabase.from("funcoes").select("id, nome, nivel_acesso").order("nome"),
-      supabase.from("funcoes_kpis").select("funcao_id, kpi_secao, visivel"),
-      supabase.from("dados_empresa").select("razao_social, cnpj, endereco, telefone").single(),
-    ]);
+  const [
+    { data: configuracoes },
+    { data: tiposServico },
+    { data: funcoes },
+    { data: funcoesKpis },
+    { data: dadosEmpresa },
+    { data: auditoriaLog },
+  ] = await Promise.all([
+    supabase.from("configuracoes_orcamento").select("valor_km, fator_correcao_distancia").single(),
+    supabase.from("tipos_servico").select("id, nome, valor").eq("ativo", true).order("nome"),
+    supabase.from("funcoes").select("id, nome, nivel_acesso").order("nome"),
+    supabase.from("funcoes_kpis").select("funcao_id, kpi_secao, visivel"),
+    supabase.from("dados_empresa").select("razao_social, cnpj, endereco, telefone").single(),
+    supabase
+      .from("auditoria_log")
+      .select("id, acao, entidade, entidade_id, detalhes, created_at, usuarios_perfis(nome)")
+      .order("created_at", { ascending: false })
+      .limit(200),
+  ]);
 
   const overridesPorCargo: Record<string, Record<string, boolean>> = {};
   for (const linha of funcoesKpis ?? []) {
@@ -32,6 +43,8 @@ export default async function ConfiguracoesPage() {
         dadosEmpresa={
           dadosEmpresa ?? { razao_social: "", cnpj: "", endereco: "", telefone: "" }
         }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        auditoriaLog={(auditoriaLog ?? []) as any}
       />
     </div>
   );

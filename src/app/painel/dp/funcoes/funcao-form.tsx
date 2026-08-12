@@ -16,7 +16,17 @@ const NIVEIS: Role[] = ["tecnico", "escritorio", "gerencia"];
 
 type Funcao = { id: string; nome: string; descricao: string | null; nivel_acesso: Role };
 
-export function FuncaoForm({ funcao }: { funcao?: Funcao }) {
+export function FuncaoForm({
+  funcao,
+  onSucesso,
+  onCancelar,
+}: {
+  funcao?: Funcao;
+  /** Só roda pra criação — edição sempre redireciona pra página da função. */
+  onSucesso?: () => void;
+  /** Quando informado, o botão "Cancelar" só fecha o modal em vez de navegar. */
+  onCancelar?: () => void;
+}) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [nome, setNome] = useState(funcao?.nome ?? "");
@@ -27,6 +37,7 @@ export function FuncaoForm({ funcao }: { funcao?: Funcao }) {
     setErro(null);
     try {
       await action(formData);
+      onSucesso?.();
     } catch (e) {
       if (isRedirectError(e)) throw e;
       setErro(e instanceof Error ? e.message : "Não foi possível salvar a função.");
@@ -41,7 +52,7 @@ export function FuncaoForm({ funcao }: { funcao?: Funcao }) {
   }
 
   return (
-    <form action={(formData) => startTransition(() => handleSubmit(formData))} className="mt-6 mx-auto max-w-lg space-y-4">
+    <form action={(formData) => startTransition(() => handleSubmit(formData))} className="space-y-4">
       {funcao && <input type="hidden" name="id" value={funcao.id} />}
 
       <div className="space-y-2">
@@ -85,7 +96,13 @@ export function FuncaoForm({ funcao }: { funcao?: Funcao }) {
         <Button type="submit" disabled={pending} className="bg-brand hover:bg-brand-dark">
           {pending ? "Salvando..." : "Salvar"}
         </Button>
-        <ConfirmLeaveButton to={cancelHref} label="Cancelar" variant="outline" />
+        {onCancelar ? (
+          <Button type="button" variant="outline" onClick={onCancelar}>
+            Cancelar
+          </Button>
+        ) : (
+          <ConfirmLeaveButton to={cancelHref} label="Cancelar" variant="outline" />
+        )}
       </div>
       <ErrorModal erro={erro} onClose={fecharErro} />
     </form>

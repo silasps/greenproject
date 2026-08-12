@@ -87,6 +87,7 @@ export default async function PublicLayout({
                       href={linkWhatsapp(whatsapp, "Olá! Gostaria de falar com a Greenproject.")}
                       target="_blank"
                       rel="noopener noreferrer"
+                      suppressHydrationWarning
                       className="hover:text-brand"
                     >
                       WhatsApp {telefone}

@@ -6,6 +6,7 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { ROLE_LABELS, type Role } from "@/lib/auth/permissions";
 import { richTextClasses } from "@/components/rich-text-editor";
 import { excluirFuncao } from "../../actions";
+import { EditarFuncaoButton } from "../editar-funcao-button";
 
 export default async function FuncaoDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   await requireRole(["gerencia"]);
@@ -39,12 +40,7 @@ export default async function FuncaoDetalhePage({ params }: { params: Promise<{ 
       )}
 
       <div className="mt-6 flex gap-3">
-        <Link
-          href={`/painel/dp/funcoes/${id}/editar`}
-          className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
-        >
-          Editar função
-        </Link>
+        <EditarFuncaoButton funcao={funcao} />
         <ConfirmDeleteButton
           label="Excluir função"
           title="Excluir esta função?"

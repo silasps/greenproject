@@ -219,6 +219,7 @@ export function Hero({ slides, whatsapp }: { slides: HeroSlide[]; whatsapp: stri
               )}
               target="_blank"
               rel="noopener noreferrer"
+              suppressHydrationWarning
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-white px-6 py-3 font-semibold text-brand hover:bg-neutral-100"
             >
               <MessageCircle className="h-5 w-5" aria-hidden />
