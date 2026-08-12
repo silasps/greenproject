@@ -27,3 +27,27 @@ export async function signedUrl(path: string, expiresInSeconds = 3600) {
   if (error) throw new Error(`Falha ao gerar link (${path}): ${error.message}`);
   return data.signedUrl;
 }
+
+export async function baixarArquivoInterno(pathNoBucket: string | null | undefined): Promise<Buffer | null> {
+  if (!pathNoBucket) return null;
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage.from("arquivos-internos").download(pathNoBucket);
+  if (error || !data) return null;
+  return Buffer.from(await data.arrayBuffer());
+}
+
+export type TipoArquivo = "pdf" | "jpeg" | "png" | "webp" | "desconhecido";
+
+// Alguns campos aceitam "PDF ou foto" (ex.: certificado de calibração do
+// equipamento) — precisa saber qual é de verdade pelos bytes, não só
+// confiar no nome/extensão salva (já existiu um caso real de imagem WebP
+// salva com o path terminando em .pdf).
+export function detectarTipoArquivo(buf: Buffer): TipoArquivo {
+  if (buf.subarray(0, 4).toString("latin1") === "%PDF") return "pdf";
+  if (buf.subarray(0, 3).toString("hex") === "ffd8ff") return "jpeg";
+  if (buf.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") return "png";
+  if (buf.subarray(0, 4).toString("latin1") === "RIFF" && buf.subarray(8, 12).toString("latin1") === "WEBP") {
+    return "webp";
+  }
+  return "desconhecido";
+}

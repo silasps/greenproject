@@ -20,6 +20,7 @@ export function FileDropInput({
   capture,
   label = "Clique para enviar o arquivo",
   previaAtualUrl,
+  previaAtualEhImagem = true,
   onArquivoChange,
 }: {
   id: string;
@@ -31,6 +32,8 @@ export function FileDropInput({
   label?: string;
   /** URL (assinada) da foto já salva — mostra como miniatura com Trocar/Excluir, em vez da área de upload vazia, até o usuário mexer nela. */
   previaAtualUrl?: string | null;
+  /** Campos que aceitam "PDF ou foto" (ex.: certificado de calibração) podem ter um PDF salvo — nesse caso não dá pra usar `<Image>`, mostra um cartão genérico com link "Abrir" em vez de miniatura. */
+  previaAtualEhImagem?: boolean;
   /** Avisa o componente pai qual arquivo está selecionado agora (ou null) — usado por fluxos tipo wizard que precisam saber se já dá pra avançar. */
   onArquivoChange?: (arquivo: File | null) => void;
 }) {
@@ -105,7 +108,7 @@ export function FileDropInput({
   const mostrandoAtual = !arquivo && !!previaAtualUrl && !atualRemovida;
   // Nada de válido nesse campo agora (nem atual, nem novo) — obrigatório de verdade.
   const inputRequired = required && !arquivo && (!previaAtualUrl || atualRemovida);
-  const imagemGrandeUrl = previewUrl ?? (mostrandoAtual ? previaAtualUrl : null);
+  const imagemGrandeUrl = previewUrl ?? (mostrandoAtual && previaAtualEhImagem ? previaAtualUrl : null);
 
   return (
     <div>
@@ -177,23 +180,41 @@ export function FileDropInput({
         </div>
       ) : mostrandoAtual ? (
         <div className="flex items-center gap-3 rounded-xl border border-brand/30 bg-white p-3 shadow-sm">
-          <button
-            type="button"
-            title="Ver em tamanho real"
-            aria-label="Ver em tamanho real"
-            onClick={() => setAmpliada(true)}
-            className="group relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100"
-          >
-            <Image src={previaAtualUrl!} alt="Foto atual" fill sizes="64px" unoptimized className="object-cover" />
-            <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
-              <Maximize2 className="size-4" />
-            </span>
-          </button>
+          {previaAtualEhImagem ? (
+            <button
+              type="button"
+              title="Ver em tamanho real"
+              aria-label="Ver em tamanho real"
+              onClick={() => setAmpliada(true)}
+              className="group relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100"
+            >
+              <Image src={previaAtualUrl!} alt="Foto atual" fill sizes="64px" unoptimized className="object-cover" />
+              <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
+                <Maximize2 className="size-4" />
+              </span>
+            </button>
+          ) : (
+            <a
+              href={previaAtualUrl!}
+              target="_blank"
+              rel="noreferrer"
+              title="Abrir arquivo atual"
+              aria-label="Abrir arquivo atual"
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-100 text-neutral-400 transition hover:text-brand"
+            >
+              <FileText className="h-6 w-6" />
+            </a>
+          )}
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 text-sm font-medium text-neutral-800">
               <Check className="size-3.5 shrink-0 text-brand" strokeWidth={3} />
-              Foto atual
+              {previaAtualEhImagem ? "Foto atual" : "Arquivo atual"}
             </p>
+            {!previaAtualEhImagem && (
+              <a href={previaAtualUrl!} target="_blank" rel="noreferrer" className="text-xs text-brand underline">
+                Abrir
+              </a>
+            )}
           </div>
           <div className="flex shrink-0 gap-2">
             <Button

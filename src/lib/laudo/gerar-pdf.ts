@@ -5,6 +5,7 @@ import autoTable from "jspdf-autotable";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { baixarArquivoInterno, detectarTipoArquivo } from "@/lib/storage/upload";
 import { COMPANY } from "@/lib/legal/company-info";
 import { getDadosEmpresa } from "@/lib/legal/dados-empresa";
 import { textoConclusao } from "./texto-conclusao";
@@ -15,28 +16,6 @@ const BRAND: [number, number, number] = [16, 155, 21]; // #109B15
 type TesteComRelacoes = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Responsavel = any;
-
-async function baixarArquivoInterno(pathNoBucket: string | null | undefined): Promise<Buffer | null> {
-  if (!pathNoBucket) return null;
-  const admin = createAdminClient();
-  const { data, error } = await admin.storage.from("arquivos-internos").download(pathNoBucket);
-  if (error || !data) return null;
-  return Buffer.from(await data.arrayBuffer());
-}
-
-// O campo de certificado de calibração aceita "PDF ou foto" (o cadastro do
-// equipamento permite as duas coisas) — precisa saber qual é de verdade
-// pelos bytes, não só confiar no nome/extensão salva (às vezes o arquivo é
-// uma imagem mesmo com o path terminando em .pdf).
-function detectarTipoArquivo(buf: Buffer): "pdf" | "jpeg" | "png" | "webp" | "desconhecido" {
-  if (buf.subarray(0, 4).toString("latin1") === "%PDF") return "pdf";
-  if (buf.subarray(0, 3).toString("hex") === "ffd8ff") return "jpeg";
-  if (buf.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") return "png";
-  if (buf.subarray(0, 4).toString("latin1") === "RIFF" && buf.subarray(8, 12).toString("latin1") === "WEBP") {
-    return "webp";
-  }
-  return "desconhecido";
-}
 
 export async function gerarLaudoPdf({
   teste,
