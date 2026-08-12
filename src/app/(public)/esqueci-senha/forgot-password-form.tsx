@@ -48,12 +48,13 @@ export function ForgotPasswordForm() {
           type="email"
           autoComplete="email"
           required
+          className="h-11"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <Button type="submit" disabled={loading} className="w-full bg-brand hover:bg-brand-dark">
+      <Button type="submit" disabled={loading} className="h-12 w-full text-base bg-brand hover:bg-brand-dark">
         {loading ? "Enviando..." : "Enviar link de redefinição"}
       </Button>
     </form>

@@ -14,7 +14,7 @@ export function CertificationsBand() {
           {NORMAS.map((norma, index) => (
             <ScrollReveal key={norma} index={index}>
               <span className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-4 py-2 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md">
-                <BadgeCheck className="h-4 w-4 text-brand" aria-hidden />
+                <BadgeCheck className="h-4 w-4 text-neutral-500" aria-hidden />
                 <span className="font-mono text-xs font-semibold tracking-wide text-neutral-700">
                   {norma}
                 </span>

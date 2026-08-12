@@ -31,9 +31,9 @@ const REASONS = [
 export function WhyUsBlock() {
   return (
     <section className="border-y border-neutral-200 bg-neutral-50">
-      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold tracking-wide text-brand uppercase">
+          <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
             Diferenciais
           </p>
           <h2 className="mt-3 text-2xl font-bold text-neutral-900">
@@ -54,7 +54,7 @@ export function WhyUsBlock() {
               <span className="absolute top-4 right-4 font-mono text-[11px] text-neutral-300">
                 {String(index + 1).padStart(2, "0")}
               </span>
-              <Icon className="h-5 w-5 text-brand" aria-hidden />
+              <Icon className="h-5 w-5 text-neutral-500" aria-hidden />
               <h3 className="mt-4 font-semibold text-neutral-900">{title}</h3>
               <p className="mt-2 text-sm leading-6 text-neutral-600">{description}</p>
             </ScrollReveal>

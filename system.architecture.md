@@ -51,7 +51,7 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
-# Brevo — usado pelo formulário de /contato (src/lib/email/enviar.ts)
+# Brevo — usado por /contato e pelo envio de laudo por e-mail no painel (src/lib/email/enviar.ts)
 BREVO_SMTP_HOST=smtp-relay.brevo.com
 BREVO_SMTP_PORT=587
 BREVO_SMTP_USER=
@@ -358,6 +358,7 @@ veiculo_id uuid not null references veiculos_maquinas(id) on delete cascade,
 equipamento_id uuid references equipamentos_teste(id) on delete set null,
 numero_teste text,
 foto_frente_path/foto_traseira_path/foto_painel_path/foto_etiqueta_path text,
+foto_etiqueta_numero_path text,     -- migration 0020, zoom só no número (conferência)
 pdf_ensaio_original_path text,
 resultado text check in ('aprovado','reprovado'),
 media_m1 numeric,
@@ -486,6 +487,9 @@ Nunca deixa a ação principal falhar por erro de log. Só `gerencia` lê
 19. `0019_agendamento_tipo_servico.sql` — `agendamentos.tipo_servico_id`
     (ver 6.9) — persiste o tipo de serviço escolhido no agendamento, antes
     só existia como estado local do form.
+20. `0020_foto_etiqueta_numero.sql` — `testes_opacidade.foto_etiqueta_numero_path`
+    (ver 6.14) — 5ª foto do wizard de campo (seção 8.5), zoom só no número
+    do teste pra conferência visual.
 
 ### Storage buckets (criados fora de migration — via dashboard/CLI, não SQL)
 - **`laudos`** — público, sem limite de tamanho/mime. `${codigo_publico}.pdf`.
@@ -511,6 +515,13 @@ src/app/
     esqueci-senha/page.tsx (+ forgot-password-form.tsx)
     redefinir-senha/page.tsx (+ reset-password-form.tsx)
     termos/ , privacidade/ , cookies/  # texto puro
+    retestagem/[token]/page.tsx (+ actions.ts)  # solicitação pública de retestagem (ver tabelas
+                                       # contatos_retestagem/solicitacoes_retestagem — schema
+                                       # ainda não documentado nas migrations 0013–0017, seção 6)
+  (documento-publico)/               # layout mínimo próprio (mx-auto, SEM header/footer do site
+                                      # institucional) — proposta/laudo são documentos formais, não
+                                      # páginas de marketing; moveram de (public)/ pra cá
+    layout.tsx
     laudo/[codigo]/page.tsx           # verificação pública de laudo
     proposta/[token]/page.tsx (+ actions.ts)  # verificação/aceite público de proposta
   painel/                            # tudo aqui exige login (layout.tsx faz requireAuth)
@@ -908,6 +919,12 @@ final de "Liberar" é checado):
    liberação, já que o laudo já foi emitido de verdade; o diálogo mostra
    se o envio deu certo ou não, e o botão manual continua disponível
    depois pra tentar de novo.
+
+Com o laudo liberado, `EnviarLaudoEmailButton` (`testes/[testeId]/`) chama
+a Server Action `enviarLaudoEmail` (`testes/actions.ts`) e manda o PDF por
+e-mail pro cliente via Brevo (`enviarEmail`, seção 2/3) — complementa o
+envio por WhatsApp que já existia pra proposta (seção 8.4), agora cobrindo
+o laudo em si pelos dois canais.
 
 Dados de campo (número do teste, equipamento, fotos) ficam editáveis
 depois de enviados, enquanto o laudo não é liberado — `campo-edit-form.tsx`

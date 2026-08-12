@@ -6,6 +6,7 @@ import { aceitarProposta } from "./actions";
 
 export const metadata: Metadata = {
   title: "Proposta | Greenproject Engenharia",
+  robots: { index: false, follow: false },
 };
 
 function formatarMoeda(valor: number): string {

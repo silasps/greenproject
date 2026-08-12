@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown } from "lucide-react";
+import { JsonLd } from "@/lib/seo/json-ld";
+import { buildFaqSchema } from "@/lib/seo/schema";
 import { ScrollReveal } from "./scroll-reveal";
 
 const PERGUNTAS = [
@@ -32,13 +34,11 @@ export function Faq() {
   const [aberta, setAberta] = useState<string | null>(null);
 
   return (
-    <section className="border-t border-neutral-200 bg-white">
-      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <p className="text-xs font-semibold tracking-wide text-brand uppercase">
-          Perguntas frequentes
-        </p>
-        <h2 className="mt-3 text-2xl font-bold text-neutral-900">
-          Dúvidas comuns sobre o laudo de opacidade
+    <section className="border-t border-neutral-200 bg-background">
+      <JsonLd data={buildFaqSchema(PERGUNTAS)} />
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
+        <h2 className="text-2xl font-bold text-neutral-900">
+          Perguntas frequentes sobre o laudo de opacidade
         </h2>
 
         <div className="mt-8 divide-y divide-neutral-200 border-t border-b border-neutral-200">

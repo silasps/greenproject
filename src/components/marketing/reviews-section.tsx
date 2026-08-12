@@ -27,12 +27,9 @@ export function ReviewsSection() {
 
   return (
     <section className="border-t border-neutral-200 bg-neutral-50">
-      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         <ScrollReveal>
-          <p className="text-xs font-semibold tracking-wide text-brand uppercase">Avaliações</p>
-          <h2 className="mt-3 text-2xl font-bold text-neutral-900">
-            O que nossos clientes dizem
-          </h2>
+          <h2 className="text-2xl font-bold text-neutral-900">O que nossos clientes dizem</h2>
         </ScrollReveal>
 
         {showWidget ? (

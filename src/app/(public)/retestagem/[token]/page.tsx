@@ -5,6 +5,7 @@ import { solicitarRetestagem } from "./actions";
 
 export const metadata: Metadata = {
   title: "Retestagem | Greenproject Engenharia",
+  robots: { index: false, follow: false },
 };
 
 export default async function RetestagemPublicaPage({ params }: { params: Promise<{ token: string }> }) {
@@ -56,7 +57,7 @@ export default async function RetestagemPublicaPage({ params }: { params: Promis
               id="mensagem"
               name="mensagem"
               rows={3}
-              className="mt-1 w-full rounded-md border border-neutral-300 p-2 text-sm"
+              className="mt-1 w-full rounded-md border border-neutral-300 p-3 text-base"
               placeholder="Ex.: preferimos na semana que vem, de manhã"
             />
           </div>

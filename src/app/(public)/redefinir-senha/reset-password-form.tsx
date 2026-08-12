@@ -96,6 +96,7 @@ export function ResetPasswordForm() {
           type="password"
           autoComplete="new-password"
           required
+          className="h-11"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
@@ -107,12 +108,13 @@ export function ResetPasswordForm() {
           type="password"
           autoComplete="new-password"
           required
+          className="h-11"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
         />
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <Button type="submit" disabled={loading} className="w-full bg-brand hover:bg-brand-dark">
+      <Button type="submit" disabled={loading} className="h-12 w-full text-base bg-brand hover:bg-brand-dark">
         {loading ? "Salvando..." : "Salvar nova senha"}
       </Button>
     </form>

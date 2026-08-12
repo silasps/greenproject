@@ -45,11 +45,15 @@ export function CookieConsentBanner() {
           </Link>
           .
         </p>
-        <div className="flex shrink-0 gap-2">
-          <Button variant="outline" size="sm" onClick={() => choose("essenciais")}>
+        <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={() => choose("essenciais")}
+            className="h-11 flex-1 text-sm sm:flex-none"
+          >
             Somente essenciais
           </Button>
-          <Button size="sm" onClick={() => choose("todos")}>
+          <Button onClick={() => choose("todos")} className="h-11 flex-1 text-sm sm:flex-none">
             Aceitar todos
           </Button>
         </div>
