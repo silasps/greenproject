@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ServicoCard } from "@/components/marketing/servico-card";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
-import { SERVICOS } from "@/lib/content/servicos";
+import { getServicos } from "@/lib/content/servicos";
 
 export const metadata: Metadata = {
   title: "Serviços | Greenproject Engenharia",
@@ -12,7 +12,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ServicosPage() {
+export default async function ServicosPage() {
+  const servicos = await getServicos();
+
   return (
     <div className="bg-background">
       <section className="border-b border-neutral-200 bg-neutral-50">
@@ -32,7 +34,7 @@ export default function ServicosPage() {
 
       <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {SERVICOS.map((servico, index) => (
+          {servicos.map((servico, index) => (
             <ScrollReveal key={servico.slug} index={index}>
               <ServicoCard servico={servico} preloadImage={index === 0} />
             </ScrollReveal>

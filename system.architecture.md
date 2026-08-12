@@ -109,9 +109,13 @@ Três variantes, **nunca** misturar:
     string de role direto): `canVerAgendaCompleta`, `canGerenciarClientes`,
     `canGerenciarEquipamentos`, `canGerenciarEspecificacoesMotor`,
     `canImportarPdfSyscon`, `canRevisarELiberarLaudo`,
-    `canGerenciarUsuarios`, `canGerenciarResponsaveisTecnicos` — todas
-    `>= escritorio` exceto liberar laudo/gerenciar usuários/responsáveis
-    técnicos, que são `gerencia`-only.
+    `canGerenciarUsuarios`, `canGerenciarResponsaveisTecnicos`,
+    `canGerenciarServicos` — todas `>= escritorio` exceto liberar laudo/
+    gerenciar usuários/responsáveis técnicos/serviços do site, que são
+    `gerencia`-only.
+  - `usuarios_perfis.is_superadmin` (migration 0022): flag adicional sobre
+    a conta gerência, não um novo nível de role — permite "vestir" a sessão
+    de outro usuário (impersonação) pra validar o que cada papel vê.
   - `getLoginDestination(role)` — pra onde redirecionar após login
     (técnico/escritório → `/painel/agenda`, gerência → `/painel`).
 - RLS no Postgres é a **linha de defesa real** (não é só o app-level
@@ -435,6 +439,55 @@ chamado à mão dentro de cada server action sensível — hoje `excluirTeste`,
 Nunca deixa a ação principal falhar por erro de log. Só `gerencia` lê
 (`select`); não tem UI de consulta ainda, só a tabela.
 
+### 6.20 `servicos` (conteúdo de "Serviços" do site público — CMS da gerência)
+```
+id uuid PK, slug text unique not null, titulo/resumo/headline/subheadline text not null,
+normas/beneficios/entregaveis text[] not null default '{}',
+cover_image_url/cover_image_alt text not null, cover_destaque_mosaico boolean not null default false,
+galeria jsonb not null default '[]',       -- [{ url, alt, destaque_mosaico }]
+metodologia jsonb not null default '[]',   -- [{ titulo, descricao, imagem_url?, imagem_alt? }]
+ordem integer not null default 0, publicado boolean not null default true,
+exibir_na_home boolean not null default false,  -- 0024, controla a home separado de `ordem`
+criado_por/atualizado_por uuid references usuarios_perfis(id),
+criado_em/atualizado_em timestamptz not null default now()
+```
+Substitui o array hardcoded que existia em `src/lib/content/servicos.ts` —
+gerenciado por `gerencia` em `/painel/servicos` (`canGerenciarServicos`).
+`galeria`/`metodologia` são jsonb (mesmo padrão de `propostas.custos_extras`
+e `testes_opacidade.fotos_extras`, seção 6.13/6.14) em vez de tabelas
+filhas, porque sempre são lidos/gravados como uma unidade só. RLS: SELECT
+liberado pra qualquer staff logado (`get_my_role() is not null`), mutação
+só `gerencia`. **A leitura pública (visitante anônimo do site) não usa
+RLS** — segue o mesmo padrão de `laudo`/`proposta` (seção 7.1): lê via
+`createAdminClient()` no servidor, filtrando `publicado = true`
+explicitamente na query (`src/lib/content/servicos.ts:getServicos`/
+`getServicoBySlug`/`getMosaicImages`). `slug` é gerado do título ao criar e
+fica travado depois (o form não permite editar), pra não quebrar URL/SEO
+publicado. Upload de foto (capa, galeria, foto de cada etapa da
+metodologia) comprime pra WebP no navegador (`comprimirParaWebp`, mesma
+função usada no wizard de teste) antes de subir pro bucket `servicos`.
+Como o conteúdo agora é dinâmico, `/`, `/servicos` e `/servicos/[slug]`
+deixaram de ser SSG — viraram renderização dinâmica (sem
+`generateStaticParams`), então uma edição no painel aparece no site sem
+precisar de redeploy. `exibir_na_home` (migration 0024) é independente de
+`ordem`: a home mostra os serviços marcados com a estrela em
+`/painel/servicos`, não simplesmente os 3 primeiros da lista.
+
+Na home, o bloco "Nossos serviços" (`marketing/servicos-carousel.tsx`,
+`ServicosCarousel`) é sempre um carrossel — `embla-carousel-react` +
+`embla-carousel-autoplay` (`loop: true`, `duration: 35` pra transição
+suave, autoplay a cada 5s com `stopOnInteraction: false`, então a rolagem
+automática retoma sozinha depois que a pessoa mexe manualmente). Mostra 1
+card por vez no mobile, 2 no tablet (`sm`), 3 no desktop (`lg`) — mesmos
+breakpoints das classes `basis-full`/`sm:basis-1/2`/`lg:basis-1/3`. As
+setas de navegação são decididas em **CSS puro** (3 variantes, uma por
+breakpoint, cada uma condicionada só a `servicos.length` — sem depender de
+detectar o tamanho de tela em JS ali) pra não piscar durante a hidratação;
+só o autoplay realmente precisa saber o breakpoint em JS
+(`useSyncExternalStore` + `matchMedia`, mesmo padrão do relógio da sidebar
+do painel), e ativa sempre que sobra serviço fora da vista na tela atual —
+não só no mobile.
+
 ### Migrations, em ordem (útil pra recriar o histórico exato)
 1. `0001_initial_schema.sql` — tudo de 6.1 a 6.16 (menos as colunas
    adicionadas depois).
@@ -470,10 +523,22 @@ Nunca deixa a ação principal falhar por erro de log. Só `gerencia` lê
 20. `0020_foto_etiqueta_numero.sql` — `testes_opacidade.foto_etiqueta_numero_path`
     (ver 6.14) — 5ª foto do wizard de campo (seção 8.5), zoom só no número
     do teste pra conferência visual.
+21. `0021_responsavel_tecnico_usuario.sql` — `responsaveis_tecnicos.usuario_id`
+    (fk pra `usuarios_perfis`, opcional) — liga um responsável técnico a
+    uma conta de acesso quando ele também loga no sistema.
+22. `0022_superadmin.sql` — `usuarios_perfis.is_superadmin` (ver seção 5).
+23. `0023_servicos_cms.sql` — cria `servicos` (ver 6.20), com seed dos 7
+    serviços que já existiam em `src/lib/content/servicos.ts`.
+24. `0024_servicos_exibir_na_home.sql` — `servicos.exibir_na_home` (ver
+    6.20), com os mesmos 3 serviços que já apareciam na home marcados por
+    padrão (zero mudança de comportamento no momento da migration).
 
 ### Storage buckets (criados fora de migration — via dashboard/CLI, não SQL)
 - **`laudos`** — público, sem limite de tamanho/mime. `${codigo_publico}.pdf`.
 - **`propostas`** — público, mesma config de `laudos`. `${token}.pdf`.
+- **`servicos`** — público, mime restrito a `image/webp|jpeg|png`, limite
+  10MB/arquivo. Fotos de capa/galeria/metodologia da tabela `servicos`
+  (seção 6.20), enviadas pelo painel já em WebP.
 - **`arquivos-internos`** — **privado**, acesso via signed URL
   (`src/lib/storage/upload.ts:signedUrl`, expira em 1h por padrão). Guarda
   fotos do ensaio, PDF original do Syscon, certificados de calibração,
@@ -488,7 +553,8 @@ src/app/
   (public)/                          # layout com header/footer institucional (marketing — ver seção 7.1)
     layout.tsx                       # monta as fontes IBM Plex escopadas a .public-shell
     page.tsx                         # home institucional (Hero, serviços, FAQ, avaliações...)
-    servicos/page.tsx , servicos/[slug]/page.tsx   # conteúdo em src/lib/content/servicos.ts (7 serviços)
+    servicos/page.tsx , servicos/[slug]/page.tsx   # conteúdo vem do banco (tabela servicos, ver 6.20) —
+                                       # renderização dinâmica, não SSG
     sobre/page.tsx                   # institucional, texto estático
     contato/page.tsx (+ contact-form.tsx, actions.ts)  # formulário → e-mail via Brevo
     login/page.tsx (+ login-form.tsx)
@@ -513,6 +579,8 @@ src/app/
     equipamentos/                   # CRUD equipamentos_teste
     responsaveis-tecnicos/          # CRUD responsaveis_tecnicos
     testes/[testeId]/               # execução do ensaio (ver seção 8.3)
+    servicos/                       # CRUD da tabela servicos (ver 6.20) — conteúdo do site público,
+                                     # gerencia-only
     dp/                              # RH — ver seção 9
     configuracoes/                  # abas: Orçamento (valor/km, fator, tipos de serviço) | Visibilidade e acesso (KPIs por cargo)
 ```
@@ -536,15 +604,19 @@ já existia lá.
   dentro desse escopo — o `/painel` continua em Geist, sem mudar. Regra
   do projeto: qualquer estilo pensado só pro site público deve ficar
   escopado a `.public-shell`, nunca mudar token global.
-- **`src/lib/content/servicos.ts`** — fonte única dos serviços
-  (`SERVICOS: Servico[]`, `getServicoBySlug`). Hoje **7 serviços**;
-  Opacidade e Líquido Penetrante têm fotos 100% reais de campo (3 cada).
-  Transporte Escolar, Treinamento PEMT e Apreciação de Risco NR-12 têm
-  cover real mas foram criados a partir do texto das páginas antigas
-  (adaptado, não copiado literal). **Reclassificação de Sinistros** e
-  **Vistoria de Máquinas em Mineradoras** ainda usam fotos de banco de
-  imagens (mesmas do site antigo) — a empresa nunca teve foto de campo
-  própria pra esses dois; trocar assim que houver.
+- **`src/lib/content/servicos.ts`** — desde a migration 0023 (ver 6.20),
+  lê a tabela `servicos` no Postgres (`getServicos`, `getServicoBySlug`,
+  `getMosaicImages`), **não é mais um array hardcoded**. Gerenciado pela
+  gerência em `/painel/servicos` (`canGerenciarServicos`), com upload de
+  foto convertido pra WebP no navegador. Seed inicial (migration 0023)
+  reproduziu os **7 serviços** que existiam no array antigo; Opacidade e
+  Líquido Penetrante tinham fotos 100% reais de campo (3 cada). Transporte
+  Escolar, Treinamento PEMT e Apreciação de Risco NR-12 têm cover real mas
+  foram criados a partir do texto das páginas antigas (adaptado, não
+  copiado literal). **Reclassificação de Sinistros** e **Vistoria de
+  Máquinas em Mineradoras** ainda usam fotos de banco de imagens (mesmas
+  do site antigo) — a empresa nunca teve foto de campo própria pra esses
+  dois; a gerência pode trocar a qualquer momento pelo painel, sem deploy.
 - **`Hero` (`marketing/hero.tsx`)** — carrossel de fundo com 1 slide por
   serviço (`SLIDES`, mesmo array que gera os cards), migração
   automática a cada `SLIDE_INTERVAL_MS` (5s), pausada se

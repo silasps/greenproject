@@ -8,6 +8,7 @@ import { PublicHeader } from "@/components/public-header";
 import { WhatsappFloatButton } from "@/components/whatsapp-float-button";
 import { JsonLd } from "@/lib/seo/json-ld";
 import { buildLocalBusinessSchema } from "@/lib/seo/schema";
+import { getServicos } from "@/lib/content/servicos";
 
 // Tipografia própria do site público — IBM Plex nasceu como fonte técnica da IBM
 // pra documentação de engenharia, o que conversa direto com "laudo técnico".
@@ -37,11 +38,13 @@ const NAV_SECUNDARIA = [
   { href: "/contato", label: "Contato" },
 ] as const;
 
-export default function PublicLayout({
+export default async function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const servicos = await getServicos();
+
   return (
     // reducedMotion="user" desliga as animações do `motion` para quem tem
     // "reduzir movimento" ativado no sistema operacional.
@@ -139,7 +142,9 @@ export default function PublicLayout({
         </footer>
 
         <CookieConsentBanner />
-        <WhatsappFloatButton />
+        <WhatsappFloatButton
+          servicos={servicos.map((servico) => ({ slug: servico.slug, titulo: servico.titulo }))}
+        />
       </div>
     </MotionConfig>
   );

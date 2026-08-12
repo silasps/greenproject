@@ -6,7 +6,7 @@ import { ArrowLeft, CheckCircle2, Mail, Phone } from "lucide-react";
 import { WhyUsBlock } from "@/components/marketing/why-us-block";
 import { FinalCta } from "@/components/marketing/final-cta";
 import { COMPANY } from "@/lib/legal/company-info";
-import { getServicoBySlug, SERVICOS } from "@/lib/content/servicos";
+import { getServicoBySlug } from "@/lib/content/servicos";
 import { JsonLd } from "@/lib/seo/json-ld";
 import { buildServiceSchema } from "@/lib/seo/schema";
 
@@ -14,17 +14,11 @@ type ServicoPageProps = {
   params: Promise<{ slug: string }>;
 };
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return SERVICOS.map((servico) => ({ slug: servico.slug }));
-}
-
 export async function generateMetadata({
   params,
 }: ServicoPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const servico = getServicoBySlug(slug);
+  const servico = await getServicoBySlug(slug);
 
   if (!servico) {
     return {
@@ -48,7 +42,7 @@ export async function generateMetadata({
 
 export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
   const { slug } = await params;
-  const servico = getServicoBySlug(slug);
+  const servico = await getServicoBySlug(slug);
 
   if (!servico) {
     notFound();

@@ -48,6 +48,9 @@ export const canGerenciarUsuarios = (role: string | null | undefined) =>
 export const canGerenciarResponsaveisTecnicos = (role: string | null | undefined) =>
   getRoleLevel(role) >= ROLE_LEVEL.gerencia;
 
+export const canGerenciarServicos = (role: string | null | undefined) =>
+  getRoleLevel(role) >= ROLE_LEVEL.gerencia;
+
 export const canExcluirTeste = (role: string | null | undefined) => getRoleLevel(role) >= ROLE_LEVEL.gerencia;
 
 export function getLoginDestination(role: string | null | undefined): string {

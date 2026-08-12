@@ -17,6 +17,7 @@ import {
   Loader2,
   LayoutDashboard,
   ClipboardCheck,
+  Wrench,
 } from "lucide-react";
 import { ROLE_LABELS, canVerAgendaCompleta, type Role } from "@/lib/auth/permissions";
 import { LogoutButton } from "./logout-button";
@@ -77,6 +78,7 @@ const ICONS = {
   equipamentos: Gauge,
   "responsaveis-tecnicos": BadgeCheck,
   dp: Contact,
+  servicos: Wrench,
   configuracoes: Settings,
 } as const;
 
