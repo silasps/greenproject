@@ -32,6 +32,7 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { iniciarExecucaoTeste, vincularVeiculo, emitirPropostaPdf, excluirTeste } from "../actions";
 import { AceitarPropostaButton } from "../aceitar-proposta-button";
 import { ReenviarEmailButton } from "./reenviar-email-button";
+import { ContatoAgendamentoCard } from "./contato-agendamento-card";
 
 function formatarMoeda(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -446,16 +447,15 @@ export default async function AgendamentoDetalhePage({
         </div>
 
         <div className="flex flex-col gap-6 lg:col-span-4">
-          <Cartao icon={User} titulo="Contato">
-            <p className="text-neutral-900">
-              {agendamento.nome_contato} · {agendamento.telefone_contato}
-            </p>
-            {cliente?.status === "pendente" && hrefEditarCliente && (
-              <Link href={hrefEditarCliente} className="mt-2 inline-block text-sm text-brand hover:underline">
-                Completar cadastro do cliente (CNPJ/CPF) →
-              </Link>
-            )}
-          </Cartao>
+          <ContatoAgendamentoCard
+            agendamentoId={agendamento.id}
+            nomeContato={agendamento.nome_contato}
+            telefoneContato={agendamento.telefone_contato}
+            whatsappContato={agendamento.whatsapp_contato}
+            podeEditar={podeGerenciar}
+            clientePendente={cliente?.status === "pendente"}
+            hrefEditarCliente={hrefEditarCliente}
+          />
 
           {agendamento.endereco && (
             <Cartao icon={MapPin} titulo="Local do teste">

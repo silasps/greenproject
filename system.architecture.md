@@ -1046,6 +1046,15 @@ clusters, só que por linha em vez de coluna).
   `wa.me/?text=` genérico se não tiver número — **nunca** integração de
   API paga de WhatsApp, é sempre um link `wa.me`), e link pra "Ver página
   pública" (`/proposta/{token}`).
+  - **Card de contato é editável in-line** (`contato-agendamento-card.tsx`,
+    lápis visível só pra quem tem `canGerenciarClientes` — mesmo gate de
+    `podeGerenciar` no resto da página): clique abre nome/telefone/
+    WhatsApp num form curto, `atualizarContatoAgendamento` (`agenda/
+    actions.ts`) grava só esses 3 campos (`.eq("tipo", "teste_opacidade")`
+    por segurança). Corrige erro de digitação sem reabrir o fluxo inteiro
+    de agendamento — não mexe em data, endereço, veículo ou proposta.
+    Mesma regra de obrigatoriedade da criação: telefone **ou** WhatsApp,
+    não os dois.
   - Se `escritorio+` e cliente ainda `pendente`: link "Completar cadastro
     do cliente" → tela de edição de cliente já existente (`clientes/[id]/
     editar`) — preencher CNPJ/CPF válido ali já marca o cliente como
@@ -1177,13 +1186,82 @@ sempre descarta `resultado`/`media_m1`/`pdf_ensaio_original_path` e as
 de qualquer jeito.
 
 ### 8.6 PDF do laudo (`src/lib/laudo/gerar-pdf.ts`)
-3 páginas via `jspdf`/`jspdf-autotable`: (1) capa com dados do
-veículo/cliente, 3 fotos, texto de conclusão (aprovado/reprovado,
-citando IN IBAMA 06/2010 e Resolução CONAMA 418/2009), assinatura do
-responsável; (2) tabela de medições por ciclo + dados do opacímetro;
-(3) certificado de calibração do equipamento — que na verdade é o PDF
-real anexado no cadastro do equipamento, **mesclado** ao final via
-`pdf-lib` (não é redesenhado, é o certificado de fábrica mesmo).
+Só a **capa (página 1)** é desenhada por nós (`jspdf`/`jspdf-autotable`).
+Da página 2 em diante é sempre um **PDF real anexado no sistema,
+mesclado como está** via `pdf-lib` — o ensaio exportado do Syscon
+(`testes_opacidade.pdf_ensaio_original_path`, anexado em "Importar PDF
+Syscon") e o certificado de calibração do equipamento
+(`equipamentos_teste.pdf_certificado_calibracao_path`). Redesenhar esses
+dois documentos foi tentado numa rodada anterior (tabela de medições +
+dados do opacímetro desenhados à mão) e **abandonado**: o laudo real que
+os clientes recebiam antes do sistema já vinha com esses documentos de
+terceiros mesclados tal como são (inclusive um carimbo pequeno — logo +
+"Página X de Y" — colado em cada página mesclada), e é isso que o layout
+final replica.
+
+**Total de páginas é calculado antes de desenhar a capa** (`totalPaginas`
+= 1 + páginas do ensaio + páginas do certificado), porque o cabeçalho da
+capa já precisa mostrar "Página 1 de N" correto — os dois PDFs de
+terceiros são baixados e carregados via `PDFDocument.load` **antes** de
+criar o `jsPDF`, só pra saber `getPageCount()` de cada um.
+
+**Certificado de calibração aceita "PDF ou foto"** no cadastro do
+equipamento (`equipamentos/equipamento-form.tsx`, `accept="application/
+pdf,image/*"`) — `detectarTipoArquivo` lê os primeiros bytes do arquivo
+baixado (assinatura `%PDF`/JPEG/PNG/RIFF+WEBP) em vez de confiar na
+extensão salva no path (encontrado um caso real onde o path terminava em
+`.pdf` mas o conteúdo era WebP). Se for imagem, vira uma página desenhada
+por nós (título "CERTIFICADO DE CALIBRAÇÃO DO EQUIPAMENTO" + imagem
+centralizada, redimensionada mantendo proporção) em vez de mesclada — e
+essa página entra na conta de `totalPaginas` também. Se o PDF do ensaio
+ou o certificado estiver ausente/corrompido, a mesclagem correspondente é
+pulada silenciosamente (nunca trava a emissão do laudo) — só reduz o
+total de páginas.
+
+**Carimbo nas páginas mescladas** (`carimbarPagina`, usa `pdf-lib`
+direto — `page.drawImage`/`page.drawText` com `StandardFonts.Helvetica`
++ `rgb()`, coordenadas em pontos com origem no canto inferior esquerdo,
+diferente do `jsPDF` que usa mm com origem no canto superior): logo
+pequeno no topo-esquerdo + "Página X de Y" no rodapé-direito, sem alterar
+o conteúdo original do documento mesclado.
+
+**Capa (página 1)**: cabeçalho com caixinha bordada no canto direito
+(`caixaCabecalho`) com Nº/Revisão/Data/Página — `revisao` é parâmetro
+opcional (default `0`) refletindo `laudos.revisao` (coluna já existe no
+banco, sem fluxo de reemissão que a incremente ainda). Os dados do
+veículo/proprietário usam `blocoGrid` — grade com borda, rótulo cinza
+pequeno em cima e valor embaixo por coluna (Contratante/CNPJ/Telefone,
+Marca-Modelo/Placa|Identificador/Ano, Chassi/Renavam/Combustível,
+Endereço), medindo quebra de linha de verdade via `doc.splitTextToSize`
+antes de fixar a altura da linha — nome de contratante longo que quebra
+em 2 linhas não pode ficar cortado por uma célula baixa demais. "Placa"
+em vez de "Identificador" quando `veiculos_maquinas.tipo_ativo =
+'veiculo'` (senão continua "Identificador", pra não forçar rótulo errado
+em máquina/equipamento sem placa). Fotos do ensaio e texto de conclusão
+(aprovado/reprovado, citando IN IBAMA 06/2010 e Resolução CONAMA
+418/2009) seguem como antes. Assinatura do responsável agora fica dentro
+de uma caixa bordada com cabeçalho centralizado (RESPONSÁVEL TÉCNICO +
+formação(ões) + nome + CREA) — **não fabricamos carimbo de assinatura
+digital ICP-Brasil** (isso exigiria certificado real), é sempre a imagem
+cadastrada (`responsaveis_tecnicos.imagem_assinatura_path`) + o nome de
+quem assina. Depois da caixa, `blocoGrid` de 3 colunas — Elaborado e
+Revisado por / Aprovado por (hoje sempre o mesmo nome — o sistema não
+distingue os dois papéis, só tem um `responsavel_tecnico_id` por laudo) /
+Identificação do Emissor do Laudo (`responsaveis_tecnicos.formacao`
+separado em várias linhas se tiver "/" — ex. "Engenheiro Mecânico /
+Engenheiro de Segurança do Trabalho" —, nome, `registro_conselho`,
+telefone da empresa via `getDadosEmpresa()`, e-mail/site de `COMPANY`).
+
+Tudo isso (Telefone/Placa/formação/CREA/rodapé de 3 colunas) já existia
+na prévia em tela (`testes/[testeId]/laudo-preview-card.tsx`) — só
+faltava no PDF gerado de fato, gap fechado depois que a gerência recebeu
+reclamação de cliente comparando com um laudo antigo (pré-sistema) que
+tinha essas informações. **Laudos já emitidos antes dessa mudança
+precisam ser reemitidos manualmente** (reprocessar `gerarLaudoPdf` com o
+mesmo `numero`/`codigo_publico`/`revisao` e sobrescrever o arquivo no
+bucket `laudos` com `upsert: true`) pra refletir o layout novo — o PDF é
+gerado uma vez só, na hora de `liberarLaudo`, e fica estático no storage
+depois disso; não há regeneração automática.
 
 ### 8.7 PDF da proposta (`src/lib/orcamento/gerar-pdf.ts`)
 1 página, mesmo estilo visual (cabeçalho verde da marca, tabela de
