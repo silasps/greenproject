@@ -151,6 +151,9 @@ Três variantes, **nunca** misturar:
   - Autorização de `assumirIdentidade`/`listarUsuariosParaImpersonar`: ou
     `perfil.is_superadmin`, ou o cookie de impersonação já existir (prova
     que uma sessão de superadmin iniciou a troca).
+  - Mesma flag também libera `/painel/sugestoes` (`requireSuperadmin()`,
+    caixa de sugestões pro desenvolvedor — ver seção 6.22), via um segundo
+    helper (não reaproveita `requireRole`, que só olha o `Role` fixo).
 
 ## 6. Schema do banco (Postgres/Supabase)
 
@@ -637,6 +640,49 @@ legal de `/sobre` estático de propósito) — **não tem telefone/whatsapp**
 (removidos de propósito: mudam com frequência, então viraram
 `getDadosEmpresa()`, único lugar que os fornece).
 
+### 6.22 `sugestoes` (caixa de sugestões pro desenvolvedor)
+```
+id uuid PK
+usuario_id uuid not null references usuarios_perfis(id) on delete cascade
+pagina text not null      -- pathname de onde foi enviada (usePathname())
+mensagem text not null
+user_agent text           -- navigator.userAgent, capturado no envio
+lida boolean not null default false
+criado_em timestamptz not null default now()
+```
+Migration `0030`. Botão flutuante (`Lightbulb`, canto inferior direito,
+`z-30` — fica atrás de qualquer overlay de tela cheia como o
+`campo-wizard.tsx`, `z-50`) em todo `/painel`, renderizado em
+`painel/layout.tsx` pra **qualquer pessoa logada**, não só quem gerencia:
+`sugestao-button.tsx` abre um dialog com textarea, captura `pagina`
+(`usePathname()`) e `user_agent` automaticamente e chama `enviarSugestao`
+(`sugestoes/actions.ts`, `requireAuth()` — sem checar role, é uma caixa
+de sugestões geral).
+
+**Só quem tem a flag `is_superadmin`** (seção 5, mesma flag da
+impersonação — não é área configurável por cargo/pessoa via
+`requireArea`) enxerga a lista, em `/painel/sugestoes`
+(`requireSuperadmin()`, novo helper em `src/lib/auth/session.ts`). RLS
+reforça isso independente do app: `get_my_is_superadmin()` (função
+`security definer` nova, espelha `get_my_role()`) — quem envia só
+consegue `insert` da própria linha (`usuario_id = auth.uid()`), e só
+superadmin tem `select`/`update`/`delete`. **Não é um canal de suporte
+com histórico visível pra quem enviou** — depois de mandada, a sugestão
+só existe pro desenvolvedor; quem mandou não consegue ver nem a própria
+de novo. Testado via `set local role authenticated` +
+`set local request.jwt.claims` simulando `auth.uid()` de um técnico e de
+um superadmin direto no Postgres (dentro de uma transação com
+`rollback`), não só pela app.
+
+Contador de não lidas (`lida = false`) vira badge no item "Sugestões" da
+sidebar — `painel/layout.tsx` conta antes de renderizar, só quando
+`perfil.is_superadmin` (evita a query pra todo mundo). Marcar como
+lida/excluir (`marcarSugestaoComoLida`/`excluirSugestao`) não chamam
+`router.refresh()` explícito — mesmo padrão de `publicar-toggle.tsx`
+(seção 6.20): chamar a Server Action direto (não via `<form action>`) já
+dispara o refresh da árvore de Server Components depois que
+`revalidatePath` roda dentro dela.
+
 ### Migrations, em ordem (útil pra recriar o histórico exato)
 1. `0001_initial_schema.sql` — tudo de 6.1 a 6.16 (menos as colunas
    adicionadas depois).
@@ -690,6 +736,10 @@ legal de `/sobre` estático de propósito) — **não tem telefone/whatsapp**
     conteúdo existente sem perder texto.
 28. `0028_hero_slides.sql` — cria `hero_slides` (ver 10.2), seed dos 7
     slides que já existiam hardcoded em `marketing/hero.tsx`.
+29. `0029_equipamento_selo_imagem.sql` — `equipamentos_teste.selo_imagem_path`
+    (ver 6.8) — selo do fabricante usado no PDF do laudo (seção 8.6).
+30. `0030_sugestoes.sql` — cria `sugestoes` (ver 6.22) e a função
+    `get_my_is_superadmin()`.
 
 ### Storage buckets (criados fora de migration — via dashboard/CLI, não SQL)
 - **`laudos`** — público, sem limite de tamanho/mime. `${codigo_publico}.pdf`.
@@ -739,8 +789,9 @@ src/app/
     laudo/[codigo]/page.tsx           # verificação pública de laudo
     proposta/[token]/page.tsx (+ actions.ts)  # verificação/aceite público de proposta
   painel/                            # tudo aqui exige login (layout.tsx faz requireAuth)
-    layout.tsx                       # requireAuth + monta navItems + <AgendaNavProvider><Sidebar/>{children}</AgendaNavProvider>
+    layout.tsx                       # requireAuth + monta navItems + <AgendaNavProvider><Sidebar/>{children}<SugestaoButton/></AgendaNavProvider>
     sidebar.tsx , agenda-nav-context.tsx , logout-button.tsx , loading.tsx
+    sugestao-button.tsx               # botão flutuante — qualquer pessoa logada, todo /painel (ver 6.22)
     page.tsx                         # dashboard: cards de KPI (ver 6.18), visibilidade por cargo/pessoa
     agenda/                          # ver seção 8
     clientes/                       # CRUD cliente + veículos/máquinas do cliente
@@ -752,6 +803,7 @@ src/app/
                                      # não tem item próprio na sidebar
     dp/                              # RH — ver seção 9
     configuracoes/                  # abas: Orçamento (valor/km, fator, tipos de serviço) | Visibilidade e acesso (KPIs por cargo) | Empresa (razão social/CNPJ/endereço/telefone, ver 6.21/8.8)
+    sugestoes/                      # inbox de sugestões (ver 6.22) — só na sidebar quando is_superadmin
 ```
 
 Todo diretório de página tem seu `loading.tsx` (usa

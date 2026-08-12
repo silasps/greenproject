@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   ClipboardCheck,
   Globe,
+  Lightbulb,
 } from "lucide-react";
 import { ROLE_LABELS, type Role } from "@/lib/auth/permissions";
 import type { UsuarioImpersonavel } from "@/lib/auth/impersonation";
@@ -82,9 +83,10 @@ const ICONS = {
   dp: Contact,
   site: Globe,
   configuracoes: Settings,
+  sugestoes: Lightbulb,
 } as const;
 
-type NavItem = { href: string; label: string; key: keyof typeof ICONS };
+type NavItem = { href: string; label: string; key: keyof typeof ICONS; badge?: number };
 
 export function Sidebar({
   navItems,
@@ -158,7 +160,12 @@ export function Sidebar({
             >
               <Icon className="h-4 w-4" />
             </span>
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {!!item.badge && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
+                {item.badge}
+              </span>
+            )}
           </Link>
         );
       })}
