@@ -281,13 +281,40 @@ export default async function PainelPage() {
                   valor={testes.emAberto}
                   pill={pill}
                 >
-                  {testes.aguardandoExecucao > 0 && <KpiStat label={`${testes.aguardandoExecucao} aguardando execução`} />}
-                  {testes.pendenciaEscritorio > 0 && (
-                    <KpiStat label={`${testes.pendenciaEscritorio} pendência de escritório`} tom="critico" />
+                  {testes.aguardandoExecucao > 0 && (
+                    <KpiStat
+                      label={`${testes.aguardandoExecucao} aguardando execução`}
+                      href={`${KPI_SECAO_POR_KEY.testes_resumo.href}?status=aguardando_execucao`}
+                    />
                   )}
-                  {testes.aguardandoRevisao > 0 && <KpiStat label={`${testes.aguardandoRevisao} aguardando revisão`} tom="atencao" />}
-                  {testes.liberados > 0 && <KpiStat label={`${testes.liberados} liberados`} tom="bom" />}
-                  {testes.reprovados > 0 && <KpiStat label={`${testes.reprovados} reprovados`} tom="critico" />}
+                  {testes.pendenciaEscritorio > 0 && (
+                    <KpiStat
+                      label={`${testes.pendenciaEscritorio} pendência de escritório`}
+                      tom="critico"
+                      href={`${KPI_SECAO_POR_KEY.testes_resumo.href}?status=pendencia_escritorio`}
+                    />
+                  )}
+                  {testes.aguardandoRevisao > 0 && (
+                    <KpiStat
+                      label={`${testes.aguardandoRevisao} aguardando revisão`}
+                      tom="atencao"
+                      href={`${KPI_SECAO_POR_KEY.testes_resumo.href}?status=aguardando_revisao`}
+                    />
+                  )}
+                  {testes.liberados > 0 && (
+                    <KpiStat
+                      label={`${testes.liberados} liberados`}
+                      tom="bom"
+                      href={`${KPI_SECAO_POR_KEY.testes_resumo.href}?status=liberados`}
+                    />
+                  )}
+                  {testes.reprovados > 0 && (
+                    <KpiStat
+                      label={`${testes.reprovados} reprovados`}
+                      tom="critico"
+                      href={`${KPI_SECAO_POR_KEY.testes_resumo.href}?status=reprovados`}
+                    />
+                  )}
                 </KpiCard>
               );
             })()}
