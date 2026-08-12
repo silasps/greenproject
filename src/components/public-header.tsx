@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Phone } from "lucide-react";
+import { Phone, User } from "lucide-react";
 import { PublicNav } from "@/components/public-nav";
 import { COMPANY } from "@/lib/legal/company-info";
 import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
@@ -62,6 +62,14 @@ export function PublicHeader() {
               className="inline-flex h-10 items-center rounded-md bg-brand px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
             >
               Orçamento
+            </Link>
+            <Link
+              href="/login"
+              aria-label="Área Administrativa"
+              title="Área Administrativa"
+              className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-brand"
+            >
+              <User className="h-5 w-5" aria-hidden />
             </Link>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { Menu, User, X } from "lucide-react";
 
 const LINKS = [
   { href: "/servicos", label: "Serviços" },
@@ -50,6 +50,14 @@ export function PublicNav() {
                 {link.label}
               </Link>
             ))}
+            <Link
+              href="/login"
+              onClick={() => setOpen(false)}
+              className="mt-1 flex min-h-12 items-center gap-2 rounded-md border-t border-neutral-100 px-3 py-2 text-base font-medium text-neutral-700 hover:bg-neutral-50 hover:text-brand"
+            >
+              <User className="h-5 w-5" aria-hidden />
+              Área Administrativa
+            </Link>
           </nav>
         </div>
       )}

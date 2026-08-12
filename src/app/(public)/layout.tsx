@@ -80,6 +80,11 @@ export default function PublicLayout({
                       </Link>
                     </li>
                   ))}
+                  <li>
+                    <Link href="/login" className="hover:text-brand">
+                      Acesso administrativo
+                    </Link>
+                  </li>
                 </ul>
               </div>
 
