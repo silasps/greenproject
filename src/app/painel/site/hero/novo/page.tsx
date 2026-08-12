@@ -1,10 +1,10 @@
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { getServicos } from "@/lib/content/servicos";
 import { SlideForm } from "../slide-form";
 
 export default async function NovoSlidePage() {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const servicos = await getServicos();
 
   return (

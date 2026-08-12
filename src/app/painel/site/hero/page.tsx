@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { VerNoSiteButton } from "@/components/ver-no-site-button";
 import { SlideLinha } from "./slide-linha";
 
 export default async function HeroSlidesPainelPage() {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const supabase = await createClient();
   const { data: slides } = await supabase
     .from("hero_slides")

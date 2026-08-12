@@ -1,11 +1,11 @@
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { VerNoSiteButton } from "@/components/ver-no-site-button";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { getPaginaSobre } from "@/lib/content/pagina-sobre";
 import { SobreForm } from "./sobre-form";
 
 export default async function SitePaginaSobrePage() {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const sobre = await getPaginaSobre();
 
   return (

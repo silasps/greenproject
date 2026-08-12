@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { VerNoSiteButton } from "@/components/ver-no-site-button";
 import { ServicoForm, type ServicoParaEditar } from "../../servico-form";
 
 export default async function EditarServicoPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
   const { id } = await params;
   const supabase = await createClient();
 

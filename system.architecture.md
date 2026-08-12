@@ -102,6 +102,12 @@ Três variantes, **nunca** misturar:
     `null`.
   - `requireRole(roles[])` — chama `requireAuth()`, redireciona pra
     `/acesso-negado` se o `role` não estiver na lista.
+  - `requireArea(area: KpiSecaoKey)` — gate alternativo, **não** baseado no
+    `role` fixo da conta: resolve acesso pelo mesmo mecanismo de
+    cargo/pessoa de `getSecoesVisiveis` (seção 6.18). Usado só por
+    `/painel/site/**` e `/painel/servicos/**` (ver seção 10) — a gerência
+    pode liberar essa área pra outros cargos via toggle em Configurações,
+    sem tocar em código.
 - `src/lib/auth/permissions.ts`:
   - `Role = "tecnico" | "escritorio" | "gerencia"`, com hierarquia
     numérica (`10/50/80`) usada por `getRoleLevel`.
@@ -109,10 +115,11 @@ Três variantes, **nunca** misturar:
     string de role direto): `canVerAgendaCompleta`, `canGerenciarClientes`,
     `canGerenciarEquipamentos`, `canGerenciarEspecificacoesMotor`,
     `canImportarPdfSyscon`, `canRevisarELiberarLaudo`,
-    `canGerenciarUsuarios`, `canGerenciarResponsaveisTecnicos`,
-    `canGerenciarSite` (serviços + informações de contato do site, ver
-    seção 10) — todas `>= escritorio` exceto liberar laudo/gerenciar
-    usuários/responsáveis técnicos/site, que são `gerencia`-only.
+    `canGerenciarUsuarios`, `canGerenciarResponsaveisTecnicos` — todas
+    `>= escritorio` exceto liberar laudo/gerenciar usuários/responsáveis
+    técnicos, que são `gerencia`-only. **Não existe `canGerenciarSite`** —
+    acesso a `/painel/site` é o único caso que usa `requireArea` (acima)
+    em vez de uma função de permissão fixa por role.
   - `usuarios_perfis.is_superadmin` (migration 0022): flag adicional sobre
     a conta gerência, não um novo nível de role — permite "vestir" a sessão
     de outro usuário (impersonação) pra validar o que cada papel vê.
@@ -445,6 +452,33 @@ cards resultantes (`KpiCard`, `src/components/kpi-card.tsx`) aparecem no
 dashboard (`/painel/page.tsx`) — ver nota na seção 12, esse item **saiu**
 de "fora de escopo".
 
+**`KpiSecaoDef.tipo: "kpi" | "acesso"`** separa as duas coisas que esse
+catálogo hoje faz: `"kpi"` é card de métrica na tela inicial do painel
+(as 5 seções originais); `"acesso"` controla se a pessoa consegue abrir
+uma área inteira do sistema (hoje só `"site"`, ver abaixo). Os dois
+formulários de toggle (`kpis-por-cargo-form.tsx`,
+`dp/[id]/kpis-pessoa-form.tsx`) filtram por `tipo`
+(`KPI_SECOES_DASHBOARD`/`KPI_SECOES_ACESSO`, exportados de
+`catalogo.ts`) e renderizam dois grupos separados — em DP, dois cards
+**colapsáveis** (`src/components/ui/collapsible.tsx`, wrapper de
+`@base-ui/react/collapsible`, mesmo padrão dos outros primitivos em
+`components/ui/`; ambos começam fechados e usam `keepMounted` no painel
+pra continuar submetendo os dois grupos juntos com o card fechado —
+`salvarUsuarioKpis`/`salvarFuncaoKpis` continuam recebendo **um único
+FormData com as duas seções**, então nunca viraram dois `<form>`
+separados). A resolução em `getSecoesVisiveis` é idêntica pros dois
+tipos — só a apresentação nos formulários muda.
+
+**A chave `site` é a única com `tipo: "acesso"` até agora** e não vira
+card do dashboard (`/painel/page.tsx` não tem `case` pra ela — nenhum
+fetch, nenhum `KpiCard` renderizado). Ela existe só pra reaproveitar a
+mesma resolução de acesso (pessoa > cargo > nível padrão) como controle
+de acesso a uma área inteira do painel (`/painel/site/**` e
+`/painel/servicos/**`), via `requireArea("site")` (seção 5) em vez de um
+`canGerenciarX` fixo. `nivelPadrao: "gerencia"` preserva o comportamento
+de antes (só gerência acessa `/painel/site` por padrão); o toggle existe
+pra abrir exceção a outros cargos/pessoas sem mexer em código.
+
 ### 6.19 `auditoria_log` (log de auditoria — só ações críticas)
 ```
 id uuid PK, usuario_id uuid references usuarios_perfis(id) on delete set null,
@@ -472,7 +506,7 @@ criado_por/atualizado_por uuid references usuarios_perfis(id),
 criado_em/atualizado_em timestamptz not null default now()
 ```
 Substitui o array hardcoded que existia em `src/lib/content/servicos.ts` —
-gerenciado por `gerencia` em `/painel/servicos` (`canGerenciarSite`, ver
+gerenciado em `/painel/servicos` (acesso via `requireArea("site")`, ver
 seção 10), alcançado a partir do hub `/painel/site`.
 `galeria`/`metodologia` são jsonb (mesmo padrão de `propostas.custos_extras`
 e `testes_opacidade.fotos_extras`, seção 6.13/6.14) em vez de tabelas

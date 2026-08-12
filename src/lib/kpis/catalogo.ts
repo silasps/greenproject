@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Gauge, Users, Contact, CalendarClock, Calendar } from "lucide-react";
+import { Gauge, Users, Contact, CalendarClock, Calendar, Globe } from "lucide-react";
 import type { Role } from "@/lib/auth/permissions";
 
 export type KpiSecaoKey =
@@ -7,7 +7,8 @@ export type KpiSecaoKey =
   | "clientes_veiculos"
   | "equipe_pessoas"
   | "meus_agendamentos"
-  | "agenda_geral";
+  | "agenda_geral"
+  | "site";
 
 export type KpiSecaoDef = {
   key: KpiSecaoKey;
@@ -21,6 +22,12 @@ export type KpiSecaoDef = {
   cor: string;
   /** Pra onde o card leva ao ser clicado. */
   href: string;
+  /** "kpi" = card de métrica na tela inicial do painel; "acesso" = controla
+   * se a pessoa consegue abrir uma área inteira do sistema (via
+   * requireArea, não aparece como card no dashboard). Só separa os dois
+   * grupos visualmente nos formulários de exceção — a resolução
+   * (pessoa > cargo > padrão) é idêntica pros dois tipos. */
+  tipo: "kpi" | "acesso";
 };
 
 export const KPI_SECOES: KpiSecaoDef[] = [
@@ -31,6 +38,7 @@ export const KPI_SECOES: KpiSecaoDef[] = [
     icon: Gauge,
     cor: "#109b15", // verde da marca — o serviço principal da empresa
     href: "/painel/testes",
+    tipo: "kpi",
   },
   {
     key: "clientes_veiculos",
@@ -39,6 +47,7 @@ export const KPI_SECOES: KpiSecaoDef[] = [
     icon: Users,
     cor: "#2a78d6",
     href: "/painel/clientes",
+    tipo: "kpi",
   },
   {
     key: "equipe_pessoas",
@@ -47,6 +56,7 @@ export const KPI_SECOES: KpiSecaoDef[] = [
     icon: Contact,
     cor: "#4a3aa7",
     href: "/painel/dp",
+    tipo: "kpi",
   },
   {
     key: "meus_agendamentos",
@@ -55,6 +65,7 @@ export const KPI_SECOES: KpiSecaoDef[] = [
     icon: CalendarClock,
     cor: "#eb6834",
     href: "/painel/agenda",
+    tipo: "kpi",
   },
   {
     key: "agenda_geral",
@@ -63,9 +74,26 @@ export const KPI_SECOES: KpiSecaoDef[] = [
     icon: Calendar,
     cor: "#e87ba4",
     href: "/painel/agenda",
+    tipo: "kpi",
+  },
+  // Único item do catálogo com tipo "acesso" até agora — controla se a
+  // pessoa consegue abrir /painel/site/** e /painel/servicos/** (via
+  // requireArea, src/lib/auth/session.ts), não aparece como card no
+  // dashboard (/painel/page.tsx não tem case pra ele).
+  {
+    key: "site",
+    label: "Gerenciamento do site",
+    nivelPadrao: "gerencia",
+    icon: Globe,
+    cor: "#0e7490",
+    href: "/painel/site",
+    tipo: "acesso",
   },
 ];
 
 export const KPI_SECAO_POR_KEY: Record<KpiSecaoKey, KpiSecaoDef> = Object.fromEntries(
   KPI_SECOES.map((secao) => [secao.key, secao])
 ) as Record<KpiSecaoKey, KpiSecaoDef>;
+
+export const KPI_SECOES_DASHBOARD = KPI_SECOES.filter((secao) => secao.tipo === "kpi");
+export const KPI_SECOES_ACESSO = KPI_SECOES.filter((secao) => secao.tipo === "acesso");

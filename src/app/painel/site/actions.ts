@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { onlyDigits, formatTelefone } from "@/lib/utils/mascaras";
 
@@ -9,7 +9,7 @@ import { onlyDigits, formatTelefone } from "@/lib/utils/mascaras";
 // que o site já usa: texto formatado (rodapé, PDF) e dígitos com DDI 55
 // (links tel:/wa.me), sem risco de ficarem dessincronizados.
 export async function salvarContato(formData: FormData) {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
 
   const digitos = onlyDigits(String(formData.get("telefone") || ""));
   if (digitos.length < 10 || digitos.length > 11) {
@@ -35,7 +35,7 @@ export async function salvarContato(formData: FormData) {
 // gerência) — por isso vêm como campos indexados (diferencial_0_titulo
 // etc.), não uma lista dinâmica de adicionar/remover.
 export async function salvarPaginaSobre(formData: FormData) {
-  await requireRole(["gerencia"]);
+  await requireArea("site");
 
   const headline = String(formData.get("headline") || "").trim();
   const introducao = String(formData.get("introducao") || "").trim();
