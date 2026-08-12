@@ -398,6 +398,39 @@ export async function atualizarEvento(id: string, formData: FormData) {
   revalidatePath(`/painel/agenda/${id}`);
 }
 
+/** Corrige nome/telefone/WhatsApp do contato de um teste já agendado (ex.: erro de digitação) — não mexe em data, endereço, veículo ou proposta. */
+export async function atualizarContatoAgendamento(agendamentoId: string, formData: FormData) {
+  const { perfil } = await requireAuth();
+  if (!canGerenciarClientes(perfil.role)) {
+    throw new Error("Sem permissão para editar o contato.");
+  }
+
+  const nomeContato = String(formData.get("nome_contato") ?? "").trim();
+  const telefoneContato = String(formData.get("telefone_contato") ?? "").trim();
+  const whatsappContato = String(formData.get("whatsapp_contato") ?? "").trim();
+  // Mesma regra de criarEvento: WhatsApp serve de telefone quando o campo de telefone fica em branco.
+  const telefonePrincipal = telefoneContato || whatsappContato;
+
+  if (!nomeContato || !telefonePrincipal) {
+    throw new Error("Preencha o nome e o telefone ou WhatsApp.");
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("agendamentos")
+    .update({
+      nome_contato: nomeContato,
+      telefone_contato: telefonePrincipal,
+      whatsapp_contato: whatsappContato || null,
+    })
+    .eq("id", agendamentoId)
+    .eq("tipo", "teste_opacidade");
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/painel/agenda/${agendamentoId}`);
+  revalidatePath("/painel/agenda");
+}
+
 /**
  * Converte um evento criado por engano em agendamento de teste — mesma
  * lógica do ramo "teste" de criarEvento, mas atualizando o registro
