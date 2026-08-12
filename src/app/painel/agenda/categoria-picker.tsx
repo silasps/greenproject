@@ -55,27 +55,30 @@ export function CategoriaPicker({
   return (
     <div className="space-y-2">
       <input type="hidden" name="categoria_id" value={categoriaId ?? ""} />
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         <button
           type="button"
           onClick={() => onChange(null)}
-          title="Sem categoria"
           className={cn(
-            "flex size-6 items-center justify-center rounded-full border-2 border-dashed border-neutral-300 text-[10px] text-neutral-400",
-            categoriaId === null && "ring-2 ring-neutral-400 ring-offset-1",
+            "flex items-center gap-1.5 rounded-full border border-dashed border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-50",
+            categoriaId === null && "border-neutral-400 bg-neutral-100 text-neutral-700",
           )}
         >
-          ×
+          Sem categoria
         </button>
         {(categorias ?? []).map((cat) => (
           <button
             key={cat.id}
             type="button"
             onClick={() => onChange(cat)}
-            title={cat.nome}
-            className={cn("size-6 rounded-full", categoriaId === cat.id && "ring-2 ring-neutral-500 ring-offset-1")}
-            style={{ backgroundColor: cat.cor }}
-          />
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50",
+              categoriaId === cat.id && "border-neutral-400 bg-neutral-100",
+            )}
+          >
+            <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: cat.cor }} aria-hidden />
+            {cat.nome}
+          </button>
         ))}
         <button type="button" onClick={() => setCriando((v) => !v)} className="text-xs font-medium text-brand hover:underline">
           + Nova categoria

@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { EquipamentoForm } from "../../equipamento-form";
 
 export default async function EditarEquipamentoPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["escritorio", "gerencia"]);
+  await requireArea("equipamentos");
   const { id } = await params;
   const supabase = await createClient();
   const { data: equipamento } = await supabase.from("equipamentos_teste").select("*").eq("id", id).single();

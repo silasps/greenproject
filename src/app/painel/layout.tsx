@@ -1,11 +1,5 @@
 import { requireAuth } from "@/lib/auth/session";
-import {
-  canGerenciarClientes,
-  canGerenciarEquipamentos,
-  canGerenciarResponsaveisTecnicos,
-  canGerenciarUsuarios,
-  canVerAgendaCompleta,
-} from "@/lib/auth/permissions";
+import { canGerenciarUsuarios } from "@/lib/auth/permissions";
 import { estaImpersonando, listarUsuariosParaImpersonar } from "@/lib/auth/impersonation";
 import { createClient } from "@/lib/supabase/server";
 import { getSecoesVisiveis } from "@/lib/kpis/visibilidade";
@@ -31,19 +25,19 @@ export default async function PainelLayout({
   const navItems = [
     { href: "/painel", label: "Dashboard", key: "dashboard" as const, show: true },
     { href: "/painel/agenda", label: "Agenda", key: "agenda" as const, show: true },
-    { href: "/painel/testes", label: "Testes", key: "testes" as const, show: canVerAgendaCompleta(perfil.role) },
-    { href: "/painel/clientes", label: "Clientes", key: "clientes" as const, show: canGerenciarClientes(perfil.role) },
+    { href: "/painel/testes", label: "Testes", key: "testes" as const, show: secoesVisiveis.has("testes") },
+    { href: "/painel/clientes", label: "Clientes", key: "clientes" as const, show: secoesVisiveis.has("clientes") },
     {
       href: "/painel/equipamentos",
       label: "Equipamentos",
       key: "equipamentos" as const,
-      show: canGerenciarEquipamentos(perfil.role),
+      show: secoesVisiveis.has("equipamentos"),
     },
     {
       href: "/painel/responsaveis-tecnicos",
       label: "Responsáveis Técnicos",
       key: "responsaveis-tecnicos" as const,
-      show: canGerenciarResponsaveisTecnicos(perfil.role),
+      show: secoesVisiveis.has("responsaveis_tecnicos"),
     },
     {
       href: "/painel/dp",

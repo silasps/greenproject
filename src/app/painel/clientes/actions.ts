@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { onlyDigits, isValidCpf, isValidCnpj } from "@/lib/utils/documento";
 import { registrarAuditoria } from "@/lib/auditoria/registrar";
 
 export async function salvarCliente(formData: FormData) {
-  const { perfil } = await requireRole(["escritorio", "gerencia"]);
+  const { perfil } = await requireArea("clientes");
 
   const id = String(formData.get("id") || "");
   const tipo = String(formData.get("tipo"));

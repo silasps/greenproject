@@ -482,15 +482,42 @@ tipos — só a apresentação/gravação nos formulários muda:
   pra "resetar" pra seguir o cargo por essa UI — é a mesma limitação que
   já existia no toggle por cargo, só replicada por pessoa.
 
-**A chave `site` é a única com `tipo: "acesso"` até agora** e não vira
-card do dashboard (`/painel/page.tsx` não tem `case` pra ela — nenhum
-fetch, nenhum `KpiCard` renderizado). Ela existe só pra reaproveitar a
-mesma resolução de acesso (pessoa > cargo > nível padrão) como controle
-de acesso a uma área inteira do painel (`/painel/site/**` e
-`/painel/servicos/**`), via `requireArea("site")` (seção 5) em vez de um
-`canGerenciarX` fixo. `nivelPadrao: "gerencia"` preserva o comportamento
-de antes (só gerência acessa `/painel/site` por padrão); o toggle existe
-pra abrir exceção a outros cargos/pessoas sem mexer em código.
+**Chaves com `tipo: "acesso"`** não viram card do dashboard
+(`/painel/page.tsx` não tem `case` pra elas — nenhum fetch, nenhum
+`KpiCard` renderizado). Existem só pra reaproveitar a mesma resolução de
+acesso (pessoa > cargo > nível padrão) como controle de acesso a uma área
+inteira do painel, via `requireArea(key)` (seção 5) em vez de um
+`canGerenciarX` fixo. `nivelPadrao` de cada uma reproduz **exatamente** o
+`requireRole` que a área já tinha hardcoded antes — zero mudança de
+comportamento até a gerência mexer num toggle:
+
+| key | área | `nivelPadrao` |
+| --- | --- | --- |
+| `site` | `/painel/site/**`, `/painel/servicos/**` | gerencia |
+| `testes` | `/painel/testes`, `/painel/testes/vencendo` (lista completa — `/painel/testes/[id]` continua só `requireAuth`, técnico vê o próprio teste) | escritorio |
+| `clientes` | `/painel/clientes/**` | escritorio |
+| `equipamentos` | `/painel/equipamentos/**` | escritorio |
+| `responsaveis_tecnicos` | `/painel/responsaveis-tecnicos/**` | gerencia |
+
+**Departamento Pessoal e Configurações ficaram de fora de propósito** —
+continuam com `requireRole(["gerencia"])`/`canGerenciarUsuarios` fixo, não
+viram `KpiSecaoKey`. DP cria conta, reseta senha e muda role/cargo de
+qualquer pessoa; Configurações é onde os próprios toggles de acesso são
+concedidos. Delegar essas duas áreas abriria escalada de privilégio (uma
+exceção mal pensada daria a alguém sem gerência o poder de se conceder
+mais acesso). Se um dia isso mudar, é decisão deliberada, não just mais
+uma entrada no catálogo.
+
+`canVerAgendaCompleta`/`canGerenciarEquipamentos`/
+`canGerenciarResponsaveisTecnicos` (`src/lib/auth/permissions.ts`) foram
+removidas — ficaram sem uso depois que as áreas que elas gateavam
+migraram pra `requireArea`. `canGerenciarClientes` continua existindo
+porque é reaproveitada dentro de Agenda/Testes (`agenda/actions.ts`,
+`agenda/page.tsx`, `testes/actions.ts`) pra decidir quem pode
+agendar/gerenciar teste pra qualquer cliente — permissão de ação dentro
+de um fluxo, diferente de "pode abrir `/painel/clientes`" (que agora é
+`requireArea("clientes")`). Essas duas coisas usam o mesmo nome de função
+por coincidência histórica, não a mesma regra — não foram unificadas.
 
 ### 6.19 `auditoria_log` (log de auditoria — só ações críticas)
 ```
@@ -741,6 +768,14 @@ já existia lá.
   Máquinas em Mineradoras** ainda usam fotos de banco de imagens (mesmas
   do site antigo) — a empresa nunca teve foto de campo própria pra esses
   dois; a gerência pode trocar a qualquer momento pelo painel, sem deploy.
+  **`getMosaicImages` intercala 1 foto por serviço a cada rodada** (não
+  pega as N primeiras na ordem de `ordem`) — bug corrigido depois que a
+  gerência relatou que marcar destaque num "4º serviço" não tinha efeito:
+  com Opacidade e Líquido Penetrante sozinhos já somando 5 fotos marcadas
+  (o limite do mosaico), qualquer outro serviço nunca ganhava vaga. Não
+  era a marcação sendo desfeita — ela persistia certinho no banco — só
+  nunca aparecia. O round-robin garante que todo serviço com pelo menos
+  1 foto marcada entra antes de qualquer serviço "duplicar" com uma 2ª.
 - **`Hero` (`marketing/hero.tsx`)** — carrossel de fundo com 1 slide por
   serviço (`SLIDES`, mesmo array que gera os cards), migração
   automática a cada `SLIDE_INTERVAL_MS` (5s), pausada se

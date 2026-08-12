@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Gauge, Users, Contact, CalendarClock, Calendar, Globe } from "lucide-react";
+import { Gauge, Users, Contact, CalendarClock, Calendar, Globe, ClipboardCheck, BadgeCheck } from "lucide-react";
 import type { Role } from "@/lib/auth/permissions";
 
 export type KpiSecaoKey =
@@ -8,7 +8,11 @@ export type KpiSecaoKey =
   | "equipe_pessoas"
   | "meus_agendamentos"
   | "agenda_geral"
-  | "site";
+  | "site"
+  | "testes"
+  | "clientes"
+  | "equipamentos"
+  | "responsaveis_tecnicos";
 
 export type KpiSecaoDef = {
   key: KpiSecaoKey;
@@ -76,10 +80,12 @@ export const KPI_SECOES: KpiSecaoDef[] = [
     href: "/painel/agenda",
     tipo: "kpi",
   },
-  // Único item do catálogo com tipo "acesso" até agora — controla se a
-  // pessoa consegue abrir /painel/site/** e /painel/servicos/** (via
-  // requireArea, src/lib/auth/session.ts), não aparece como card no
-  // dashboard (/painel/page.tsx não tem case pra ele).
+  // Seções com tipo "acesso" — controlam se a pessoa consegue abrir uma
+  // área inteira do painel (via requireArea, src/lib/auth/session.ts), não
+  // aparecem como card no dashboard (/painel/page.tsx não tem case pra
+  // elas). `nivelPadrao` reproduz exatamente o `requireRole` que cada área
+  // já tinha hardcoded antes — zero mudança de comportamento até a
+  // gerência mexer num toggle. Mesmo ícone da sidebar (`sidebar.tsx`).
   {
     key: "site",
     label: "Gerenciamento do site",
@@ -89,6 +95,48 @@ export const KPI_SECOES: KpiSecaoDef[] = [
     href: "/painel/site",
     tipo: "acesso",
   },
+  {
+    key: "testes",
+    label: "Testes (lista completa)",
+    nivelPadrao: "escritorio",
+    icon: ClipboardCheck,
+    cor: "#109b15",
+    href: "/painel/testes",
+    tipo: "acesso",
+  },
+  {
+    key: "clientes",
+    label: "Clientes e veículos",
+    nivelPadrao: "escritorio",
+    icon: Users,
+    cor: "#2a78d6",
+    href: "/painel/clientes",
+    tipo: "acesso",
+  },
+  {
+    key: "equipamentos",
+    label: "Equipamentos",
+    nivelPadrao: "escritorio",
+    icon: Gauge,
+    cor: "#7a5cf0",
+    href: "/painel/equipamentos",
+    tipo: "acesso",
+  },
+  {
+    key: "responsaveis_tecnicos",
+    label: "Responsáveis técnicos",
+    nivelPadrao: "gerencia",
+    icon: BadgeCheck,
+    cor: "#c2410c",
+    href: "/painel/responsaveis-tecnicos",
+    tipo: "acesso",
+  },
+  // Departamento Pessoal e Configurações propositalmente NÃO entram aqui:
+  // DP cria conta, reseta senha e muda role/cargo de qualquer pessoa;
+  // Configurações é onde esses próprios toggles de acesso são concedidos.
+  // Delegar essas duas áreas por toggle abriria escalada de privilégio (uma
+  // pessoa sem gerência ganhando DP/Configurações poderia se conceder mais
+  // acesso). As duas continuam com `requireRole(["gerencia"])` fixo.
 ];
 
 export const KPI_SECAO_POR_KEY: Record<KpiSecaoKey, KpiSecaoDef> = Object.fromEntries(

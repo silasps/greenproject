@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadArquivo } from "@/lib/storage/upload";
 
@@ -15,7 +15,7 @@ function extensaoDoArquivo(file: File) {
 }
 
 export async function salvarEquipamento(formData: FormData) {
-  const { perfil } = await requireRole(["escritorio", "gerencia"]);
+  const { perfil } = await requireArea("equipamentos");
 
   const id = String(formData.get("id") || "");
   const tipo = String(formData.get("tipo"));

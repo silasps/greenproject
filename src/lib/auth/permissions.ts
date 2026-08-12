@@ -24,13 +24,19 @@ export function userHasAnyRole(role: string | null | undefined, candidates: read
 // Named permission checks — import these everywhere instead of comparing
 // role strings inline, so every place that gates a feature stays in sync
 // when the role hierarchy changes.
-export const canVerAgendaCompleta = (role: string | null | undefined) =>
-  getRoleLevel(role) >= ROLE_LEVEL.escritorio;
-
+//
+// canVerAgendaCompleta/canGerenciarEquipamentos/canGerenciarResponsaveisTecnicos
+// foram removidas daqui — as áreas que elas gateavam (Testes, Equipamentos,
+// Responsáveis Técnicos) viraram configuráveis por cargo/pessoa via
+// requireArea (src/lib/auth/session.ts) + KPI_SECOES_ACESSO
+// (src/lib/kpis/catalogo.ts), com o mesmo nível padrão de antes.
+//
+// canGerenciarClientes continua aqui porque é reaproveitada dentro do fluxo
+// de Agenda/Testes (agenda/actions.ts, agenda/page.tsx, testes/actions.ts)
+// pra decidir quem pode agendar/gerenciar teste pra qualquer cliente — um
+// uso diferente de "pode abrir /painel/clientes" (esse virou requireArea
+// também, ver clientes/actions.ts e clientes/page.tsx).
 export const canGerenciarClientes = (role: string | null | undefined) =>
-  getRoleLevel(role) >= ROLE_LEVEL.escritorio;
-
-export const canGerenciarEquipamentos = (role: string | null | undefined) =>
   getRoleLevel(role) >= ROLE_LEVEL.escritorio;
 
 export const canGerenciarEspecificacoesMotor = (role: string | null | undefined) =>
@@ -40,9 +46,6 @@ export const canImportarPdfSyscon = (role: string | null | undefined) =>
   getRoleLevel(role) >= ROLE_LEVEL.escritorio;
 
 export const canGerenciarUsuarios = (role: string | null | undefined) =>
-  getRoleLevel(role) >= ROLE_LEVEL.gerencia;
-
-export const canGerenciarResponsaveisTecnicos = (role: string | null | undefined) =>
   getRoleLevel(role) >= ROLE_LEVEL.gerencia;
 
 export const canExcluirTeste = (role: string | null | undefined) => getRoleLevel(role) >= ROLE_LEVEL.gerencia;
