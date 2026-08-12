@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { FileDropInput } from "@/components/file-drop-input";
+import { isRedirectError } from "@/lib/utils/is-redirect-error";
 import { ListaTextoInput } from "./lista-texto-input";
 import { GaleriaInput, type GaleriaSlot } from "./galeria-input";
 import { MetodologiaInput, type MetodologiaSlot } from "./metodologia-input";
@@ -94,7 +95,14 @@ export function ServicoForm({
       return;
     }
     setError(null);
-    startTransition(() => salvarServico(formData));
+    startTransition(async () => {
+      try {
+        await salvarServico(formData);
+      } catch (e) {
+        if (isRedirectError(e)) throw e;
+        setError(e instanceof Error ? e.message : "Não foi possível salvar o serviço.");
+      }
+    });
   }
 
   return (
