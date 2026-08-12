@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Política de Privacidade | Greenproject Engenharia",
   description:
     "Como a Greenproject Engenharia coleta, usa e protege seus dados pessoais, em conformidade com a LGPD.",
+  alternates: {
+    canonical: "/privacidade",
+  },
 };
 
 export default function PoliticaPrivacidadePage() {

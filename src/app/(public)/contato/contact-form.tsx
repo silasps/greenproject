@@ -16,7 +16,14 @@ export function ContactForm() {
     <form action={formAction} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="nome">Nome</Label>
-        <Input id="nome" name="nome" autoComplete="name" required aria-invalid={!!state.errors?.nome} />
+        <Input
+          id="nome"
+          name="nome"
+          autoComplete="name"
+          required
+          className="h-11"
+          aria-invalid={!!state.errors?.nome}
+        />
         {state.errors?.nome && <p className="text-sm text-red-600">{state.errors.nome}</p>}
       </div>
 
@@ -29,13 +36,14 @@ export function ContactForm() {
             type="email"
             autoComplete="email"
             required
+            className="h-11"
             aria-invalid={!!state.errors?.email}
           />
           {state.errors?.email && <p className="text-sm text-red-600">{state.errors.email}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="telefone">Telefone (opcional)</Label>
-          <Input id="telefone" name="telefone" type="tel" autoComplete="tel" />
+          <Input id="telefone" name="telefone" type="tel" autoComplete="tel" className="h-11" />
         </div>
       </div>
 
@@ -47,12 +55,17 @@ export function ContactForm() {
           required
           rows={5}
           placeholder="Conte o que você precisa: tipo de veículo/equipamento, local e prazo desejado."
+          className="py-3"
           aria-invalid={!!state.errors?.mensagem}
         />
         {state.errors?.mensagem && <p className="text-sm text-red-600">{state.errors.mensagem}</p>}
       </div>
 
-      <Button type="submit" disabled={pending} className="w-full bg-brand hover:bg-brand-dark">
+      <Button
+        type="submit"
+        disabled={pending}
+        className="h-12 w-full text-base bg-brand hover:bg-brand-dark"
+      >
         {pending ? "Enviando..." : "Enviar mensagem"}
       </Button>
 

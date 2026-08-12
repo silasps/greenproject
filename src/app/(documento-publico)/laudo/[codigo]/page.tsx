@@ -5,6 +5,7 @@ import { publicUrl } from "@/lib/storage/upload";
 
 export const metadata: Metadata = {
   title: "Verificação de Laudo | Greenproject Engenharia",
+  robots: { index: false, follow: false },
 };
 
 export default async function VerificarLaudoPage({ params }: { params: Promise<{ codigo: string }> }) {

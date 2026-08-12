@@ -4,6 +4,7 @@ import { ForgotPasswordForm } from "./forgot-password-form";
 
 export const metadata: Metadata = {
   title: "Esqueci minha senha | Greenproject Engenharia",
+  robots: { index: false, follow: false },
 };
 
 export default function EsqueciSenhaPage() {

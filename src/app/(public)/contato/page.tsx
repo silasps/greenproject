@@ -9,14 +9,17 @@ export const metadata: Metadata = {
   title: "Contato | Greenproject Engenharia",
   description:
     "Fale com a Greenproject Engenharia pelo WhatsApp, telefone, e-mail ou pelo formulário de contato.",
+  alternates: {
+    canonical: "/contato",
+  },
 };
 
 export default function ContatoPage() {
   return (
-    <div className="bg-white">
+    <div className="bg-background">
       <section className="border-b border-neutral-200 bg-neutral-50">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
-          <p className="text-xs font-semibold tracking-wide text-brand uppercase">
+          <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
             Contato
           </p>
           <h1 className="mt-3 max-w-3xl text-3xl font-bold text-neutral-900 sm:text-4xl">
@@ -29,7 +32,7 @@ export default function ContatoPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="rounded-md border border-neutral-200 p-6">
             <ContactForm />
@@ -45,7 +48,7 @@ export default function ContatoPage() {
               rel="noopener noreferrer"
               className="flex items-center gap-3 rounded-md border border-neutral-200 p-4 hover:border-brand/40"
             >
-              <MessageCircle className="h-5 w-5 shrink-0 text-brand" aria-hidden />
+              <MessageCircle className="h-5 w-5 shrink-0 text-neutral-500" aria-hidden />
               <div>
                 <p className="text-sm font-semibold text-neutral-900">WhatsApp</p>
                 <p className="text-sm text-neutral-600">{COMPANY.telefone}</p>
@@ -56,7 +59,7 @@ export default function ContatoPage() {
               href={`tel:+${COMPANY.whatsapp}`}
               className="flex items-center gap-3 rounded-md border border-neutral-200 p-4 hover:border-brand/40"
             >
-              <Phone className="h-5 w-5 shrink-0 text-brand" aria-hidden />
+              <Phone className="h-5 w-5 shrink-0 text-neutral-500" aria-hidden />
               <div>
                 <p className="text-sm font-semibold text-neutral-900">Telefone</p>
                 <p className="text-sm text-neutral-600">{COMPANY.telefone}</p>
@@ -67,7 +70,7 @@ export default function ContatoPage() {
               href={`mailto:${COMPANY.email}`}
               className="flex items-center gap-3 rounded-md border border-neutral-200 p-4 hover:border-brand/40"
             >
-              <Mail className="h-5 w-5 shrink-0 text-brand" aria-hidden />
+              <Mail className="h-5 w-5 shrink-0 text-neutral-500" aria-hidden />
               <div>
                 <p className="text-sm font-semibold text-neutral-900">E-mail</p>
                 <p className="text-sm text-neutral-600">{COMPANY.email}</p>
@@ -75,7 +78,7 @@ export default function ContatoPage() {
             </Link>
 
             <div className="flex items-center gap-3 rounded-md border border-neutral-200 p-4">
-              <MapPin className="h-5 w-5 shrink-0 text-brand" aria-hidden />
+              <MapPin className="h-5 w-5 shrink-0 text-neutral-500" aria-hidden />
               <div>
                 <p className="text-sm font-semibold text-neutral-900">Endereço</p>
                 <p className="text-sm text-neutral-600">{COMPANY.endereco}</p>

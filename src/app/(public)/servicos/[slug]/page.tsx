@@ -4,8 +4,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Mail, Phone } from "lucide-react";
 import { WhyUsBlock } from "@/components/marketing/why-us-block";
+import { FinalCta } from "@/components/marketing/final-cta";
 import { COMPANY } from "@/lib/legal/company-info";
 import { getServicoBySlug, SERVICOS } from "@/lib/content/servicos";
+import { JsonLd } from "@/lib/seo/json-ld";
+import { buildServiceSchema } from "@/lib/seo/schema";
 
 type ServicoPageProps = {
   params: Promise<{ slug: string }>;
@@ -32,6 +35,9 @@ export async function generateMetadata({
   return {
     title: `${servico.titulo} | Greenproject Engenharia`,
     description: servico.resumo,
+    alternates: {
+      canonical: `/servicos/${servico.slug}`,
+    },
     openGraph: {
       title: servico.titulo,
       description: servico.resumo,
@@ -51,8 +57,11 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
   const hasStepImages = servico.metodologia.some((step) => step.imagem);
 
   return (
-    <div className="bg-white">
-      <section className="bg-neutral-950 text-white">
+    <div className="bg-background">
+      <JsonLd
+        data={buildServiceSchema(servico, `${COMPANY.siteUrl}/servicos/${servico.slug}`)}
+      />
+      <section className="bg-ink text-white">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
           <Link
             href="/servicos"
@@ -114,10 +123,10 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
           <div>
-            <p className="text-xs font-semibold tracking-wide text-brand uppercase">
+            <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
               Por que sua empresa precisa disso?
             </p>
             <h2 className="mt-3 text-2xl font-bold text-neutral-900">
@@ -127,7 +136,7 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
           <div className="grid gap-4 sm:grid-cols-2">
             {servico.beneficios.map((beneficio) => (
               <div key={beneficio} className="flex gap-3">
-                <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-brand" aria-hidden />
+                <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-neutral-500" aria-hidden />
                 <p className="leading-7 text-neutral-700">{beneficio}</p>
               </div>
             ))}
@@ -136,13 +145,10 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
       </section>
 
       <section className="border-t border-neutral-200">
-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold tracking-wide text-brand uppercase">
-              Como fazemos
-            </p>
-            <h2 className="mt-3 text-2xl font-bold text-neutral-900">
-              Metodologia documentada do início ao parecer
+            <h2 className="text-2xl font-bold text-neutral-900">
+              Como fazemos: metodologia documentada do início ao parecer
             </h2>
           </div>
 
@@ -165,7 +171,7 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
                     </div>
                   )}
                   <div>
-                    <p className="text-sm font-semibold text-brand">
+                    <p className="text-sm font-semibold text-neutral-500">
                       Etapa {index + 1}
                     </p>
                     <h3 className="mt-1 text-lg font-semibold text-neutral-900">
@@ -183,7 +189,7 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
                   key={step.titulo}
                   className="rounded-md border border-neutral-200 p-5"
                 >
-                  <p className="text-sm font-semibold text-brand">
+                  <p className="text-sm font-semibold text-neutral-500">
                     Etapa {index + 1}
                   </p>
                   <h3 className="mt-2 font-semibold text-neutral-900">{step.titulo}</h3>
@@ -199,7 +205,7 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
 
       {servico.galleryImages.length > 0 && (
         <section className="border-t border-neutral-200 bg-neutral-50">
-          <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+          <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
             <h2 className="text-2xl font-bold text-neutral-900">Fotos do serviço</h2>
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               {servico.galleryImages.map((image) => (
@@ -221,20 +227,17 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
         </section>
       )}
 
-      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
           <div>
-            <p className="text-xs font-semibold tracking-wide text-brand uppercase">
-              O que você recebe
-            </p>
-            <h2 className="mt-3 text-2xl font-bold text-neutral-900">
-              Documentação pronta para decisão
+            <h2 className="text-2xl font-bold text-neutral-900">
+              O que você recebe: documentação pronta para decisão
             </h2>
           </div>
           <ul className="grid gap-4 sm:grid-cols-2">
             {servico.entregaveis.map((entregavel) => (
               <li key={entregavel} className="flex gap-3">
-                <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-brand" aria-hidden />
+                <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-neutral-500" aria-hidden />
                 <span className="leading-7 text-neutral-700">{entregavel}</span>
               </li>
             ))}
@@ -244,33 +247,12 @@ export default async function ServicoDetalhePage({ params }: ServicoPageProps) {
 
       <WhyUsBlock />
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-14 text-center sm:px-6">
-          <h2 className="text-2xl font-bold text-neutral-900">
-            Precisa desse laudo na sua operação?
-          </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-neutral-600">
-            Fale diretamente com a Greenproject para combinar local, prazo e escopo da
-            inspeção.
-          </p>
-          <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <Link
-              href="tel:+5531997901568"
-              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand px-5 py-3 text-sm font-semibold text-white hover:bg-brand-dark"
-            >
-              <Phone className="h-4 w-4" aria-hidden />
-              Ligar agora
-            </Link>
-            <Link
-              href={`mailto:${COMPANY.email}`}
-              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-neutral-300 px-5 py-3 text-sm font-semibold text-neutral-800 hover:border-brand/50 hover:text-brand"
-            >
-              <Mail className="h-4 w-4" aria-hidden />
-              Enviar e-mail
-            </Link>
-          </div>
-        </div>
-      </section>
+      <FinalCta
+        eyebrow="Fale com a gente"
+        headline="Precisa desse laudo na sua operação?"
+        description="Fale diretamente com a Greenproject para combinar local, prazo e escopo da inspeção."
+        whatsappMessage={`Olá! Gostaria de solicitar um orçamento para ${servico.titulo}.`}
+      />
     </div>
   );
 }

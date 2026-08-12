@@ -19,6 +19,18 @@ export const metadata: Metadata = {
   title: "Greenproject Engenharia | Laudos e Inspeções Técnicas",
   description:
     "Laudos de opacidade, inspeção veicular e serviços de engenharia mecânica e de segurança do trabalho, com atendimento no local.",
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: "Greenproject Engenharia",
+    title: "Greenproject Engenharia | Laudos e Inspeções Técnicas",
+    description:
+      "Laudos de opacidade, inspeção veicular e serviços de engenharia mecânica e de segurança do trabalho, com atendimento no local.",
+    images: ["/brand/logo-completa.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({

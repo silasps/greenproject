@@ -13,12 +13,9 @@ const mosaicClasses = [
 
 export function PhotoMosaic({ images }: { images: MosaicImage[] }) {
   return (
-    <section className="bg-white">
+    <section className="bg-background">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-        <p className="text-xs font-semibold tracking-wide text-brand uppercase">
-          Registro de campo
-        </p>
-        <h2 className="mt-3 max-w-xl text-2xl font-bold text-neutral-900">
+        <h2 className="max-w-xl text-2xl font-bold text-neutral-900">
           Fotos reais dos ensaios que já realizamos
         </h2>
         <p className="mt-3 max-w-2xl text-neutral-600">

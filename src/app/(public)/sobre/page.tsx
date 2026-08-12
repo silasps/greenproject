@@ -7,14 +7,17 @@ export const metadata: Metadata = {
   title: "Sobre | Greenproject Engenharia",
   description:
     "Engenharia mecânica e segurança do trabalho com atendimento técnico em campo. Conheça a Greenproject.",
+  alternates: {
+    canonical: "/sobre",
+  },
 };
 
 export default function SobrePage() {
   return (
-    <div className="bg-white">
+    <div className="bg-background">
       <section className="border-b border-neutral-200 bg-neutral-50">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
-          <p className="text-xs font-semibold tracking-wide text-brand uppercase">
+          <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
             Sobre a Greenproject
           </p>
           <h1 className="mt-3 max-w-3xl text-3xl font-bold text-neutral-900 sm:text-4xl">
@@ -29,7 +32,7 @@ export default function SobrePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
         <h2 className="text-xl font-bold text-neutral-900">Como trabalhamos</h2>
         <p className="mt-4 leading-7 text-neutral-600">
           A {COMPANY.razaoSocial} conduz seus ensaios e laudos in loco, evitando que o
@@ -50,21 +53,21 @@ export default function SobrePage() {
 
         <div className="mt-10 grid gap-5 sm:grid-cols-3">
           <div>
-            <MapPinned className="h-5 w-5 text-brand" aria-hidden />
+            <MapPinned className="h-5 w-5 text-neutral-500" aria-hidden />
             <h3 className="mt-3 font-semibold text-neutral-900">Atendimento em campo</h3>
             <p className="mt-2 text-sm leading-6 text-neutral-600">
               A equipe vai até você, reduzindo deslocamento e parada da operação.
             </p>
           </div>
           <div>
-            <ClipboardCheck className="h-5 w-5 text-brand" aria-hidden />
+            <ClipboardCheck className="h-5 w-5 text-neutral-500" aria-hidden />
             <h3 className="mt-3 font-semibold text-neutral-900">Registro técnico claro</h3>
             <p className="mt-2 text-sm leading-6 text-neutral-600">
               Laudos organizados para auditorias, fiscalizações e gestão interna.
             </p>
           </div>
           <div>
-            <ShieldCheck className="h-5 w-5 text-brand" aria-hidden />
+            <ShieldCheck className="h-5 w-5 text-neutral-500" aria-hidden />
             <h3 className="mt-3 font-semibold text-neutral-900">Responsabilidade técnica</h3>
             <p className="mt-2 text-sm leading-6 text-neutral-600">
               Serviços conduzidos por engenharia especializada, com foco em conformidade.

@@ -7,6 +7,7 @@
 @theme inline {
   --color-brand: var(--brand);
   --color-brand-dark: var(--brand-dark);
+  --color-ink: var(--ink);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
@@ -54,6 +55,10 @@
   /* Verde oficial da marca Greenproject (#109B15), extraído do site atual */
   --brand: #109b15;
   --brand-dark: #0c7a10;
+  /* Verde-carvão bem escuro (quase preto) — pra seções de alto contraste
+     tipo o CTA final, em vez do verde saturado da marca ocupando a tela
+     inteira. */
+  --ink: #242b21;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -155,9 +160,13 @@
    (bolha de avaliação recente) além do carrossel que a gente usa de fato.
    O script deles sempre pendura esse widget flutuante direto no <body>,
    então dá pra escondê-lo sem afetar o carrossel (que fica aninhado dentro
-   do nosso próprio container, não como filho direto do body). */
-body > .ti-widget,
-body > .ti-widget-container {
+   do nosso próprio container, não como filho direto do body). Seletor por
+   classe/id contendo "ti-" ou "trustindex" — a tentativa anterior (classe
+   exata .ti-widget) não bateu com o nome real que o widget usa em produção,
+   então ampliei pra pegar qualquer variação. */
+body > [class*="ti-widget" i],
+body > [class*="trustindex" i],
+body > [id*="trustindex" i] {
   display: none !important;
 }
 

@@ -6,6 +6,8 @@ import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import { PublicHeader } from "@/components/public-header";
 import { WhatsappFloatButton } from "@/components/whatsapp-float-button";
+import { JsonLd } from "@/lib/seo/json-ld";
+import { buildLocalBusinessSchema } from "@/lib/seo/schema";
 
 // Tipografia própria do site público — IBM Plex nasceu como fonte técnica da IBM
 // pra documentação de engenharia, o que conversa direto com "laudo técnico".
@@ -45,15 +47,16 @@ export default function PublicLayout({
     // "reduzir movimento" ativado no sistema operacional.
     <MotionConfig reducedMotion="user">
       <div
-        className={`public-shell font-sans ${plexSans.variable} ${plexSansCondensed.variable} ${plexMono.variable} flex min-h-screen flex-col`}
+        className={`public-shell bg-background font-sans ${plexSans.variable} ${plexSansCondensed.variable} ${plexMono.variable} flex min-h-screen flex-col`}
       >
+        <JsonLd data={buildLocalBusinessSchema()} />
         <PublicHeader />
 
         <main className="flex-1">{children}</main>
 
         <footer className="border-t border-neutral-200 bg-neutral-50">
           <div className="mx-auto max-w-6xl px-4 py-12 text-sm text-neutral-600 sm:px-6">
-            <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-4">
               <div>
                 <p className="font-mono text-[11px] font-medium tracking-widest text-neutral-400 uppercase">
                   Greenproject

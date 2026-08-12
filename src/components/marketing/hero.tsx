@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { MessageCircle, Phone } from "lucide-react";
+import { ArrowRight, MessageCircle, Phone } from "lucide-react";
 import { COMPANY } from "@/lib/legal/company-info";
 import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
 
@@ -188,39 +188,45 @@ const item = {
 } as const;
 
 const label = {
-  hidden: { opacity: 0, x: 36, letterSpacing: "0.3em" },
-  show: { opacity: 1, x: 0, letterSpacing: "0.06em" },
+  hidden: { opacity: 0, x: 20 },
+  show: { opacity: 1, x: 0 },
 } as const;
 
 const fade = {
-  hidden: { opacity: 0, x: 24 },
+  hidden: { opacity: 0, x: 16 },
   show: { opacity: 1, x: 0 },
 } as const;
 
 function SlideLabel({
   servico,
   active,
-  className,
+  wrapperClassName,
+  cardClassName,
   cta,
 }: {
   servico: string;
   active: boolean;
-  className?: string;
+  wrapperClassName: string;
+  cardClassName?: string;
   cta?: { descricao: string; href: string };
 }) {
   return (
-    <div className={`absolute inset-0 flex items-center justify-center px-6 ${className ?? ""}`}>
-      {/* painel escuro com blur atrás do texto — garante leitura independente
-          de quão clara ou "poluída" a foto de fundo estiver */}
+    // escondido no mobile: o título principal já ancorado embaixo da foto
+    // é o conteúdo prioritário ali — sobrepor um segundo bloco de texto
+    // (o selo do serviço) competia pelo mesmo espaço e colidia com ele.
+    // Só aparece a partir de sm, onde tem coluna própria à direita.
+    <div className={`absolute inset-0 hidden px-6 sm:flex ${wrapperClassName}`}>
+      {/* painel translúcido com blur — sobreposto direto na foto, longe da
+          faixa de degradê pra não perder contraste */}
       <div
-        className={`flex w-fit max-w-[260px] flex-col items-end gap-3 rounded-lg bg-neutral-950/55 px-5 py-4 text-right backdrop-blur-sm sm:max-w-xs sm:px-6 sm:py-5 lg:max-w-sm ${cta ? "lg:max-w-md" : ""}`}
+        className={`w-fit max-w-[240px] rounded-lg bg-ink/60 px-4 py-3.5 backdrop-blur-md sm:max-w-[260px] sm:px-5 sm:py-4 ${cardClassName ?? ""}`}
       >
         <motion.span
           variants={label}
           initial="hidden"
           animate={active ? "show" : "hidden"}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          className="font-heading text-2xl font-bold break-words text-white uppercase sm:text-3xl lg:text-4xl"
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          className="block font-heading text-lg font-bold break-words text-white sm:text-xl"
         >
           {servico}
         </motion.span>
@@ -231,8 +237,8 @@ function SlideLabel({
               variants={fade}
               initial="hidden"
               animate={active ? "show" : "hidden"}
-              transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
-              className="text-sm text-white/85 break-words sm:text-base"
+              transition={{ duration: 0.6, delay: 0.08, ease: "easeOut" }}
+              className="mt-1.5 text-xs break-words text-white/70 sm:text-sm"
             >
               {cta.descricao}
             </motion.p>
@@ -240,15 +246,19 @@ function SlideLabel({
               variants={fade}
               initial="hidden"
               animate={active ? "show" : "hidden"}
-              transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
+              transition={{ duration: 0.6, delay: 0.16, ease: "easeOut" }}
             >
               <Link
                 href={cta.href}
                 tabIndex={active ? 0 : -1}
                 aria-hidden={!active}
-                className="inline-flex items-center rounded-md border border-white/50 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
+                className="group/saiba mt-2 inline-flex items-center gap-1 text-sm font-semibold text-white hover:text-brand"
               >
                 Saiba mais
+                <ArrowRight
+                  className="h-3.5 w-3.5 transition-transform duration-200 group-hover/saiba:translate-x-0.5"
+                  aria-hidden
+                />
               </Link>
             </motion.div>
           </>
@@ -263,44 +273,15 @@ export function Hero() {
 
   return (
     <motion.section
-      className="relative isolate overflow-hidden bg-brand-dark text-white sm:flex sm:min-h-[640px] sm:items-center sm:bg-brand lg:min-h-[700px]"
+      className="relative isolate flex min-h-[580px] flex-col justify-end overflow-hidden bg-ink text-white sm:min-h-[640px] sm:flex-row sm:items-center sm:justify-start lg:min-h-[700px]"
       initial={false}
       animate="show"
       variants={container}
     >
-      {/* mobile: a foto fica numa faixa própria no topo (recorte que evidencia o opacímetro em uso),
-          com uma transição curta até o texto — sem ficar escondida atrás do painel sólido */}
-      <div className="relative aspect-[3/2] w-full overflow-hidden sm:hidden">
-        {SLIDES.map((slide, index) => (
-          <motion.div
-            key={slide.mobile.src}
-            className={`absolute inset-0 ${index === activeIndex ? "" : "pointer-events-none"}`}
-            animate={{
-              x: slideX(index, activeIndex, prevIndex),
-              opacity: index === activeIndex ? 1 : 0,
-            }}
-            transition={{ duration: 1, ease: [0.76, 0, 0.24, 1] }}
-          >
-            <Image
-              src={slide.mobile.src}
-              alt={slide.alt}
-              fill
-              sizes="100vw"
-              preload={index === 0}
-              className="object-cover"
-              style={{ objectPosition: slide.mobile.position }}
-            />
-            <SlideLabel servico={slide.servico} active={index === activeIndex} cta={slide.cta} />
-          </motion.div>
-        ))}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-brand-dark to-transparent"
-        />
-      </div>
-
-      {/* sm+: a foto ocupa o hero inteiro; o degradê horizontal faz a transição para o texto */}
-      <div className="hidden sm:absolute sm:inset-0 sm:block">
+      {/* fundo: a foto ocupa o hero inteiro em qualquer tamanho de tela —
+          no mobile o texto principal fica ancorado embaixo (degradê vertical),
+          no desktop fica à esquerda (degradê horizontal) */}
+      <div className="absolute inset-0">
         {SLIDES.map((slide, index) => (
           <motion.div
             key={slide.desktop.src}
@@ -312,25 +293,42 @@ export function Hero() {
             transition={{ duration: 1, ease: [0.76, 0, 0.24, 1] }}
           >
             <Image
+              src={slide.mobile.src}
+              alt={slide.alt}
+              fill
+              sizes="(max-width: 639px) 100vw, 0px"
+              preload={index === 0}
+              className="object-cover sm:hidden"
+              style={{ objectPosition: slide.mobile.position }}
+            />
+            <Image
               src={slide.desktop.src}
               alt={slide.alt}
               fill
-              sizes="100vw"
+              sizes="(min-width: 640px) 100vw, 0px"
               preload={index === 0}
-              className="object-cover"
+              className="hidden object-cover sm:block"
               style={{ objectPosition: slide.desktop.position }}
             />
+            {/* selo do serviço: no mobile fica encostado no topo da foto, no
+                desktop embaixo à direita — os dois nunca competem com o
+                título principal, que fica na outra ponta do hero */}
             <SlideLabel
               servico={slide.servico}
               active={index === activeIndex}
-              className="sm:justify-end sm:pr-10 lg:pr-16"
+              wrapperClassName="sm:items-end sm:justify-end sm:pr-10 sm:pb-10 lg:pr-16"
+              cardClassName="text-right"
               cta={slide.cta}
             />
           </motion.div>
         ))}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,var(--brand)_0%,var(--brand)_38%,transparent_72%)]"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink via-ink/75 to-ink/10 sm:hidden"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(to_right,var(--ink)_0%,var(--ink)_38%,transparent_72%)] sm:block"
         />
       </div>
 
@@ -363,7 +361,7 @@ export function Hero() {
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-white px-6 py-3 font-semibold text-brand hover:bg-neutral-100"
             >
               <MessageCircle className="h-5 w-5" aria-hidden />
-              Solicitar orçamento no WhatsApp
+              Falar no WhatsApp
             </Link>
             <Link
               href={`tel:+${COMPANY.whatsapp}`}

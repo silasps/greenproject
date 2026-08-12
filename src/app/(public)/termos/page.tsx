@@ -4,6 +4,9 @@ import { COMPANY } from "@/lib/legal/company-info";
 export const metadata: Metadata = {
   title: "Termos de Uso | Greenproject Engenharia",
   description: "Condições de uso do site e dos serviços da Greenproject Engenharia.",
+  alternates: {
+    canonical: "/termos",
+  },
 };
 
 export default function TermosDeUsoPage() {

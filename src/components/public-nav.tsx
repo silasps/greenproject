@@ -31,7 +31,7 @@ export function PublicNav() {
       <button
         type="button"
         aria-label={open ? "Fechar menu" : "Abrir menu"}
-        className="flex h-9 w-9 items-center justify-center rounded-md text-neutral-700 sm:hidden"
+        className="flex h-11 w-11 items-center justify-center rounded-md text-neutral-700 sm:hidden"
         onClick={() => setOpen((v) => !v)}
       >
         {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -45,7 +45,7 @@ export function PublicNav() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="rounded-md px-3 py-2 text-base font-medium text-neutral-700 hover:bg-neutral-50 hover:text-brand"
+                className="flex min-h-12 items-center rounded-md px-3 py-2 text-base font-medium text-neutral-700 hover:bg-neutral-50 hover:text-brand"
               >
                 {link.label}
               </Link>

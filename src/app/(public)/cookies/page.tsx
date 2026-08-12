@@ -4,6 +4,9 @@ import { COMPANY } from "@/lib/legal/company-info";
 export const metadata: Metadata = {
   title: "Política de Cookies | Greenproject Engenharia",
   description: "Como o site da Greenproject Engenharia usa cookies e como gerenciá-los.",
+  alternates: {
+    canonical: "/cookies",
+  },
 };
 
 export default function PoliticaCookiesPage() {
