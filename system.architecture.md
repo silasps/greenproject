@@ -647,41 +647,51 @@ usuario_id uuid not null references usuarios_perfis(id) on delete cascade
 pagina text not null      -- pathname de onde foi enviada (usePathname())
 mensagem text not null
 user_agent text           -- navigator.userAgent, capturado no envio
-lida boolean not null default false
+status text not null default 'nova' check in ('nova','em_andamento','feita','ignorada')
+observacao text           -- nota livre do superadmin, opcional
 criado_em timestamptz not null default now()
 ```
-Migration `0030`. Botão flutuante (`Lightbulb`, canto inferior direito,
-`z-30` — fica atrás de qualquer overlay de tela cheia como o
-`campo-wizard.tsx`, `z-50`) em todo `/painel`, renderizado em
-`painel/layout.tsx` pra **qualquer pessoa logada**, não só quem gerencia:
-`sugestao-button.tsx` abre um dialog com textarea, captura `pagina`
-(`usePathname()`) e `user_agent` automaticamente e chama `enviarSugestao`
-(`sugestoes/actions.ts`, `requireAuth()` — sem checar role, é uma caixa
-de sugestões geral).
+Migrations `0030` (tabela + `get_my_is_superadmin()`) e `0031` (troca o
+`lida boolean` original por `status`/`observacao` — backfill: quem já
+estava `lida = true` virou `em_andamento`, o resto `nova`). Botão
+flutuante (`Lightbulb`, canto inferior direito, `z-30` — fica atrás de
+qualquer overlay de tela cheia como o `campo-wizard.tsx`, `z-50`) em todo
+`/painel`, renderizado em `painel/layout.tsx` pra **qualquer pessoa
+logada**, não só quem gerencia: `sugestao-button.tsx` abre um dialog com
+textarea, captura `pagina` (`usePathname()`) e `user_agent`
+automaticamente e chama `enviarSugestao` (`sugestoes/actions.ts`,
+`requireAuth()` — sem checar role, é uma caixa de sugestões geral).
 
 **Só quem tem a flag `is_superadmin`** (seção 5, mesma flag da
 impersonação — não é área configurável por cargo/pessoa via
 `requireArea`) enxerga a lista, em `/painel/sugestoes`
-(`requireSuperadmin()`, novo helper em `src/lib/auth/session.ts`). RLS
-reforça isso independente do app: `get_my_is_superadmin()` (função
-`security definer` nova, espelha `get_my_role()`) — quem envia só
-consegue `insert` da própria linha (`usuario_id = auth.uid()`), e só
-superadmin tem `select`/`update`/`delete`. **Não é um canal de suporte
-com histórico visível pra quem enviou** — depois de mandada, a sugestão
-só existe pro desenvolvedor; quem mandou não consegue ver nem a própria
-de novo. Testado via `set local role authenticated` +
-`set local request.jwt.claims` simulando `auth.uid()` de um técnico e de
-um superadmin direto no Postgres (dentro de uma transação com
-`rollback`), não só pela app.
+(`requireSuperadmin()`, helper em `src/lib/auth/session.ts`). RLS reforça
+isso independente do app: `get_my_is_superadmin()` (função `security
+definer`, espelha `get_my_role()`) — quem envia só consegue `insert` da
+própria linha (`usuario_id = auth.uid()`), e só superadmin tem
+`select`/`update`/`delete`. **Não é um canal de suporte com histórico
+visível pra quem enviou** — depois de mandada, a sugestão só existe pro
+desenvolvedor; quem mandou não consegue ver nem a própria de novo.
+Testado via `set local role authenticated` + `set local
+request.jwt.claims` simulando `auth.uid()` de um técnico e de um
+superadmin direto no Postgres (dentro de uma transação com `rollback`),
+não só pela app.
 
-Contador de não lidas (`lida = false`) vira badge no item "Sugestões" da
-sidebar — `painel/layout.tsx` conta antes de renderizar, só quando
-`perfil.is_superadmin` (evita a query pra todo mundo). Marcar como
-lida/excluir (`marcarSugestaoComoLida`/`excluirSugestao`) não chamam
-`router.refresh()` explícito — mesmo padrão de `publicar-toggle.tsx`
-(seção 6.20): chamar a Server Action direto (não via `<form action>`) já
-dispara o refresh da árvore de Server Components depois que
-`revalidatePath` roda dentro dela.
+**`/painel/sugestoes` é um quadro em colunas (estilo kanban), uma por
+`status`** (`status-info.ts` centraliza rótulo/cor de cada etapa, `page.
+tsx` agrupa por coluna): Nova → Em andamento → Feita → Ignorada, com
+contador por coluna. Trocar de coluna é via `Select` dentro do card
+(`atualizarStatusSugestao`), não drag-and-drop. Cada card também tem um
+campo de observação (`Textarea` controlado + botão "Salvar
+observação"/"Cancelar" que só aparece quando o texto muda,
+`salvarObservacaoSugestao`) — nota livre só pro desenvolvedor, ex. por
+que foi ignorada ou o que foi feito. Contador de `status = 'nova'` vira
+badge no item "Sugestões" da sidebar — `painel/layout.tsx` conta antes de
+renderizar, só quando `perfil.is_superadmin` (evita a query pra todo
+mundo). Trocar status/observação/excluir não chamam `router.refresh()`
+explícito — mesmo padrão de `publicar-toggle.tsx` (seção 6.20): chamar a
+Server Action direto (não via `<form action>`) já dispara o refresh da
+árvore de Server Components depois que `revalidatePath` roda dentro dela.
 
 ### Migrations, em ordem (útil pra recriar o histórico exato)
 1. `0001_initial_schema.sql` — tudo de 6.1 a 6.16 (menos as colunas
@@ -740,6 +750,8 @@ dispara o refresh da árvore de Server Components depois que
     (ver 6.8) — selo do fabricante usado no PDF do laudo (seção 8.6).
 30. `0030_sugestoes.sql` — cria `sugestoes` (ver 6.22) e a função
     `get_my_is_superadmin()`.
+31. `0031_sugestoes_status.sql` — troca `sugestoes.lida` (boolean) por
+    `status`/`observacao` (ver 6.22), com backfill.
 
 ### Storage buckets (criados fora de migration — via dashboard/CLI, não SQL)
 - **`laudos`** — público, sem limite de tamanho/mime. `${codigo_publico}.pdf`.

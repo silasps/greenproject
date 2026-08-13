@@ -1,12 +1,15 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { CircleCheck, Circle, ArrowUpRight, Trash2, Loader2 } from "lucide-react";
+import { ArrowUpRight, Trash2, Loader2, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { marcarSugestaoComoLida, excluirSugestao } from "./actions";
+import { atualizarStatusSugestao, salvarObservacaoSugestao, excluirSugestao, type StatusSugestao } from "./actions";
+import { STATUS_INFO } from "./status-info";
 
 export function SugestaoLinha({
   id,
@@ -14,7 +17,8 @@ export function SugestaoLinha({
   pagina,
   mensagem,
   userAgent,
-  lida,
+  status,
+  observacao,
   criadoEm,
 }: {
   id: string;
@@ -22,19 +26,22 @@ export function SugestaoLinha({
   pagina: string;
   mensagem: string;
   userAgent: string | null;
-  lida: boolean;
+  status: StatusSugestao;
+  observacao: string | null;
   criadoEm: string;
 }) {
-  const [pending, startTransition] = useTransition();
+  const [pendingStatus, startStatusTransition] = useTransition();
+  const [pendingObs, startObsTransition] = useTransition();
+  const [observacaoValue, setObservacaoValue] = useState(observacao ?? "");
+  const info = STATUS_INFO[status];
+  const obsAlterada = observacaoValue.trim() !== (observacao ?? "").trim();
 
   return (
-    <div className={`rounded-lg border p-4 ${lida ? "border-neutral-200 bg-white" : "border-brand/30 bg-brand/[0.03]"}`}>
+    <div className={`rounded-lg border p-4 ${info.cardClassName}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <p className="font-medium text-neutral-900">{usuarioNome}</p>
-          <Badge variant={lida ? "outline" : "default"} className={lida ? "" : "bg-brand text-white"}>
-            {lida ? "Lida" : "Nova"}
-          </Badge>
+          <Badge className={info.badgeClassName}>{info.label}</Badge>
         </div>
         <p className="text-xs text-neutral-400">
           {new Date(criadoEm).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
@@ -56,22 +63,23 @@ export function SugestaoLinha({
         </Link>
 
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={() => startTransition(() => marcarSugestaoComoLida(id, !lida))}
+          <Select
+            value={status}
+            disabled={pendingStatus}
+            onValueChange={(value) =>
+              startStatusTransition(() => atualizarStatusSugestao(id, value as StatusSugestao))
+            }
           >
-            {pending ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : lida ? (
-              <Circle className="size-3.5" />
-            ) : (
-              <CircleCheck className="size-3.5" />
-            )}
-            {lida ? "Marcar como nova" : "Marcar como lida"}
-          </Button>
+            <SelectTrigger size="sm">
+              {pendingStatus ? <Loader2 className="size-3.5 animate-spin" /> : <SelectValue />}
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nova">Nova</SelectItem>
+              <SelectItem value="em_andamento">Em andamento</SelectItem>
+              <SelectItem value="feita">Feita</SelectItem>
+              <SelectItem value="ignorada">Ignorada</SelectItem>
+            </SelectContent>
+          </Select>
           <ConfirmDeleteButton
             label={<Trash2 className="size-4" />}
             ariaLabel="Excluir sugestão"
@@ -83,6 +91,39 @@ export function SugestaoLinha({
             onConfirm={() => excluirSugestao(id)}
           />
         </div>
+      </div>
+
+      <div className="mt-3 space-y-1.5 border-t border-neutral-100 pt-3">
+        <Textarea
+          rows={2}
+          placeholder="Observação (só você vê — por que foi ignorada, o que foi feito, etc.)"
+          value={observacaoValue}
+          onChange={(e) => setObservacaoValue(e.target.value)}
+          className="text-sm"
+        />
+        {obsAlterada && (
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={pendingObs}
+              onClick={() => setObservacaoValue(observacao ?? "")}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pendingObs}
+              onClick={() => startObsTransition(() => salvarObservacaoSugestao(id, observacaoValue))}
+            >
+              {pendingObs ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              Salvar observação
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

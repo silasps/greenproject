@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireSuperadmin } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export type StatusSugestao = "nova" | "em_andamento" | "feita" | "ignorada";
+const STATUS_VALIDOS: StatusSugestao[] = ["nova", "em_andamento", "feita", "ignorada"];
+
 // Qualquer pessoa logada pode enviar — não é uma área com acesso
 // restrito, é uma caixinha de sugestões pra todo mundo do painel.
 export async function enviarSugestao(formData: FormData) {
@@ -26,10 +29,22 @@ export async function enviarSugestao(formData: FormData) {
   revalidatePath("/painel/sugestoes");
 }
 
-export async function marcarSugestaoComoLida(id: string, lida: boolean) {
+export async function atualizarStatusSugestao(id: string, status: StatusSugestao) {
+  await requireSuperadmin();
+  if (!STATUS_VALIDOS.includes(status)) throw new Error("Status inválido.");
+  const admin = createAdminClient();
+  const { error } = await admin.from("sugestoes").update({ status }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/painel/sugestoes");
+}
+
+export async function salvarObservacaoSugestao(id: string, observacao: string) {
   await requireSuperadmin();
   const admin = createAdminClient();
-  const { error } = await admin.from("sugestoes").update({ lida }).eq("id", id);
+  const { error } = await admin
+    .from("sugestoes")
+    .update({ observacao: observacao.trim() || null })
+    .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/painel/sugestoes");
 }

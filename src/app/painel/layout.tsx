@@ -26,13 +26,13 @@ export default async function PainelLayout({
   // "Sugestões" só existe pra quem tem a flag is_superadmin (não é
   // configurável por cargo/pessoa como as outras áreas — é a mesma flag
   // que já libera a impersonação, pensada pro(s) desenvolvedor(es) da
-  // conta). O contador de não lidas vira um badge no item da sidebar.
+  // conta). O contador de "nova" vira um badge no item da sidebar.
   let sugestoesNaoLidas = 0;
   if (perfil.is_superadmin) {
     const { count } = await supabase
       .from("sugestoes")
       .select("id", { count: "exact", head: true })
-      .eq("lida", false);
+      .eq("status", "nova");
     sugestoesNaoLidas = count ?? 0;
   }
 
