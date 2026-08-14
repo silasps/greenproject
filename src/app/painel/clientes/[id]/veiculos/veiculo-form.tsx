@@ -59,8 +59,9 @@ export function VeiculoForm({
 }: {
   clienteId: string;
   veiculo?: VeiculoEdicao;
-  /** Só roda quando informado — chamado após salvar com sucesso, pra fechar o modal. */
-  onSucesso?: () => void;
+  /** Só roda quando informado — chamado após salvar com sucesso, pra fechar o modal.
+   * Recebe o id do veículo recém-criado (undefined numa edição). */
+  onSucesso?: (veiculoIdCriado?: string) => void;
   /** Quando informado, o botão "Cancelar" só fecha o modal em vez de navegar. */
   onCancelar?: () => void;
 }) {
@@ -183,8 +184,13 @@ export function VeiculoForm({
   async function handleSubmit(formData: FormData) {
     setErro(null);
     try {
-      await (veiculo ? atualizarVeiculo(veiculo.id, formData) : salvarVeiculo(formData));
-      onSucesso?.();
+      if (veiculo) {
+        await atualizarVeiculo(veiculo.id, formData);
+        onSucesso?.();
+      } else {
+        const { id } = await salvarVeiculo(formData);
+        onSucesso?.(id);
+      }
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível salvar o veículo/equipamento.");
     }

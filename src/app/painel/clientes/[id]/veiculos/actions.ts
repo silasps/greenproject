@@ -95,10 +95,11 @@ export async function salvarVeiculo(formData: FormData) {
   const admin = createAdminClient();
   const payload = await montarPayloadVeiculo(admin, clienteId, formData);
 
-  const { error } = await admin.from("veiculos_maquinas").insert(payload);
+  const { data, error } = await admin.from("veiculos_maquinas").insert(payload).select("id").single();
   if (error) throw new Error(error.message);
 
   revalidatePath(`/painel/clientes/${clienteId}`);
+  return { id: data.id as string };
 }
 
 export async function atualizarVeiculo(veiculoId: string, formData: FormData) {
