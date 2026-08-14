@@ -19,6 +19,10 @@ export function FotoPreview({ url, path, label, size = "sm" }: ItemArquivo & { s
   const [aberta, setAberta] = useState(false);
   const [urlGrande, setUrlGrande] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  // Miniatura carrega em segundo plano (bytes vindo do Storage) — enquanto
+  // isso, mostra um skeleton pulsando em vez de deixar o quadro em branco
+  // (padrão tipo YouTube: nunca aparece "vazio", só troca pulse → foto).
+  const [carregada, setCarregada] = useState(false);
 
   async function abrir() {
     setAberta(true);
@@ -43,7 +47,16 @@ export function FotoPreview({ url, path, label, size = "sm" }: ItemArquivo & { s
           className="group flex w-full flex-col items-center gap-1.5"
         >
           <span className="relative block aspect-4/3 w-full shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
-            <Image src={url} alt={label} fill sizes="(min-width: 640px) 33vw, 100vw" unoptimized className="object-cover" />
+            {!carregada && <span className="absolute inset-0 animate-pulse bg-neutral-200" />}
+            <Image
+              src={url}
+              alt={label}
+              fill
+              sizes="(min-width: 640px) 33vw, 100vw"
+              unoptimized
+              onLoad={() => setCarregada(true)}
+              className={`object-cover transition-opacity duration-300 ${carregada ? "opacity-100" : "opacity-0"}`}
+            />
             <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
               <Maximize2 className="size-6" />
             </span>
@@ -78,7 +91,16 @@ export function FotoPreview({ url, path, label, size = "sm" }: ItemArquivo & { s
         className="group flex w-16 flex-col items-center gap-1"
       >
         <span className="relative block size-16 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-neutral-100">
-          <Image src={url} alt={label} fill sizes="64px" unoptimized className="object-cover" />
+          {!carregada && <span className="absolute inset-0 animate-pulse bg-neutral-200" />}
+          <Image
+            src={url}
+            alt={label}
+            fill
+            sizes="64px"
+            unoptimized
+            onLoad={() => setCarregada(true)}
+            className={`object-cover transition-opacity duration-300 ${carregada ? "opacity-100" : "opacity-0"}`}
+          />
           <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
             <Maximize2 className="size-4" />
           </span>
