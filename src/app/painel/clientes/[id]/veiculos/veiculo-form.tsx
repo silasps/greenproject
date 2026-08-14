@@ -7,10 +7,10 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ErrorModal } from "@/components/error-modal";
-import { InfoTooltip } from "@/components/info-tooltip";
 import { onlyDigits } from "@/lib/utils/mascaras";
 import { buscarMarcasFipe, buscarModelosFipe, type MarcaFipe } from "@/lib/veiculos/fipe";
 import { MarcaModeloCombobox } from "./marca-modelo-combobox";
+import { EspecificacaoMotorFields, type EspecificacaoMotorValues } from "./especificacao-motor-fields";
 import { salvarVeiculo, atualizarVeiculo } from "./actions";
 
 /** Nome de modelo da FIPE geralmente traz o combustível embutido (ex.: "Etios XLS 1.5 Flex 16V"). */
@@ -85,42 +85,17 @@ export function VeiculoForm({
   const [rotacaoCorteMin, setRotacaoCorteMin] = useState(especificacao?.rotacao_corte_min?.toString() ?? "");
   const [rotacaoCorteMax, setRotacaoCorteMax] = useState(especificacao?.rotacao_corte_max?.toString() ?? "");
   const [limiteOpacidade, setLimiteOpacidade] = useState(especificacao?.limite_opacidade?.toString() ?? "");
-  const [buscaMotorMsg, setBuscaMotorMsg] = useState<string | null>(null);
-  const [buscando, setBuscando] = useState(false);
   // Não é indispensável pro cadastro em si (marcha lenta/rotação de
   // corte/limite de opacidade são só referência pro laudo — quem decide
   // aprovado/reprovado é o opacímetro no campo, configurado pelo técnico
   // na hora do teste). Some por padrão pra não complicar o cadastro de um
   // veículo novo; já vem aberto se a edição já tiver algo preenchido.
   const [mostrarMotor, setMostrarMotor] = useState(!!(veiculo?.identificacao_motor || especificacao));
+  // Mensagem do preenchimento automático por marca/modelo — distinta da mensagem
+  // interna do botão "Buscar especificação" (essa vive dentro de EspecificacaoMotorFields).
+  const [autoFillMsg, setAutoFillMsg] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  async function buscarMotor() {
-    if (!marca || !motor) return;
-    setBuscando(true);
-    setBuscaMotorMsg(null);
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("especificacoes_motor")
-      .select("marcha_lenta_min, marcha_lenta_max, rotacao_corte_min, rotacao_corte_max, limite_opacidade")
-      .eq("marca", marca)
-      .eq("identificacao_motor", motor)
-      .eq("status", "confirmado")
-      .maybeSingle();
-    setBuscando(false);
-
-    if (!data) {
-      setBuscaMotorMsg("Motor não encontrado — preencha os limites manualmente.");
-      return;
-    }
-    setMarchaLentaMin(data.marcha_lenta_min?.toString() ?? "");
-    setMarchaLentaMax(data.marcha_lenta_max?.toString() ?? "");
-    setRotacaoCorteMin(data.rotacao_corte_min?.toString() ?? "");
-    setRotacaoCorteMax(data.rotacao_corte_max?.toString() ?? "");
-    setLimiteOpacidade(data.limite_opacidade?.toString() ?? "");
-    setBuscaMotorMsg("Preenchido a partir de um cadastro existente.");
-  }
 
   /** Mesma marca/modelo já foi cadastrado antes com um motor identificado? Reaproveita
    * o motor e os limites, sem precisar que a pessoa saiba de cor a ID do motor. */
@@ -144,7 +119,7 @@ export function VeiculoForm({
 
     setMotor(data.identificacao_motor);
     setMostrarMotor(true);
-    setBuscaMotorMsg("Motor e limites preenchidos a partir de um veículo já cadastrado desse modelo.");
+    setAutoFillMsg("Motor e limites preenchidos a partir de um veículo já cadastrado desse modelo.");
     const espec = data.especificacoes_motor as unknown as EspecificacaoMotor | null;
     if (espec) {
       setMarchaLentaMin(espec.marcha_lenta_min?.toString() ?? "");
@@ -188,6 +163,15 @@ export function VeiculoForm({
       return;
     }
     buscarModelosFipe(encontrada).then(setModelosFipe);
+  }
+
+  function handleMotorFieldsChange(patch: Partial<EspecificacaoMotorValues>) {
+    if (patch.identificacaoMotor !== undefined) setMotor(patch.identificacaoMotor);
+    if (patch.marchaLentaMin !== undefined) setMarchaLentaMin(patch.marchaLentaMin);
+    if (patch.marchaLentaMax !== undefined) setMarchaLentaMax(patch.marchaLentaMax);
+    if (patch.rotacaoCorteMin !== undefined) setRotacaoCorteMin(patch.rotacaoCorteMin);
+    if (patch.rotacaoCorteMax !== undefined) setRotacaoCorteMax(patch.rotacaoCorteMax);
+    if (patch.limiteOpacidade !== undefined) setLimiteOpacidade(patch.limiteOpacidade);
   }
 
   async function handleSubmit(formData: FormData) {
@@ -351,97 +335,21 @@ export function VeiculoForm({
           limite de opacidade, usados como referência no laudo)
         </button>
       ) : (
-      <div className="rounded-md border border-neutral-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Label htmlFor="identificacao_motor">Identificação do motor</Label>
-            <InfoTooltip>
-              Código de identificação do motor, gravado na etiqueta/bloco do motor ou no
-              manual do fabricante. Usado pra localizar automaticamente os limites já
-              cadastrados pra esse motor (botão &ldquo;Buscar especificação&rdquo;). Nenhum
-              desses campos é obrigatório — quem decide aprovado/reprovado é o opacímetro
-              no campo, configurado pelo técnico na hora do teste.
-            </InfoTooltip>
-          </div>
-          <Button type="button" variant="outline" size="sm" disabled={buscando} onClick={buscarMotor}>
-            {buscando ? "Buscando..." : "Buscar especificação"}
-          </Button>
-        </div>
-        <Input
-          id="identificacao_motor"
-          name="identificacao_motor"
-          className="mt-2"
-          placeholder="Ex: OM904LA"
-          value={motor}
-          onChange={(e) => setMotor(e.target.value)}
-        />
-        {buscaMotorMsg && <p className="mt-2 text-xs text-neutral-500">{buscaMotorMsg}</p>}
-
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5">
-              <Label>Marcha lenta — mín/máx (RPM)</Label>
-              <InfoTooltip>
-                Rotação do motor em marcha lenta (parado, sem acelerar), em RPM
-                (rotações por minuto), conforme especificação do fabricante.
-              </InfoTooltip>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                name="marcha_lenta_min"
-                placeholder="Ex: 700"
-                value={marchaLentaMin}
-                onChange={(e) => setMarchaLentaMin(e.target.value)}
-              />
-              <Input
-                name="marcha_lenta_max"
-                placeholder="Ex: 900"
-                value={marchaLentaMax}
-                onChange={(e) => setMarchaLentaMax(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5">
-              <Label>Rotação de corte — mín/máx (RPM)</Label>
-              <InfoTooltip>
-                Rotação máxima do motor em que ocorre o corte automático de combustível
-                (rotação de corte/governador), em RPM.
-              </InfoTooltip>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                name="rotacao_corte_min"
-                placeholder="Ex: 2200"
-                value={rotacaoCorteMin}
-                onChange={(e) => setRotacaoCorteMin(e.target.value)}
-              />
-              <Input
-                name="rotacao_corte_max"
-                placeholder="Ex: 2600"
-                value={rotacaoCorteMax}
-                onChange={(e) => setRotacaoCorteMax(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 space-y-2">
-          <div className="flex items-center gap-1.5">
-            <Label htmlFor="limite_opacidade">Limite de opacidade K(m-1)</Label>
-            <InfoTooltip>
-              Coeficiente de absorção de luz da fumaça, em m⁻¹ (por metro) — o valor
-              máximo permitido pelo fabricante pra esse motor no teste de opacidade.
-            </InfoTooltip>
-          </div>
-          <Input
-            id="limite_opacidade"
-            name="limite_opacidade"
-            placeholder="Ex: 2.5"
-            value={limiteOpacidade}
-            onChange={(e) => setLimiteOpacidade(e.target.value)}
+        <div className="space-y-2">
+          {autoFillMsg && <p className="text-xs text-neutral-500">{autoFillMsg}</p>}
+          <EspecificacaoMotorFields
+            marca={marca}
+            values={{
+              identificacaoMotor: motor,
+              marchaLentaMin,
+              marchaLentaMax,
+              rotacaoCorteMin,
+              rotacaoCorteMax,
+              limiteOpacidade,
+            }}
+            onChange={handleMotorFieldsChange}
           />
         </div>
-      </div>
       )}
 
       <div className="flex gap-3">

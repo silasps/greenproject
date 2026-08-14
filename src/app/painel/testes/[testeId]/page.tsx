@@ -11,6 +11,7 @@ import { signedUrlSeguro, publicUrl } from "@/lib/storage/upload";
 import { COMPANY } from "@/lib/legal/company-info";
 import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
 import { diasRestantes } from "@/lib/laudo/validade";
+import { resolverLimitesTeste, limitesTesteFaltando } from "@/lib/laudo/limites-teste";
 import { CampoWizard } from "./campo-wizard";
 import { CampoEditForm } from "./campo-edit-form";
 import { ImportSysconForm } from "./import-syscon-form";
@@ -65,7 +66,7 @@ export default async function TesteDetalhePage({ params }: { params: Promise<{ t
       </span>
 
       {teste.status === "aguardando_execucao" && (
-        <CampoSection testeId={testeId} />
+        <CampoSection testeId={testeId} teste={teste} />
       )}
 
       {teste.status !== "aguardando_execucao" && (
@@ -94,7 +95,8 @@ export default async function TesteDetalhePage({ params }: { params: Promise<{ t
   );
 }
 
-async function CampoSection({ testeId }: { testeId: string }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function CampoSection({ testeId, teste }: { testeId: string; teste: any }) {
   const supabase = await createClient();
   const { data: equipamentos } = await supabase
     .from("equipamentos_teste")
@@ -106,6 +108,17 @@ async function CampoSection({ testeId }: { testeId: string }) {
     <CampoWizard
       testeId={testeId}
       equipamentos={(equipamentos ?? []).map((e) => ({ id: e.id, label: `${e.modelo} · ${e.numero_serie}` }))}
+      veiculo={
+        teste.veiculos_maquinas
+          ? {
+              id: teste.veiculos_maquinas.id,
+              marca: teste.veiculos_maquinas.marca ?? "",
+              identificacaoMotor: teste.veiculos_maquinas.identificacao_motor ?? null,
+              especificacao: teste.veiculos_maquinas.especificacoes_motor ?? null,
+            }
+          : null
+      }
+      especificacaoViaDispositivo={!!teste.especificacao_motor_via_dispositivo}
     />
   );
 }
@@ -191,13 +204,7 @@ async function RevisaoSection({ testeId, teste, meuResponsavelId }: { testeId: s
               defaultResponsavelId={meuResponsavelId}
               resultado={teste.resultado}
               clienteEmail={cliente?.email ?? null}
-              limitesFaltando={
-                teste.limite_marcha_lenta_min == null ||
-                teste.limite_marcha_lenta_max == null ||
-                teste.limite_rotacao_corte_min == null ||
-                teste.limite_rotacao_corte_max == null ||
-                teste.limite_opacidade == null
-              }
+              limitesFaltando={limitesTesteFaltando(resolverLimitesTeste(teste, teste.veiculos_maquinas?.especificacoes_motor))}
             />
           ) : (
             <p className="text-sm text-neutral-500">Aguardando um engenheiro responsável revisar e liberar o laudo.</p>

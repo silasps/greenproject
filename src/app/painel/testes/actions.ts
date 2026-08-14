@@ -8,7 +8,9 @@ import { uploadArquivo } from "@/lib/storage/upload";
 import { parseEnsaioSyscon } from "@/lib/syscon/parse-ensaio";
 import { gerarLaudoPdf } from "@/lib/laudo/gerar-pdf";
 import { enviarLaudoPorEmail } from "@/lib/laudo/enviar-email";
+import { resolverLimitesTeste, limitesTesteFaltando } from "@/lib/laudo/limites-teste";
 import { registrarAuditoria } from "@/lib/auditoria/registrar";
+import { salvarEspecificacaoMotor } from "../clientes/[id]/veiculos/actions";
 
 async function uploadSeEnviado(bucket: "arquivos-internos", path: string, file: FormDataEntryValue | null) {
   if (file instanceof File && file.size > 0) {
@@ -26,6 +28,20 @@ export async function salvarCampo(testeId: string, formData: FormData) {
   const numeroTeste = String(formData.get("numero_teste") || "").trim();
   if (!numeroTeste) throw new Error("Número do teste é obrigatório.");
   if (!equipamentoId) throw new Error("Selecione o equipamento usado.");
+
+  const resultadoTeste = await admin
+    .from("testes_opacidade")
+    .select("especificacao_motor_via_dispositivo, veiculos_maquinas(especificacao_motor_id)")
+    .eq("id", testeId)
+    .single();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teste = resultadoTeste.data as any;
+  if (!teste) throw new Error("Teste não encontrado.");
+  if (!teste.veiculos_maquinas?.especificacao_motor_id && !teste.especificacao_motor_via_dispositivo) {
+    throw new Error(
+      "Falta resolver a especificação do motor (cadastrar marcha lenta/rotação de corte/opacidade, ou declarar que já está configurado no aparelho do Syscon) antes de concluir o campo.",
+    );
+  }
 
   const update: Record<string, unknown> = {
     equipamento_id: equipamentoId,
@@ -129,6 +145,62 @@ export async function editarCampo(testeId: string, formData: FormData) {
   revalidatePath(`/painel/testes/${testeId}`);
 }
 
+/**
+ * Cadastro de especificação de motor feito direto do wizard de campo
+ * (`campo-wizard.tsx`) — chama `salvarEspecificacaoMotor` (vincula ao
+ * veículo, reaproveitável por outros testes do mesmo motor) e já
+ * preenche os limites deste teste também, sem esperar o PDF do Syscon.
+ */
+export async function salvarEspecificacaoMotorDoTeste(testeId: string, veiculoId: string, formData: FormData) {
+  await requireAuth();
+  const { especificacaoMotorId } = await salvarEspecificacaoMotor(veiculoId, formData);
+
+  const admin = createAdminClient();
+  const [{ data: espec }, { data: teste }] = await Promise.all([
+    admin
+      .from("especificacoes_motor")
+      .select("marcha_lenta_min, marcha_lenta_max, rotacao_corte_min, rotacao_corte_max, limite_opacidade")
+      .eq("id", especificacaoMotorId)
+      .single(),
+    admin
+      .from("testes_opacidade")
+      .select("limite_marcha_lenta_min, limite_marcha_lenta_max, limite_rotacao_corte_min, limite_rotacao_corte_max, limite_opacidade")
+      .eq("id", testeId)
+      .single(),
+  ]);
+
+  if (espec && teste) {
+    // Só preenche o que ainda está vazio — nunca sobrescreve um PDF do Syscon já importado.
+    const limites = resolverLimitesTeste(teste, espec);
+    await admin
+      .from("testes_opacidade")
+      .update({
+        limite_marcha_lenta_min: limites.marchaLentaMin,
+        limite_marcha_lenta_max: limites.marchaLentaMax,
+        limite_rotacao_corte_min: limites.rotacaoCorteMin,
+        limite_rotacao_corte_max: limites.rotacaoCorteMax,
+        limite_opacidade: limites.limiteOpacidade,
+      })
+      .eq("id", testeId);
+  }
+
+  revalidatePath(`/painel/testes/${testeId}`);
+}
+
+/** Técnico declara "já configurei os limites no aparelho/app do Syscon" — desbloqueia
+ * "Concluir campo" sem exigir cadastro imediato; a promessa é conferida na importação do
+ * PDF (backfill em `importarPdfSyscon`) e, por último, na trava de `liberarLaudo`. */
+export async function marcarEspecificacaoMotorViaDispositivo(testeId: string) {
+  await requireAuth();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("testes_opacidade")
+    .update({ especificacao_motor_via_dispositivo: true })
+    .eq("id", testeId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/painel/testes/${testeId}`);
+}
+
 export async function importarPdfSyscon(testeId: string, formData: FormData) {
   const { perfil } = await requireAuth();
   if (!canImportarPdfSyscon(perfil.role)) throw new Error("Sem permissão.");
@@ -137,7 +209,13 @@ export async function importarPdfSyscon(testeId: string, formData: FormData) {
   const pdf = formData.get("pdf_ensaio") as File | null;
   if (!pdf || pdf.size === 0) throw new Error("Selecione o PDF exportado pelo Syscon.");
 
-  const { data: teste } = await admin.from("testes_opacidade").select("numero_teste").eq("id", testeId).single();
+  const resultadoTeste = await admin
+    .from("testes_opacidade")
+    .select("numero_teste, veiculos_maquinas(especificacoes_motor(*))")
+    .eq("id", testeId)
+    .single();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teste = resultadoTeste.data as any;
   if (!teste) throw new Error("Teste não encontrado.");
 
   const buffer = Buffer.from(await pdf.arrayBuffer());
@@ -152,6 +230,20 @@ export async function importarPdfSyscon(testeId: string, formData: FormData) {
   const path = `testes/${testeId}/ensaio-syscon.pdf`;
   await uploadArquivo("arquivos-internos", path, pdf);
 
+  // Se o PDF não trouxer um limite (ex.: técnico declarou "já configurei no
+  // dispositivo" mas o cadastro do Syscon ficou incompleto), cai pro cadastro
+  // do veículo — assim o teste já nasce completo sempre que possível.
+  const limites = resolverLimitesTeste(
+    {
+      limite_marcha_lenta_min: ensaio.limiteMarchaLentaMin,
+      limite_marcha_lenta_max: ensaio.limiteMarchaLentaMax,
+      limite_rotacao_corte_min: ensaio.limiteRotacaoCorteMin,
+      limite_rotacao_corte_max: ensaio.limiteRotacaoCorteMax,
+      limite_opacidade: ensaio.limiteOpacidade,
+    },
+    teste.veiculos_maquinas?.especificacoes_motor,
+  );
+
   const { error: testeError } = await admin
     .from("testes_opacidade")
     .update({
@@ -159,11 +251,11 @@ export async function importarPdfSyscon(testeId: string, formData: FormData) {
       media_m1: ensaio.mediaM1,
       resultado: ensaio.resultado,
       status: "aguardando_revisao",
-      limite_marcha_lenta_min: ensaio.limiteMarchaLentaMin,
-      limite_marcha_lenta_max: ensaio.limiteMarchaLentaMax,
-      limite_rotacao_corte_min: ensaio.limiteRotacaoCorteMin,
-      limite_rotacao_corte_max: ensaio.limiteRotacaoCorteMax,
-      limite_opacidade: ensaio.limiteOpacidade,
+      limite_marcha_lenta_min: limites.marchaLentaMin,
+      limite_marcha_lenta_max: limites.marchaLentaMax,
+      limite_rotacao_corte_min: limites.rotacaoCorteMin,
+      limite_rotacao_corte_max: limites.rotacaoCorteMax,
+      limite_opacidade: limites.limiteOpacidade,
       km_atual: ensaio.kmAtual,
     })
     .eq("id", testeId);
@@ -180,7 +272,7 @@ export async function importarPdfSyscon(testeId: string, formData: FormData) {
         // O PDF do Syscon não traz rotação de corte por ciclo — usa o limite
         // máximo configurado pro ensaio (mesmo valor que aparece repetido em
         // cada linha no laudo de referência do cliente).
-        rotacao_corte: ensaio.limiteRotacaoCorteMax,
+        rotacao_corte: limites.rotacaoCorteMax,
       })),
     );
   }
@@ -247,21 +339,15 @@ export async function liberarLaudo(testeId: string, formData: FormData) {
   const { data: teste } = await admin
     .from("testes_opacidade")
     .select(
-      "*, veiculos_maquinas(*, clientes(*)), equipamentos_teste(*), agendamentos(id), testes_opacidade_medicoes(*)",
+      "*, veiculos_maquinas(*, clientes(*), especificacoes_motor(*)), equipamentos_teste(*), agendamentos(id), testes_opacidade_medicoes(*)",
     )
     .eq("id", testeId)
     .single();
   if (!teste) throw new Error("Teste não encontrado.");
   if (!teste.resultado) throw new Error("Faltam dados do ensaio para liberar o laudo.");
-  if (
-    teste.limite_marcha_lenta_min == null ||
-    teste.limite_marcha_lenta_max == null ||
-    teste.limite_rotacao_corte_min == null ||
-    teste.limite_rotacao_corte_max == null ||
-    teste.limite_opacidade == null
-  ) {
+  if (limitesTesteFaltando(resolverLimitesTeste(teste, teste.veiculos_maquinas?.especificacoes_motor))) {
     throw new Error(
-      "Faltam os limites de marcha lenta, rotação de corte e/ou opacidade — vêm do PDF do Syscon na importação. Devolva pro escritório reimportar o PDF do ensaio antes de liberar o laudo.",
+      "Faltam os limites de marcha lenta, rotação de corte e/ou opacidade — vêm do PDF do Syscon na importação ou da especificação do motor cadastrada no veículo. Cadastre a especificação do motor ou devolva pro escritório reimportar o PDF antes de liberar o laudo.",
     );
   }
 

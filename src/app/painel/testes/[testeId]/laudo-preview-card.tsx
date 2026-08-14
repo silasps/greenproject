@@ -1,6 +1,7 @@
 import { Pencil } from "lucide-react";
 import { signedUrlSeguro } from "@/lib/storage/upload";
 import { textoConclusao } from "@/lib/laudo/texto-conclusao";
+import { resolverLimitesTeste } from "@/lib/laudo/limites-teste";
 import { FotoPreview, PdfPreview } from "@/components/foto-preview";
 
 type Responsavel = {
@@ -92,15 +93,7 @@ export async function LaudoPreviewCard({
   // mais confiável) — só cai pro cadastro do veículo (especificacoes_motor,
   // manual/opcional) se o teste ainda não tiver sido (re)importado depois
   // dessa mudança.
-  const limiteMarchaLenta =
-    teste.limite_marcha_lenta_min != null || teste.limite_marcha_lenta_max != null
-      ? [teste.limite_marcha_lenta_min, teste.limite_marcha_lenta_max]
-      : [especificacao?.marcha_lenta_min, especificacao?.marcha_lenta_max];
-  const limiteRotacaoCorte =
-    teste.limite_rotacao_corte_min != null || teste.limite_rotacao_corte_max != null
-      ? [teste.limite_rotacao_corte_min, teste.limite_rotacao_corte_max]
-      : [especificacao?.rotacao_corte_min, especificacao?.rotacao_corte_max];
-  const limiteOpacidade = teste.limite_opacidade ?? especificacao?.limite_opacidade;
+  const limites = resolverLimitesTeste(teste, especificacao);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
@@ -177,24 +170,24 @@ export async function LaudoPreviewCard({
             <p className="text-sm text-neutral-600">
               Número do ensaio: <strong className="text-neutral-800">{teste.numero_teste ?? "-"}</strong> · Média:{" "}
               <strong className="text-neutral-800">{teste.media_m1 ?? "-"} m-1</strong>
-              {limiteOpacidade != null && <> · Limite de opacidade: {limiteOpacidade} m-1</>}
+              {limites.limiteOpacidade != null && <> · Limite de opacidade: {limites.limiteOpacidade} m-1</>}
             </p>
-            {(limiteMarchaLenta[0] != null || limiteRotacaoCorte[0] != null) && (
+            {(limites.marchaLentaMin != null || limites.rotacaoCorteMin != null) && (
               <p className="mt-1 text-sm text-neutral-600">
-                {limiteMarchaLenta[0] != null && (
+                {limites.marchaLentaMin != null && (
                   <>
-                    Limite marcha lenta: <strong className="text-neutral-800">{limiteMarchaLenta[0]} - {limiteMarchaLenta[1]}</strong> RPM
+                    Limite marcha lenta: <strong className="text-neutral-800">{limites.marchaLentaMin} - {limites.marchaLentaMax}</strong> RPM
                   </>
                 )}
-                {limiteMarchaLenta[0] != null && limiteRotacaoCorte[0] != null && " · "}
-                {limiteRotacaoCorte[0] != null && (
+                {limites.marchaLentaMin != null && limites.rotacaoCorteMin != null && " · "}
+                {limites.rotacaoCorteMin != null && (
                   <>
-                    Limite rotação de corte: <strong className="text-neutral-800">{limiteRotacaoCorte[0]} - {limiteRotacaoCorte[1]}</strong> RPM
+                    Limite rotação de corte: <strong className="text-neutral-800">{limites.rotacaoCorteMin} - {limites.rotacaoCorteMax}</strong> RPM
                   </>
                 )}
               </p>
             )}
-            {mostrarEditar && (limiteMarchaLenta[0] == null || limiteRotacaoCorte[0] == null || limiteOpacidade == null) && (
+            {mostrarEditar && (limites.marchaLentaMin == null || limites.rotacaoCorteMin == null || limites.limiteOpacidade == null) && (
               <p className="mt-1 text-sm text-amber-700">
                 Faltam os limites de marcha lenta, rotação de corte e/ou opacidade — vêm do PDF do Syscon. Sem eles não
                 dá pra validar o teste.
