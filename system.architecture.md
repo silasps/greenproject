@@ -151,6 +151,9 @@ Três variantes, **nunca** misturar:
   - Autorização de `assumirIdentidade`/`listarUsuariosParaImpersonar`: ou
     `perfil.is_superadmin`, ou o cookie de impersonação já existir (prova
     que uma sessão de superadmin iniciou a troca).
+  - Mesma flag também libera `/painel/sugestoes` (`requireSuperadmin()`,
+    caixa de sugestões pro desenvolvedor — ver seção 6.22), via um segundo
+    helper (não reaproveita `requireRole`, que só olha o `Role` fixo).
 
 ## 6. Schema do banco (Postgres/Supabase)
 
@@ -257,11 +260,21 @@ Staff lê; `escritorio+` insere/atualiza.
 id uuid PK, tipo text check in ('opacimetro','tacometro'), modelo text not null,
 numero_serie text not null unique, fabricante text, numero_inmetro text,
 data_afericao date, validade date, pdf_certificado_calibracao_path text,
+selo_imagem_path text,  -- 0029, opcional
 criado_por/atualizado_por uuid references usuarios_perfis(id) on delete set null,
 atualizado_em timestamptz, created_at
 ```
 (`criado_por`/`atualizado_por`/`atualizado_em` vieram de uma migration
 posterior, `0002`.) Staff lê; `escritorio+` gerencia tudo.
+
+`selo_imagem_path` (migration `0029`) — selo de verificação do fabricante
+do equipamento (ex.: "Smoke Check 2000 — Opacímetro Portátil"), imagem
+opcional anexada em `/painel/equipamentos` junto com o certificado de
+calibração (mesmo campo `FileDropInput`, `accept="image/*"`, path
+`equipamentos/{id}/selo-imagem.{ext}`). Usada só no PDF do laudo (seção
+8.6) — não temos esse arquivo em nenhum outro lugar do sistema, então sem
+o upload manual essa parte da página 2 simplesmente não aparece (não é
+inventada).
 
 ### 6.9 `agendamentos` (agenda + pipeline comercial — o núcleo do painel)
 Tabela **polimórfica**: um registro é ou um teste de opacidade agendado,
@@ -627,6 +640,59 @@ legal de `/sobre` estático de propósito) — **não tem telefone/whatsapp**
 (removidos de propósito: mudam com frequência, então viraram
 `getDadosEmpresa()`, único lugar que os fornece).
 
+### 6.22 `sugestoes` (caixa de sugestões pro desenvolvedor)
+```
+id uuid PK
+usuario_id uuid not null references usuarios_perfis(id) on delete cascade
+pagina text not null      -- pathname de onde foi enviada (usePathname())
+mensagem text not null
+user_agent text           -- navigator.userAgent, capturado no envio
+status text not null default 'nova' check in ('nova','em_andamento','feita','ignorada')
+observacao text           -- nota livre do superadmin, opcional
+criado_em timestamptz not null default now()
+```
+Migrations `0030` (tabela + `get_my_is_superadmin()`) e `0031` (troca o
+`lida boolean` original por `status`/`observacao` — backfill: quem já
+estava `lida = true` virou `em_andamento`, o resto `nova`). Botão
+flutuante (`Lightbulb`, canto inferior direito, `z-30` — fica atrás de
+qualquer overlay de tela cheia como o `campo-wizard.tsx`, `z-50`) em todo
+`/painel`, renderizado em `painel/layout.tsx` pra **qualquer pessoa
+logada**, não só quem gerencia: `sugestao-button.tsx` abre um dialog com
+textarea, captura `pagina` (`usePathname()`) e `user_agent`
+automaticamente e chama `enviarSugestao` (`sugestoes/actions.ts`,
+`requireAuth()` — sem checar role, é uma caixa de sugestões geral).
+
+**Só quem tem a flag `is_superadmin`** (seção 5, mesma flag da
+impersonação — não é área configurável por cargo/pessoa via
+`requireArea`) enxerga a lista, em `/painel/sugestoes`
+(`requireSuperadmin()`, helper em `src/lib/auth/session.ts`). RLS reforça
+isso independente do app: `get_my_is_superadmin()` (função `security
+definer`, espelha `get_my_role()`) — quem envia só consegue `insert` da
+própria linha (`usuario_id = auth.uid()`), e só superadmin tem
+`select`/`update`/`delete`. **Não é um canal de suporte com histórico
+visível pra quem enviou** — depois de mandada, a sugestão só existe pro
+desenvolvedor; quem mandou não consegue ver nem a própria de novo.
+Testado via `set local role authenticated` + `set local
+request.jwt.claims` simulando `auth.uid()` de um técnico e de um
+superadmin direto no Postgres (dentro de uma transação com `rollback`),
+não só pela app.
+
+**`/painel/sugestoes` é um quadro em colunas (estilo kanban), uma por
+`status`** (`status-info.ts` centraliza rótulo/cor de cada etapa, `page.
+tsx` agrupa por coluna): Nova → Em andamento → Feita → Ignorada, com
+contador por coluna. Trocar de coluna é via `Select` dentro do card
+(`atualizarStatusSugestao`), não drag-and-drop. Cada card também tem um
+campo de observação (`Textarea` controlado + botão "Salvar
+observação"/"Cancelar" que só aparece quando o texto muda,
+`salvarObservacaoSugestao`) — nota livre só pro desenvolvedor, ex. por
+que foi ignorada ou o que foi feito. Contador de `status = 'nova'` vira
+badge no item "Sugestões" da sidebar — `painel/layout.tsx` conta antes de
+renderizar, só quando `perfil.is_superadmin` (evita a query pra todo
+mundo). Trocar status/observação/excluir não chamam `router.refresh()`
+explícito — mesmo padrão de `publicar-toggle.tsx` (seção 6.20): chamar a
+Server Action direto (não via `<form action>`) já dispara o refresh da
+árvore de Server Components depois que `revalidatePath` roda dentro dela.
+
 ### Migrations, em ordem (útil pra recriar o histórico exato)
 1. `0001_initial_schema.sql` — tudo de 6.1 a 6.16 (menos as colunas
    adicionadas depois).
@@ -680,6 +746,12 @@ legal de `/sobre` estático de propósito) — **não tem telefone/whatsapp**
     conteúdo existente sem perder texto.
 28. `0028_hero_slides.sql` — cria `hero_slides` (ver 10.2), seed dos 7
     slides que já existiam hardcoded em `marketing/hero.tsx`.
+29. `0029_equipamento_selo_imagem.sql` — `equipamentos_teste.selo_imagem_path`
+    (ver 6.8) — selo do fabricante usado no PDF do laudo (seção 8.6).
+30. `0030_sugestoes.sql` — cria `sugestoes` (ver 6.22) e a função
+    `get_my_is_superadmin()`.
+31. `0031_sugestoes_status.sql` — troca `sugestoes.lida` (boolean) por
+    `status`/`observacao` (ver 6.22), com backfill.
 
 ### Storage buckets (criados fora de migration — via dashboard/CLI, não SQL)
 - **`laudos`** — público, sem limite de tamanho/mime. `${codigo_publico}.pdf`.
@@ -692,7 +764,15 @@ legal de `/sobre` estático de propósito) — **não tem telefone/whatsapp**
 - **`arquivos-internos`** — **privado**, acesso via signed URL
   (`src/lib/storage/upload.ts:signedUrl`, expira em 1h por padrão). Guarda
   fotos do ensaio, PDF original do Syscon, certificados de calibração,
-  imagem de assinatura do responsável técnico — nada disso é público.
+  imagem de assinatura do responsável técnico, selo do equipamento — nada
+  disso é público. `upload.ts` também exporta `baixarArquivoInterno`
+  (baixa como `Buffer`) e `detectarTipoArquivo` (sniff por assinatura de
+  bytes — `%PDF`/JPEG/PNG/RIFF+WEBP, não confia na extensão do path);
+  usados pelo gerador de laudo (seção 8.6) e pela tela de editar
+  equipamento, que mostra o certificado/selo já salvos como prévia
+  (`FileDropInput` com `previaAtualUrl` — e `previaAtualEhImagem={false}`
+  quando o certificado é mesmo um PDF, já que aí não dá pra usar
+  `<Image>`) em vez de uma área de upload vazia.
 
 ## 7. Estrutura de rotas (App Router)
 
@@ -721,8 +801,9 @@ src/app/
     laudo/[codigo]/page.tsx           # verificação pública de laudo
     proposta/[token]/page.tsx (+ actions.ts)  # verificação/aceite público de proposta
   painel/                            # tudo aqui exige login (layout.tsx faz requireAuth)
-    layout.tsx                       # requireAuth + monta navItems + <AgendaNavProvider><Sidebar/>{children}</AgendaNavProvider>
+    layout.tsx                       # requireAuth + monta navItems + <AgendaNavProvider><Sidebar/>{children}<SugestaoButton/></AgendaNavProvider>
     sidebar.tsx , agenda-nav-context.tsx , logout-button.tsx , loading.tsx
+    sugestao-button.tsx               # botão flutuante — qualquer pessoa logada, todo /painel (ver 6.22)
     page.tsx                         # dashboard: cards de KPI (ver 6.18), visibilidade por cargo/pessoa
     agenda/                          # ver seção 8
     clientes/                       # CRUD cliente + veículos/máquinas do cliente
@@ -734,6 +815,7 @@ src/app/
                                      # não tem item próprio na sidebar
     dp/                              # RH — ver seção 9
     configuracoes/                  # abas: Orçamento (valor/km, fator, tipos de serviço) | Visibilidade e acesso (KPIs por cargo) | Empresa (razão social/CNPJ/endereço/telefone, ver 6.21/8.8)
+    sugestoes/                      # inbox de sugestões (ver 6.22) — só na sidebar quando is_superadmin
 ```
 
 Todo diretório de página tem seu `loading.tsx` (usa
@@ -1186,44 +1268,100 @@ sempre descarta `resultado`/`media_m1`/`pdf_ensaio_original_path` e as
 de qualquer jeito.
 
 ### 8.6 PDF do laudo (`src/lib/laudo/gerar-pdf.ts`)
-Só a **capa (página 1)** é desenhada por nós (`jspdf`/`jspdf-autotable`).
-Da página 2 em diante é sempre um **PDF real anexado no sistema,
-mesclado como está** via `pdf-lib` — o ensaio exportado do Syscon
-(`testes_opacidade.pdf_ensaio_original_path`, anexado em "Importar PDF
-Syscon") e o certificado de calibração do equipamento
-(`equipamentos_teste.pdf_certificado_calibracao_path`). Redesenhar esses
-dois documentos foi tentado numa rodada anterior (tabela de medições +
-dados do opacímetro desenhados à mão) e **abandonado**: o laudo real que
-os clientes recebiam antes do sistema já vinha com esses documentos de
-terceiros mesclados tal como são (inclusive um carimbo pequeno — logo +
-"Página X de Y" — colado em cada página mesclada), e é isso que o layout
-final replica.
+**Páginas 1 (capa) e 2 (ensaio) são sempre desenhadas por nós**
+(`jspdf`/`jspdf-autotable`), com dados vindos do banco — nunca do PDF cru
+exportado pelo Syscon. Isso já era a regra pros dados de *medição*
+(`src/lib/syscon/parse-ensaio.ts` já tinha o comentário "só lê dados de
+medição — não dados cadastrais de cliente/veículo, que já existem nesta
+plataforma"), mas até uma rodada anterior a página 2 do PDF final
+**mesclava** o arquivo cru do Syscon como veio — e esse arquivo tem sua
+própria seção "Dados do Veículo"/"Dados do Cliente" digitada por quem
+operou o opacímetro no campo, que pode estar errada ou desatualizada
+(reaproveitar o aparelho de um teste anterior sem trocar os dados nele,
+por exemplo). Um cliente reclamou de uma divergência assim, e a página 2
+passou a ser redesenhada com os mesmos dados cadastrais confiáveis da
+capa, mais o que é específico do ensaio.
 
-**Total de páginas é calculado antes de desenhar a capa** (`totalPaginas`
-= 1 + páginas do ensaio + páginas do certificado), porque o cabeçalho da
-capa já precisa mostrar "Página 1 de N" correto — os dois PDFs de
-terceiros são baixados e carregados via `PDFDocument.load` **antes** de
-criar o `jsPDF`, só pra saber `getPageCount()` de cada um.
+**A estrutura visual da página 2 imita a organização do relatório do
+Syscon** (Dados do Veículo → Dados do Cliente → Dados do Ensaio →
+medições → Resultado → Dados do Opacímetro/Software, com títulos em
+negrito e divisórias finas — `tituloSecaoEnsaio`/`linhaEnsaio`/
+`divisorEnsaio`, helpers locais só usados nessa página) — **não** usa o
+estilo de barra verde/grade com borda da capa (`barraSecao`/`blocoGrid`).
+Primeira tentativa de corrigir a fonte dos dados trocou a estrutura
+inteira pro estilo da capa; pedido explícito da gerência foi manter a
+organização antiga (a mesma do Syscon) e só trocar de onde os valores
+vêm — layout são dois estilos deliberadamente diferentes dentro do mesmo
+documento, não inconsistência.
+- `especificacoes_motor` (marcha lenta/rotação de corte/limite de
+  opacidade), buscada à parte se `veiculo.especificacao_motor_id` estiver
+  preenchido — mostra "-" quando o veículo não tem especificação
+  vinculada, nunca inventa um valor.
+- Tabela de medições vem de `testes_opacidade_medicoes` (Aceleração,
+  Rotação de corte, Tempo — fixo em 4s, não é parseado do PDF —,
+  Opacidade K(m-1)). **`rotacao_corte` existe como coluna mas nunca é
+  populada** pelo parser atual (`parseEnsaioSyscon` só extrai ciclo +
+  opacidade) — a coluna continua na tabela (mesma estrutura de 4 colunas
+  do Syscon) mas sempre mostra "-"; precisaria de um parser melhor pra
+  vir preenchida.
+- Validade = data de emissão + 1 ano (mesma regra da view
+  `veiculos_validade`, seção 6.x).
+- Dados do opacímetro (modelo/serial/fabricante/validade) vêm de
+  `equipamentos_teste`, já carregado em `teste.equipamentos_teste`.
+- Altitude, temperatura aferida e RPM tolerado (linhas que existem no
+  relatório do Syscon) não têm fonte confiável em nenhum lugar do sistema
+  — **omitidos**, não fabricados.
+- **Selo do fabricante**, grande e centralizado no espaço em branco entre
+  "Dados do Opacímetro/Software" e o rodapé. Opcional, vem de
+  `equipamentos_teste.selo_imagem_path` (seção 6.8, migration `0029`); se o
+  equipamento não tiver selo cadastrado, essa parte simplesmente não
+  aparece (não inventamos a imagem). Chegou a existir um QR code gerado à
+  parte (pacote `qrcode`) do lado do selo, apontando pra
+  `{siteUrl}/laudo/{codigoPublico}` — **removido a pedido da gerência**,
+  que preferiu manter só o selo do laudo original, sem elemento extra
+  nosso.
+  - **Corta a margem em branco da imagem antes de desenhar** (`sharp(buf).
+    trim().png().toBuffer()`) — o arquivo que o usuário sobe no cadastro
+    costuma ser um recorte de print feito à mão, com bastante espaço vazio
+    ao redor do selo de verdade; sem o corte, aumentar o tamanho do bloco
+    só aumentava o vazio, não o selo em si (foi exatamente o que aconteceu
+    numa primeira versão maior sem o `trim`).
+  - Altura alvo de 70mm, mas cede dinamicamente ao espaço vertical real
+    que sobra na página (`pageHeight - yImagemSelo - 20`) e nunca invade o
+    rodapé; largura tem um teto de segurança (`pageW - margin*2`) pro caso
+    de uma imagem muito mais larga que alta. Sempre centralizado
+    horizontalmente.
+
+**Só a página 3 (certificado de calibração) ainda pode ser um documento
+de terceiro mesclado tal como é** — não redesenhamos um certificado de
+calibração de fábrica, isso não é dado que já exista noutro lugar do
+sistema para preferir a versão nossa. Se `equipamentos_teste.
+pdf_certificado_calibracao_path` for um PDF de verdade, é mesclado via
+`pdf-lib` com um carimbo por cima (`page.drawImage`/`page.drawText`,
+`StandardFonts.Helvetica` + `rgb()`, coordenadas em pontos com origem no
+canto inferior esquerdo — diferente do `jsPDF`, que usa mm com origem no
+canto superior): logo pequeno no topo-esquerdo + "Página X de Y" no
+rodapé-direito, sem alterar o conteúdo original do documento.
 
 **Certificado de calibração aceita "PDF ou foto"** no cadastro do
 equipamento (`equipamentos/equipamento-form.tsx`, `accept="application/
 pdf,image/*"`) — `detectarTipoArquivo` lê os primeiros bytes do arquivo
 baixado (assinatura `%PDF`/JPEG/PNG/RIFF+WEBP) em vez de confiar na
 extensão salva no path (encontrado um caso real onde o path terminava em
-`.pdf` mas o conteúdo era WebP). Se for imagem, vira uma página desenhada
-por nós (título "CERTIFICADO DE CALIBRAÇÃO DO EQUIPAMENTO" + imagem
-centralizada, redimensionada mantendo proporção) em vez de mesclada — e
-essa página entra na conta de `totalPaginas` também. Se o PDF do ensaio
-ou o certificado estiver ausente/corrompido, a mesclagem correspondente é
-pulada silenciosamente (nunca trava a emissão do laudo) — só reduz o
-total de páginas.
+`.pdf` mas o conteúdo era WebP). Se for imagem, vira uma página nossa
+(título "CERTIFICADO DE CALIBRAÇÃO DO EQUIPAMENTO" + imagem centralizada,
+redimensionada mantendo proporção) desenhada como página 3 do mesmo `doc`
+principal — só quando o certificado é um PDF de verdade é que existe
+mesclagem via `pdf-lib` depois do `doc.output()`. Se o certificado
+estiver ausente/corrompido, a página 3 simplesmente não é criada — nunca
+trava a emissão do laudo, só reduz o total de páginas.
 
-**Carimbo nas páginas mescladas** (`carimbarPagina`, usa `pdf-lib`
-direto — `page.drawImage`/`page.drawText` com `StandardFonts.Helvetica`
-+ `rgb()`, coordenadas em pontos com origem no canto inferior esquerdo,
-diferente do `jsPDF` que usa mm com origem no canto superior): logo
-pequeno no topo-esquerdo + "Página X de Y" no rodapé-direito, sem alterar
-o conteúdo original do documento mesclado.
+**Total de páginas é calculado antes de desenhar a capa**
+(`totalPaginas` = 2 (capa + ensaio) + páginas do certificado, se houver),
+porque o cabeçalho da capa já precisa mostrar "Página 1 de N" correto —
+o certificado é baixado e carregado via `PDFDocument.load` **antes** de
+criar o `jsPDF`, só pra saber `getPageCount()` (quando é PDF) ou decidir
+que vai virar +1 página nossa (quando é imagem).
 
 **Capa (página 1)**: cabeçalho com caixinha bordada no canto direito
 (`caixaCabecalho`) com Nº/Revisão/Data/Página — `revisao` é parâmetro

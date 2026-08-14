@@ -47,6 +47,20 @@ export async function requireRole(allowedRoles: readonly Role[]) {
 }
 
 /**
+ * Gate pra área exclusiva de quem tem a flag is_superadmin (0022_superadmin.sql)
+ * — não é sobre o role (tecnico/escritorio/gerencia) nem sobre área
+ * configurável por cargo/pessoa (requireArea), é a mesma flag que já libera
+ * a impersonação: só o(s) dono(s)/desenvolvedor(es) da conta.
+ */
+export async function requireSuperadmin() {
+  const session = await requireAuth();
+  if (!session.perfil.is_superadmin) {
+    redirect("/acesso-negado");
+  }
+  return session;
+}
+
+/**
  * Gate de acesso a uma área configurável por cargo/pessoa (mesma resolução
  * de src/lib/kpis/visibilidade.ts: exceção da pessoa > override do cargo >
  * nível padrão do catálogo). Diferente de requireRole, que só olha o role

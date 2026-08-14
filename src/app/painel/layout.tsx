@@ -4,6 +4,7 @@ import { estaImpersonando, listarUsuariosParaImpersonar } from "@/lib/auth/imper
 import { createClient } from "@/lib/supabase/server";
 import { getSecoesVisiveis } from "@/lib/kpis/visibilidade";
 import { Sidebar } from "./sidebar";
+import { SugestaoButton } from "./sugestao-button";
 import { AgendaNavProvider } from "./agenda-nav-context";
 import { TestesFiltroProvider } from "./testes-filtro-context";
 
@@ -21,6 +22,19 @@ export default async function PainelLayout({
   const impersonando = await estaImpersonando();
   const podeTrocarIdentidade = perfil.is_superadmin || impersonando;
   const usuariosImpersonaveis = podeTrocarIdentidade ? await listarUsuariosParaImpersonar() : [];
+
+  // "Sugestões" só existe pra quem tem a flag is_superadmin (não é
+  // configurável por cargo/pessoa como as outras áreas — é a mesma flag
+  // que já libera a impersonação, pensada pro(s) desenvolvedor(es) da
+  // conta). O contador de "nova" vira um badge no item da sidebar.
+  let sugestoesNaoLidas = 0;
+  if (perfil.is_superadmin) {
+    const { count } = await supabase
+      .from("sugestoes")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "nova");
+    sugestoesNaoLidas = count ?? 0;
+  }
 
   const navItems = [
     { href: "/painel", label: "Dashboard", key: "dashboard" as const, show: true },
@@ -57,6 +71,13 @@ export default async function PainelLayout({
       key: "configuracoes" as const,
       show: perfil.role === "gerencia",
     },
+    {
+      href: "/painel/sugestoes",
+      label: "Sugestões",
+      key: "sugestoes" as const,
+      show: perfil.is_superadmin,
+      badge: sugestoesNaoLidas,
+    },
   ].filter((item) => item.show);
 
   return (
@@ -71,6 +92,7 @@ export default async function PainelLayout({
             }
           />
           <main className="flex-1 px-4 py-8 sm:px-6 md:ml-60 md:px-8 print:ml-0 print:p-0">{children}</main>
+          <SugestaoButton />
         </div>
       </TestesFiltroProvider>
     </AgendaNavProvider>

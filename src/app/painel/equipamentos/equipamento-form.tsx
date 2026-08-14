@@ -31,9 +31,17 @@ type Equipamento = {
 export function EquipamentoForm({
   equipamento,
   cancelHref,
+  certificadoUrl,
+  certificadoEhImagem,
+  seloUrl,
 }: {
   equipamento?: Equipamento;
   cancelHref: string;
+  /** URL assinada do certificado já salvo (bucket privado `arquivos-internos`) — null quando não há certificado ou quando editar não se aplica (cadastro novo). */
+  certificadoUrl?: string | null;
+  /** Detectado pelos bytes reais do arquivo (não pela extensão do path) — decide se o preview mostra miniatura ou um cartão "Abrir". */
+  certificadoEhImagem?: boolean;
+  seloUrl?: string | null;
 }) {
   const [modelo, setModelo] = useState(equipamento?.modelo ?? "");
   const [numeroSerie, setNumeroSerie] = useState(equipamento?.numero_serie ?? "");
@@ -156,7 +164,26 @@ export function EquipamentoForm({
           name="certificado"
           accept="application/pdf,image/*"
           label="Clique para enviar o certificado (PDF ou imagem)"
+          previaAtualUrl={certificadoUrl}
+          previaAtualEhImagem={certificadoEhImagem}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="selo_imagem">
+          Selo/imagem do modelo (opcional){equipamento ? " — enviar substitui o atual" : ""}
+        </Label>
+        <FileDropInput
+          id="selo_imagem"
+          name="selo_imagem"
+          accept="image/*"
+          label="Clique para enviar o selo do fabricante (imagem)"
+          previaAtualUrl={seloUrl}
+        />
+        <p className="text-xs text-neutral-500">
+          Selo de verificação do fabricante (ex.: &ldquo;Smoke Check 2000 — Opacímetro Portátil&rdquo;), usado no PDF do
+          laudo junto com o QR code de verificação.
+        </p>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
