@@ -9,11 +9,11 @@ export default async function EditarClientePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ voltar?: string }>;
+  searchParams: Promise<{ voltar?: string; telefone_contato?: string }>;
 }) {
   await requireArea("clientes");
   const { id } = await params;
-  const { voltar } = await searchParams;
+  const { voltar, telefone_contato } = await searchParams;
   const supabase = await createClient();
   const { data: cliente } = await supabase.from("clientes").select("*").eq("id", id).single();
   if (!cliente) notFound();
@@ -27,7 +27,7 @@ export default async function EditarClientePage({
     <div className="mx-auto max-w-lg">
       <ConfirmLeaveButton to={voltarPara} label="← Voltar" variant="link" className="px-0 text-neutral-500" />
       <h1 className="mt-2 text-2xl font-bold text-neutral-900">Editar cliente</h1>
-      <ClienteForm cliente={cliente} cancelHref={voltarPara} />
+      <ClienteForm cliente={cliente} cancelHref={voltarPara} telefoneSugerido={telefone_contato} />
     </div>
   );
 }

@@ -330,8 +330,14 @@ export default async function AgendamentoDetalhePage({
   // destino padrão dessas telas (cadastro do cliente/veículo) — senão o
   // "← Voltar" de lá manda pro lugar errado.
   const voltarParaAgendamento = `?voltar=${encodeURIComponent(`/painel/agenda/${agendamento.id}`)}`;
+  // Repassa o telefone de quem agendou pro form de cliente pré-preencher o
+  // campo (só usado lá se o cliente ainda não tiver telefone próprio) — evita
+  // digitar de novo um número que já foi informado na Agenda.
+  const telefoneContatoParam = agendamento.whatsapp_contato || agendamento.telefone_contato || "";
   const hrefEditarCliente = agendamento.cliente_id
-    ? `/painel/clientes/${agendamento.cliente_id}/editar${voltarParaAgendamento}`
+    ? `/painel/clientes/${agendamento.cliente_id}/editar${voltarParaAgendamento}${
+        telefoneContatoParam ? `&telefone_contato=${encodeURIComponent(telefoneContatoParam)}` : ""
+      }`
     : undefined;
 
   const passos: Passo[] = [

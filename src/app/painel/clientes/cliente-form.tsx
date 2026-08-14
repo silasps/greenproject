@@ -22,12 +22,23 @@ type Cliente = {
   email: string | null;
 };
 
-export function ClienteForm({ cliente, cancelHref }: { cliente?: Cliente; cancelHref: string }) {
+export function ClienteForm({
+  cliente,
+  cancelHref,
+  telefoneSugerido,
+}: {
+  cliente?: Cliente;
+  cancelHref: string;
+  /** Telefone de quem agendou (agendamentos.telefone_contato/whatsapp_contato) — só
+   * pré-preenche quando o cliente ainda não tem telefone próprio salvo, pra evitar
+   * digitar o mesmo número de novo ao completar o cadastro a partir da Agenda. */
+  telefoneSugerido?: string | null;
+}) {
   const [tipo, setTipo] = useState<"pj" | "pf">(cliente?.tipo ?? "pj");
   const [cnpjCpf, setCnpjCpf] = useState(cliente?.cnpj_cpf ?? "");
   const [nome, setNome] = useState(cliente?.nome ?? "");
   const [endereco, setEndereco] = useState(cliente?.endereco ?? "");
-  const [telefone, setTelefone] = useState(formatTelefone(cliente?.telefone ?? ""));
+  const [telefone, setTelefone] = useState(formatTelefone(cliente?.telefone || telefoneSugerido || ""));
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [documentoValido, setDocumentoValido] = useState(true);
