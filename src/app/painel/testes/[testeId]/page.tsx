@@ -191,6 +191,13 @@ async function RevisaoSection({ testeId, teste, meuResponsavelId }: { testeId: s
               defaultResponsavelId={meuResponsavelId}
               resultado={teste.resultado}
               clienteEmail={cliente?.email ?? null}
+              limitesFaltando={
+                teste.limite_marcha_lenta_min == null ||
+                teste.limite_marcha_lenta_max == null ||
+                teste.limite_rotacao_corte_min == null ||
+                teste.limite_rotacao_corte_max == null ||
+                teste.limite_opacidade == null
+              }
             />
           ) : (
             <p className="text-sm text-neutral-500">Aguardando um engenheiro responsável revisar e liberar o laudo.</p>

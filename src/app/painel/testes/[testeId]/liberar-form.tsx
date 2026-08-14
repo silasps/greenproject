@@ -17,6 +17,7 @@ export function LiberarForm({
   defaultResponsavelId,
   resultado,
   clienteEmail,
+  limitesFaltando,
 }: {
   testeId: string;
   responsaveis: Responsavel[];
@@ -24,6 +25,9 @@ export function LiberarForm({
   defaultResponsavelId?: string | null;
   resultado: "aprovado" | "reprovado" | null;
   clienteEmail: string | null;
+  /** Limites de marcha lenta/rotação de corte/opacidade vieram do PDF do Syscon? Sem
+   * eles não dá pra liberar (mesma checagem em `liberarLaudo`, essa é só a UX). */
+  limitesFaltando: boolean;
 }) {
   const router = useRouter();
   const [responsavelId, setResponsavelId] = useState(defaultResponsavelId ?? "");
@@ -87,8 +91,14 @@ export function LiberarForm({
         </Select>
         <p className="text-xs text-neutral-500">Já vem com o seu nome selecionado — troque se outro engenheiro estiver liberando.</p>
       </div>
+      {limitesFaltando && (
+        <p className="text-sm text-amber-700">
+          Faltam os limites de marcha lenta, rotação de corte e opacidade (vêm do PDF do Syscon) — devolva pro
+          escritório reimportar o PDF do ensaio antes de validar.
+        </p>
+      )}
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <Button type="button" onClick={abrirConfirmacao} className="bg-brand hover:bg-brand-dark">
+      <Button type="button" onClick={abrirConfirmacao} disabled={limitesFaltando} className="bg-brand hover:bg-brand-dark">
         Validar teste
       </Button>
 

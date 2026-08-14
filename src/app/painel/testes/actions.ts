@@ -159,6 +159,12 @@ export async function importarPdfSyscon(testeId: string, formData: FormData) {
       media_m1: ensaio.mediaM1,
       resultado: ensaio.resultado,
       status: "aguardando_revisao",
+      limite_marcha_lenta_min: ensaio.limiteMarchaLentaMin,
+      limite_marcha_lenta_max: ensaio.limiteMarchaLentaMax,
+      limite_rotacao_corte_min: ensaio.limiteRotacaoCorteMin,
+      limite_rotacao_corte_max: ensaio.limiteRotacaoCorteMax,
+      limite_opacidade: ensaio.limiteOpacidade,
+      km_atual: ensaio.kmAtual,
     })
     .eq("id", testeId);
   if (testeError) throw new Error(testeError.message);
@@ -171,6 +177,10 @@ export async function importarPdfSyscon(testeId: string, formData: FormData) {
         ciclo_aceleracao: m.ciclo,
         opacidade_m1: m.opacidadeM1,
         tempo_segundos: 4,
+        // O PDF do Syscon não traz rotação de corte por ciclo — usa o limite
+        // máximo configurado pro ensaio (mesmo valor que aparece repetido em
+        // cada linha no laudo de referência do cliente).
+        rotacao_corte: ensaio.limiteRotacaoCorteMax,
       })),
     );
   }
@@ -201,6 +211,12 @@ export async function devolverRevisao(testeId: string, destino: "campo" | "escri
       pdf_ensaio_original_path: null,
       resultado: null,
       media_m1: null,
+      limite_marcha_lenta_min: null,
+      limite_marcha_lenta_max: null,
+      limite_rotacao_corte_min: null,
+      limite_rotacao_corte_max: null,
+      limite_opacidade: null,
+      km_atual: null,
     })
     .eq("id", testeId);
   if (error) throw new Error(error.message);
@@ -237,6 +253,17 @@ export async function liberarLaudo(testeId: string, formData: FormData) {
     .single();
   if (!teste) throw new Error("Teste não encontrado.");
   if (!teste.resultado) throw new Error("Faltam dados do ensaio para liberar o laudo.");
+  if (
+    teste.limite_marcha_lenta_min == null ||
+    teste.limite_marcha_lenta_max == null ||
+    teste.limite_rotacao_corte_min == null ||
+    teste.limite_rotacao_corte_max == null ||
+    teste.limite_opacidade == null
+  ) {
+    throw new Error(
+      "Faltam os limites de marcha lenta, rotação de corte e/ou opacidade — vêm do PDF do Syscon na importação. Devolva pro escritório reimportar o PDF do ensaio antes de liberar o laudo.",
+    );
+  }
 
   const { data: responsavel } = await admin
     .from("responsaveis_tecnicos")

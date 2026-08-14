@@ -1173,8 +1173,20 @@ final de "Liberar" é checado):
    exportado pelo equipamento Syscon, `src/lib/syscon/parse-ensaio.ts`
    faz o parsing (extrai número do ensaio, opacidade por ciclo, média
    K m⁻¹, resultado aprovado/reprovado), confere se o número bate com o
-   digitado em campo, grava as `testes_opacidade_medicoes`. Status vira
-   `aguardando_revisao`.
+   digitado em campo, grava as `testes_opacidade_medicoes`. Também extrai
+   os limites que o próprio opacímetro já traz no PDF pra aquele ensaio
+   ("Limite Marcha Lenta: 800 - 900", "Limite Rotação Corte: 4100 - 4300",
+   "Limite Opacidade: 1,19", "Km Atual: 51319") e grava em
+   `testes_opacidade` (`limite_marcha_lenta_min/max`,
+   `limite_rotacao_corte_min/max`, `limite_opacidade`, `km_atual` —
+   migration `0032_limites_teste_syscon.sql`) — mais confiável que
+   depender do cadastro manual do veículo (`especificacoes_motor`, que
+   fica em branco na maioria das vezes); usa o limite de rotação de corte
+   como `rotacao_corte` de cada `testes_opacidade_medicoes` também (o PDF
+   não traz esse valor por ciclo, só o limite geral do ensaio). Status vira
+   `aguardando_revisao`. **`liberarLaudo` bloqueia** (erro explícito) se
+   esses limites não vieram do PDF — sem eles não dá pra emitir o laudo;
+   `devolverRevisao` limpa tudo de novo pra reimportar.
 3. **Validar teste / liberar laudo** (`page.tsx`, `RevisaoSection` →
    `liberar-form.tsx` → `liberarLaudo`, só `canRevisarELiberarLaudo` =
    gerência): a tela "aguardando revisão" mostra uma **prévia do
@@ -1293,17 +1305,16 @@ inteira pro estilo da capa; pedido explícito da gerência foi manter a
 organização antiga (a mesma do Syscon) e só trocar de onde os valores
 vêm — layout são dois estilos deliberadamente diferentes dentro do mesmo
 documento, não inconsistência.
-- `especificacoes_motor` (marcha lenta/rotação de corte/limite de
-  opacidade), buscada à parte se `veiculo.especificacao_motor_id` estiver
-  preenchido — mostra "-" quando o veículo não tem especificação
-  vinculada, nunca inventa um valor.
+- Limites (marcha lenta/rotação de corte/opacidade) vêm de
+  `testes_opacidade.limite_*` (extraídos do PDF do Syscon na importação,
+  ver seção 8.5) — só cai pro cadastro manual do veículo
+  (`especificacoes_motor`, via `veiculo.especificacao_motor_id`) se o
+  teste ainda não tiver sido (re)importado depois dessa mudança.
 - Tabela de medições vem de `testes_opacidade_medicoes` (Aceleração,
   Rotação de corte, Tempo — fixo em 4s, não é parseado do PDF —,
-  Opacidade K(m-1)). **`rotacao_corte` existe como coluna mas nunca é
-  populada** pelo parser atual (`parseEnsaioSyscon` só extrai ciclo +
-  opacidade) — a coluna continua na tabela (mesma estrutura de 4 colunas
-  do Syscon) mas sempre mostra "-"; precisaria de um parser melhor pra
-  vir preenchida.
+  Opacidade K(m-1)). `rotacao_corte` é preenchido no import com o limite
+  de rotação de corte do ensaio (o PDF não traz um valor diferente por
+  ciclo).
 - Validade = data de emissão + 1 ano (mesma regra da view
   `veiculos_validade`, seção 6.x).
 - Dados do opacímetro (modelo/serial/fabricante/validade) vêm de

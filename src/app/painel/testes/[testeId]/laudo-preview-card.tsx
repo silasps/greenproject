@@ -88,6 +88,20 @@ export async function LaudoPreviewCard({
 
   const veiculoLabel = `${veiculo?.marca ?? ""} ${veiculo?.modelo ?? ""} - ${veiculo?.identificador ?? ""}`.trim();
 
+  // Prioriza os limites extraídos do PDF do Syscon na importação (por ensaio,
+  // mais confiável) — só cai pro cadastro do veículo (especificacoes_motor,
+  // manual/opcional) se o teste ainda não tiver sido (re)importado depois
+  // dessa mudança.
+  const limiteMarchaLenta =
+    teste.limite_marcha_lenta_min != null || teste.limite_marcha_lenta_max != null
+      ? [teste.limite_marcha_lenta_min, teste.limite_marcha_lenta_max]
+      : [especificacao?.marcha_lenta_min, especificacao?.marcha_lenta_max];
+  const limiteRotacaoCorte =
+    teste.limite_rotacao_corte_min != null || teste.limite_rotacao_corte_max != null
+      ? [teste.limite_rotacao_corte_min, teste.limite_rotacao_corte_max]
+      : [especificacao?.rotacao_corte_min, especificacao?.rotacao_corte_max];
+  const limiteOpacidade = teste.limite_opacidade ?? especificacao?.limite_opacidade;
+
   return (
     <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 bg-neutral-50 px-5 py-3">
@@ -132,6 +146,13 @@ export async function LaudoPreviewCard({
               <Campo label="Renavam" valor={veiculo?.renavam} className="border-r border-neutral-100" />
               <Campo label="Combustível" valor={veiculo?.combustivel} />
             </div>
+            {/* Km atual vem do PDF do Syscon (por ensaio, não do cadastro do veículo — a
+                quilometragem muda a cada teste). */}
+            <Campo
+              label="Km atual"
+              valor={teste.km_atual != null ? Number(teste.km_atual).toLocaleString("pt-BR") : null}
+              className="sm:col-span-2 sm:border-b sm:border-neutral-100"
+            />
             <Campo label="Endereço" valor={cliente?.endereco} className="sm:col-span-2 sm:border-b sm:border-neutral-100" />
             <Campo label="Telefone do contratante" valor={cliente?.telefone} className="sm:col-span-2" />
           </div>
@@ -156,8 +177,29 @@ export async function LaudoPreviewCard({
             <p className="text-sm text-neutral-600">
               Número do ensaio: <strong className="text-neutral-800">{teste.numero_teste ?? "-"}</strong> · Média:{" "}
               <strong className="text-neutral-800">{teste.media_m1 ?? "-"} m-1</strong>
-              {especificacao?.limite_opacidade != null && <> · Limite: {especificacao.limite_opacidade} m-1</>}
+              {limiteOpacidade != null && <> · Limite de opacidade: {limiteOpacidade} m-1</>}
             </p>
+            {(limiteMarchaLenta[0] != null || limiteRotacaoCorte[0] != null) && (
+              <p className="mt-1 text-sm text-neutral-600">
+                {limiteMarchaLenta[0] != null && (
+                  <>
+                    Limite marcha lenta: <strong className="text-neutral-800">{limiteMarchaLenta[0]} - {limiteMarchaLenta[1]}</strong> RPM
+                  </>
+                )}
+                {limiteMarchaLenta[0] != null && limiteRotacaoCorte[0] != null && " · "}
+                {limiteRotacaoCorte[0] != null && (
+                  <>
+                    Limite rotação de corte: <strong className="text-neutral-800">{limiteRotacaoCorte[0]} - {limiteRotacaoCorte[1]}</strong> RPM
+                  </>
+                )}
+              </p>
+            )}
+            {mostrarEditar && (limiteMarchaLenta[0] == null || limiteRotacaoCorte[0] == null || limiteOpacidade == null) && (
+              <p className="mt-1 text-sm text-amber-700">
+                Faltam os limites de marcha lenta, rotação de corte e/ou opacidade — vêm do PDF do Syscon. Sem eles não
+                dá pra validar o teste.
+              </p>
+            )}
             <div className="mt-2 overflow-x-auto rounded-lg border border-neutral-100">
               <table className="w-full text-left text-sm">
                 <thead className="bg-neutral-50 text-xs tracking-wide text-neutral-500 uppercase">
