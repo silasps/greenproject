@@ -1152,22 +1152,39 @@ clusters, só que por linha em vez de coluna).
     "executar" só é possível depois que cliente+veículo estão completos).
 
 ### 8.5 Execução do teste (`painel/testes/[testeId]/`)
-Fluxo em 3 etapas, sem bloqueio rígido de campo entre elas (só o botão
-final de "Liberar" é checado):
+Fluxo em 3 etapas, sem bloqueio rígido de campo entre elas — com uma
+exceção deliberada (especificação do motor, ver abaixo) além do botão
+final de "Liberar":
 1. **Campo** (`campo-wizard.tsx` → `salvarCampo`): fluxo em tela cheia
    (`fixed inset-0`, cobre até a sidebar), um passo por vez — pensado pra
-   reduzir erro humano no celular. Escolhe o equipamento (tela de
-   preparo), depois 5 fotos obrigatórias em sequência
-   (frente/traseira/painel/etiqueta completa/etiqueta só o número —
-   convertidas pra WebP no browser antes do upload,
-   `src/lib/utils/image-to-webp.ts`) pro bucket privado
-   `arquivos-internos`, barra de progresso no topo. Os 5
-   `FileDropInput` ficam todos montados o tempo todo (só escondidos via
-   CSS fora do passo atual) — mantém o arquivo escolhido sem duplicar
-   estado; a etiqueta do número existe só pra conferência visual (o
-   número continua digitado à mão). Tela final de conferência junta as 5
-   fotos + número do teste + fotos extras opcionais antes de enviar.
-   Status vira `aguardando_pdf_syscon`.
+   reduzir erro humano no celular. Tela de preparo: escolhe o equipamento
+   e resolve a **especificação do motor** (marcha lenta/rotação de
+   corte/limite de opacidade) — três desfechos possíveis, via
+   `CardEspecificacaoMotor`: já cadastrada no veículo (nada a fazer),
+   cadastrar ali mesmo (mini-form próprio, `EspecificacaoMotorFields`
+   reaproveitado do `VeiculoForm`, chama `salvarEspecificacaoMotorDoTeste`
+   — vincula ao veículo via `especificacoes_motor` e já preenche os
+   limites deste teste), ou declarar "já configurei no aparelho/app do
+   Syscon" (`marcarEspecificacaoMotorViaDispositivo`, marca
+   `testes_opacidade.especificacao_motor_via_dispositivo` — é só uma
+   promessa, conferida depois no backfill de `importarPdfSyscon` e, por
+   último, na trava de `liberarLaudo`). **"Concluir campo" fica desabilitado**
+   (e `salvarCampo` rejeita no servidor, mesma checagem espelhada) até um
+   dos três estar resolvido — motivo: esses limites só existiam antes se
+   alguém já tivesse cadastrado o motor dentro do app/dispositivo do
+   Syscon, um cadastro paralelo sem histórico neste sistema; virou etapa
+   explícita do processo, feita pelo escritório (cadastro do veículo,
+   `VeiculoForm`) ou pelo técnico em campo. Depois disso: 5 fotos
+   obrigatórias em sequência (frente/traseira/painel/etiqueta
+   completa/etiqueta só o número — convertidas pra WebP no browser antes
+   do upload, `src/lib/utils/image-to-webp.ts`) pro bucket privado
+   `arquivos-internos`, barra de progresso no topo. Os 5 `FileDropInput`
+   ficam todos montados o tempo todo (só escondidos via CSS fora do passo
+   atual) — mantém o arquivo escolhido sem duplicar estado; a etiqueta do
+   número existe só pra conferência visual (o número continua digitado à
+   mão). Tela final de conferência junta as 5 fotos + número do teste +
+   fotos extras opcionais (e o card de especificação do motor de novo, se
+   ainda não resolvido) antes de enviar. Status vira `aguardando_pdf_syscon`.
 2. **Importar PDF do Syscon** (`import-syscon-form.tsx` →
    `importarPdfSyscon`, só quem `canImportarPdfSyscon`): sobe o PDF
    exportado pelo equipamento Syscon, `src/lib/syscon/parse-ensaio.ts`
@@ -1179,14 +1196,18 @@ final de "Liberar" é checado):
    "Limite Opacidade: 1,19", "Km Atual: 51319") e grava em
    `testes_opacidade` (`limite_marcha_lenta_min/max`,
    `limite_rotacao_corte_min/max`, `limite_opacidade`, `km_atual` —
-   migration `0032_limites_teste_syscon.sql`) — mais confiável que
-   depender do cadastro manual do veículo (`especificacoes_motor`, que
-   fica em branco na maioria das vezes); usa o limite de rotação de corte
-   como `rotacao_corte` de cada `testes_opacidade_medicoes` também (o PDF
-   não traz esse valor por ciclo, só o limite geral do ensaio). Status vira
-   `aguardando_revisao`. **`liberarLaudo` bloqueia** (erro explícito) se
-   esses limites não vieram do PDF — sem eles não dá pra emitir o laudo;
-   `devolverRevisao` limpa tudo de novo pra reimportar.
+   migration `0032_limites_teste_syscon.sql`); se o PDF não trouxer algum
+   (ex.: cadastro no Syscon ficou incompleto), cai pro cadastro do veículo
+   (`especificacoes_motor`, mesma regra de `resolverLimitesTeste` — ver
+   `src/lib/laudo/limites-teste.ts`), populado desde a etapa de Campo (ver
+   item 1). Usa o limite de rotação de corte como `rotacao_corte` de cada
+   `testes_opacidade_medicoes` também (o PDF não traz esse valor por
+   ciclo, só o limite geral do ensaio). Status vira `aguardando_revisao`.
+   **`liberarLaudo` bloqueia** (erro explícito) se `resolverLimitesTeste`
+   (PDF + cadastro do veículo, nenhuma das duas fontes) não resolver todos
+   os 5 valores — sem eles não dá pra emitir o laudo; `devolverRevisao`
+   limpa tudo de novo pra reimportar (inclusive
+   `especificacao_motor_via_dispositivo`, volta a `false`).
 3. **Validar teste / liberar laudo** (`page.tsx`, `RevisaoSection` →
    `liberar-form.tsx` → `liberarLaudo`, só `canRevisarELiberarLaudo` =
    gerência): a tela "aguardando revisão" mostra uma **prévia do
