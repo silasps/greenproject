@@ -7,7 +7,7 @@ import { requireAuth, getMeuResponsavelTecnicoId } from "@/lib/auth/session";
 import { canImportarPdfSyscon } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { signedUrl, publicUrl } from "@/lib/storage/upload";
+import { signedUrlSeguro, publicUrl } from "@/lib/storage/upload";
 import { COMPANY } from "@/lib/legal/company-info";
 import { linkWhatsapp } from "@/lib/orcamento/texto-whatsapp";
 import { diasRestantes } from "@/lib/laudo/validade";
@@ -126,10 +126,7 @@ async function CampoEditSection({ testeId, teste }: { testeId: string; teste: an
       ["Painel", teste.foto_painel_path],
       ["Etiqueta", teste.foto_etiqueta_path],
       ["Etiqueta — número", teste.foto_etiqueta_numero_path],
-    ].map(
-      async ([label, path]) =>
-        [label, path ? await signedUrl(path) : null, path] as [string, string | null, string | null],
-    ),
+    ].map(async ([label, path]) => [label, await signedUrlSeguro(path), path] as [string, string | null, string | null]),
   );
 
   return (
@@ -151,10 +148,10 @@ async function RevisaoSection({ testeId, teste, meuResponsavelId }: { testeId: s
   const fotosExtras: string[] = teste.fotos_extras ?? [];
 
   const [pdfUrl, extrasUrls] = await Promise.all([
-    teste.pdf_ensaio_original_path ? signedUrl(teste.pdf_ensaio_original_path) : Promise.resolve(null),
+    signedUrlSeguro(teste.pdf_ensaio_original_path),
     Promise.all(
       fotosExtras.map(
-        async (path, i) => [`Extra ${i + 1}`, await signedUrl(path), path] as [string, string | null, string | null],
+        async (path, i) => [`Extra ${i + 1}`, await signedUrlSeguro(path), path] as [string, string | null, string | null],
       ),
     ),
   ]);

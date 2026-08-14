@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { signedUrl } from "@/lib/storage/upload";
+import { signedUrlSeguro } from "@/lib/storage/upload";
 import { formatDateBr } from "@/lib/utils/data";
 import { ImagePreview } from "@/components/image-preview";
 
@@ -29,7 +29,7 @@ export default async function EquipamentoDetalhePage({ params }: { params: Promi
   let certificadoUrl: string | null = null;
   let certificadoEhImagem = false;
   if (eq.pdf_certificado_calibracao_path) {
-    certificadoUrl = await signedUrl(eq.pdf_certificado_calibracao_path);
+    certificadoUrl = await signedUrlSeguro(eq.pdf_certificado_calibracao_path);
     const ext = eq.pdf_certificado_calibracao_path.split(".").pop()?.toLowerCase();
     certificadoEhImagem = IMAGE_EXT.includes(ext ?? "");
   }

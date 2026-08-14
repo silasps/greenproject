@@ -1,5 +1,5 @@
 import { Pencil } from "lucide-react";
-import { signedUrl } from "@/lib/storage/upload";
+import { signedUrlSeguro } from "@/lib/storage/upload";
 import { textoConclusao } from "@/lib/laudo/texto-conclusao";
 import { FotoPreview, PdfPreview } from "@/components/foto-preview";
 
@@ -65,15 +65,10 @@ export async function LaudoPreviewCard({
       ["Frente do veículo", teste.foto_frente_path],
       ["Teste sendo realizado", teste.foto_traseira_path],
       ["Painel / odômetro", teste.foto_painel_path],
-    ].map(
-      async ([label, path]) =>
-        [label, path ? await signedUrl(path) : null, path] as [string, string | null, string | null],
-    ),
+    ].map(async ([label, path]) => [label, await signedUrlSeguro(path), path] as [string, string | null, string | null]),
   );
 
-  const certificadoUrl = equipamento?.pdf_certificado_calibracao_path
-    ? await signedUrl(equipamento.pdf_certificado_calibracao_path)
-    : null;
+  const certificadoUrl = await signedUrlSeguro(equipamento?.pdf_certificado_calibracao_path);
 
   const medicoes = (teste.testes_opacidade_medicoes ?? []).sort(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { baixarArquivoInterno, detectarTipoArquivo, signedUrl } from "@/lib/storage/upload";
+import { baixarArquivoInterno, detectarTipoArquivo, signedUrlSeguro } from "@/lib/storage/upload";
 import { EquipamentoForm } from "../../equipamento-form";
 
 export default async function EditarEquipamentoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -12,8 +12,8 @@ export default async function EditarEquipamentoPage({ params }: { params: Promis
   if (!equipamento) notFound();
 
   const [certificadoUrl, seloUrl, certificadoBuf] = await Promise.all([
-    equipamento.pdf_certificado_calibracao_path ? signedUrl(equipamento.pdf_certificado_calibracao_path) : null,
-    equipamento.selo_imagem_path ? signedUrl(equipamento.selo_imagem_path) : null,
+    signedUrlSeguro(equipamento.pdf_certificado_calibracao_path),
+    signedUrlSeguro(equipamento.selo_imagem_path),
     baixarArquivoInterno(equipamento.pdf_certificado_calibracao_path),
   ]);
   // Detecta pelos bytes reais, não pela extensão do path — já existiu um

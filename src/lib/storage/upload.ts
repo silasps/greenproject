@@ -28,6 +28,23 @@ export async function signedUrl(path: string, expiresInSeconds = 3600) {
   return data.signedUrl;
 }
 
+/**
+ * Mesma ideia do `baixarArquivoInterno` abaixo: um path salvo no banco mas
+ * ausente/corrompido no Storage (upload que falhou na metade, arquivo
+ * apagado manualmente) não pode derrubar a página inteira num Server
+ * Component só porque um link assinado não pôde ser gerado — engole o erro
+ * e deixa quem chamou decidir o que mostrar no lugar (ex.: não renderizar
+ * aquela foto/certificado).
+ */
+export async function signedUrlSeguro(path: string | null | undefined, expiresInSeconds = 3600): Promise<string | null> {
+  if (!path) return null;
+  try {
+    return await signedUrl(path, expiresInSeconds);
+  } catch {
+    return null;
+  }
+}
+
 export async function baixarArquivoInterno(pathNoBucket: string | null | undefined): Promise<Buffer | null> {
   if (!pathNoBucket) return null;
   const admin = createAdminClient();
