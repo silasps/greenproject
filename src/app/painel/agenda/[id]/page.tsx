@@ -29,10 +29,11 @@ import { onlyDigits } from "@/lib/utils/mascaras";
 import { cn } from "@/lib/utils";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { iniciarExecucaoTeste, vincularVeiculo, emitirPropostaPdf, excluirTeste } from "../actions";
+import { iniciarExecucaoTeste, emitirPropostaPdf, excluirTeste } from "../actions";
 import { AceitarPropostaButton } from "../aceitar-proposta-button";
 import { ReenviarEmailButton } from "./reenviar-email-button";
 import { ContatoAgendamentoCard } from "./contato-agendamento-card";
+import { VincularVeiculoButton } from "./vincular-veiculo-form";
 
 function formatarMoeda(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -340,6 +341,16 @@ export default async function AgendamentoDetalhePage({
       }`
     : undefined;
 
+  const veiculos =
+    podeGerenciar && cliente?.status === "completo" && !agendamento.veiculo_id
+      ? (
+          await supabase
+            .from("veiculos_maquinas")
+            .select("id, identificador, marca, modelo")
+            .eq("cliente_id", agendamento.cliente_id)
+        ).data
+      : null;
+
   const passos: Passo[] = [
     {
       label: "Cadastro do cliente completo",
@@ -356,14 +367,12 @@ export default async function AgendamentoDetalhePage({
       label: "Veículo/equipamento vinculado",
       feito: !!agendamento.veiculo_id,
       // Concluído: vai direto pra edição (ícone/texto do passo já servem de
-      // atalho, sem precisar de um botão extra). Pendente: rola até o form
-      // de vincular, mais abaixo na própria página.
-      href: agendamento.veiculo_id ? `/painel/clientes/${agendamento.cliente_id}` : "#vincular-veiculo",
+      // atalho, sem precisar de um botão extra). Pendente: sem href — a
+      // ação abre modal (abaixo), não navega/rola pra lugar nenhum.
+      href: agendamento.veiculo_id ? `/painel/clientes/${agendamento.cliente_id}` : undefined,
       icon: Car,
       acao: podeGerenciar && clientePronto && !agendamento.veiculo_id && (
-        <a href="#vincular-veiculo" className={botaoClasse}>
-          Vincular veículo/equipamento
-        </a>
+        <VincularVeiculoButton agendamentoId={agendamento.id} clienteId={agendamento.cliente_id} veiculos={veiculos ?? []} />
       ),
     },
     {
@@ -403,16 +412,6 @@ export default async function AgendamentoDetalhePage({
       subpassos: subpassosExecucao,
     },
   ];
-
-  const veiculos =
-    podeGerenciar && cliente?.status === "completo" && !agendamento.veiculo_id
-      ? (
-          await supabase
-            .from("veiculos_maquinas")
-            .select("id, identificador, marca, modelo")
-            .eq("cliente_id", agendamento.cliente_id)
-        ).data
-      : null;
 
   const mensagemWpp = proposta
     ? `Olá ${cliente?.nome ?? ""}! Segue o orçamento do teste de opacidade: ${formatarMoeda(proposta.valor_total)}. Pra ver os detalhes e confirmar, acesse: ${COMPANY.siteUrl}/proposta/${proposta.token}`
@@ -540,30 +539,6 @@ export default async function AgendamentoDetalhePage({
             </Cartao>
           )}
 
-          {podeGerenciar && cliente?.status === "completo" && !agendamento.veiculo_id && (
-            <Cartao icon={Car} titulo="Vincular veículo/equipamento" id="vincular-veiculo">
-              {veiculos && veiculos.length > 0 ? (
-                <form action={vincularVeiculo} className="flex flex-col gap-2">
-                  <input type="hidden" name="agendamento_id" value={agendamento.id} />
-                  <select name="veiculo_id" required className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm">
-                    <option value="">Selecione...</option>
-                    {veiculos.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.identificador} {[v.marca, v.modelo].filter(Boolean).join(" ")}
-                      </option>
-                    ))}
-                  </select>
-                  <SubmitButton pendingLabel="Vinculando..." className="w-full rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-dark">
-                    Vincular
-                  </SubmitButton>
-                </form>
-              ) : (
-                <Link href={`/painel/clientes/${agendamento.cliente_id}`} className="text-sm text-brand hover:underline">
-                  Cadastrar veículo/equipamento no cadastro do cliente →
-                </Link>
-              )}
-            </Cartao>
-          )}
         </div>
       </div>
     </div>
