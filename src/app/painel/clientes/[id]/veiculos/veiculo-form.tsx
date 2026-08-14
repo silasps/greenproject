@@ -74,7 +74,9 @@ export function VeiculoForm({
   const [modelo, setModelo] = useState(veiculo?.modelo ?? "");
   const [marcasFipe, setMarcasFipe] = useState<MarcaFipe[]>([]);
   const [modelosFipe, setModelosFipe] = useState<string[]>([]);
-  const [combustivel, setCombustivel] = useState(veiculo?.combustivel ?? "");
+  // Diesel como padrão — é o único tipo de motor que a empresa testa (opacidade
+  // só se aplica a motor diesel), evita ter que digitar em quase todo cadastro.
+  const [combustivel, setCombustivel] = useState(veiculo?.combustivel ?? "Diesel");
   const [ano, setAno] = useState(veiculo?.ano?.toString() ?? "");
   const [motor, setMotor] = useState(veiculo?.identificacao_motor ?? "");
   const motorRef = useRef(motor);
@@ -85,6 +87,12 @@ export function VeiculoForm({
   const [limiteOpacidade, setLimiteOpacidade] = useState(especificacao?.limite_opacidade?.toString() ?? "");
   const [buscaMotorMsg, setBuscaMotorMsg] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
+  // Não é indispensável pro cadastro em si (marcha lenta/rotação de
+  // corte/limite de opacidade são só referência pro laudo — quem decide
+  // aprovado/reprovado é o opacímetro no campo, configurado pelo técnico
+  // na hora do teste). Some por padrão pra não complicar o cadastro de um
+  // veículo novo; já vem aberto se a edição já tiver algo preenchido.
+  const [mostrarMotor, setMostrarMotor] = useState(!!(veiculo?.identificacao_motor || especificacao));
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -135,6 +143,7 @@ export function VeiculoForm({
     if (!data?.identificacao_motor || motorRef.current.trim()) return;
 
     setMotor(data.identificacao_motor);
+    setMostrarMotor(true);
     setBuscaMotorMsg("Motor e limites preenchidos a partir de um veículo já cadastrado desse modelo.");
     const espec = data.especificacoes_motor as unknown as EspecificacaoMotor | null;
     if (espec) {
@@ -332,6 +341,16 @@ export function VeiculoForm({
         </div>
       )}
 
+      {!mostrarMotor ? (
+        <button
+          type="button"
+          onClick={() => setMostrarMotor(true)}
+          className="w-full rounded-md border border-dashed border-neutral-300 p-3 text-left text-sm text-neutral-500 hover:border-brand hover:text-brand"
+        >
+          + Informar especificação do motor (opcional — marcha lenta, rotação de corte e
+          limite de opacidade, usados como referência no laudo)
+        </button>
+      ) : (
       <div className="rounded-md border border-neutral-200 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
@@ -339,7 +358,9 @@ export function VeiculoForm({
             <InfoTooltip>
               Código de identificação do motor, gravado na etiqueta/bloco do motor ou no
               manual do fabricante. Usado pra localizar automaticamente os limites já
-              cadastrados pra esse motor (botão &ldquo;Buscar especificação&rdquo;).
+              cadastrados pra esse motor (botão &ldquo;Buscar especificação&rdquo;). Nenhum
+              desses campos é obrigatório — quem decide aprovado/reprovado é o opacímetro
+              no campo, configurado pelo técnico na hora do teste.
             </InfoTooltip>
           </div>
           <Button type="button" variant="outline" size="sm" disabled={buscando} onClick={buscarMotor}>
@@ -421,6 +442,7 @@ export function VeiculoForm({
           />
         </div>
       </div>
+      )}
 
       <div className="flex gap-3">
         <Button type="submit" disabled={pending} className="bg-brand hover:bg-brand-dark">
