@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
+import type { ReactNode, ComponentProps } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -36,6 +36,17 @@ import { ContatoAgendamentoCard } from "./contato-agendamento-card";
 
 function formatarMoeda(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/**
+ * `next/link` para uma âncora de mesma página (`#id`) não rola até o
+ * elemento de forma confiável no App Router — clicar parece não fazer
+ * nada. Pra âncora usa `<a>` nativo (scroll de navegador de verdade); pra
+ * rota de verdade continua no `Link` (navegação client-side do Next).
+ */
+function LinkOuAncora({ href, ...props }: { href: string } & Omit<ComponentProps<"a">, "href">) {
+  if (href.startsWith("#")) return <a href={href} {...props} />;
+  return <Link href={href} {...props} />;
 }
 
 const STATUS_LABEL: Record<string, string> = { enviada: "Aguardando aceite", aceita: "Aceita", expirada: "Expirada" };
@@ -134,12 +145,12 @@ function PassoAPasso({ passos }: { passos: Passo[] }) {
                 )}
               />
             )}
-            <Link href={passo.href ?? "#"} aria-label={passo.label} title={passo.label} className="relative z-10 shrink-0">
+            <LinkOuAncora href={passo.href ?? "#"} aria-label={passo.label} title={passo.label} className="relative z-10 shrink-0">
               <Bolinha passo={passo} atual={i === atualIndex} />
-            </Link>
+            </LinkOuAncora>
             <div className="min-w-0 flex-1 pt-1">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-                <Link
+                <LinkOuAncora
                   href={passo.href ?? "#"}
                   className={cn(
                     "text-sm",
@@ -147,7 +158,7 @@ function PassoAPasso({ passos }: { passos: Passo[] }) {
                   )}
                 >
                   {passo.label}
-                </Link>
+                </LinkOuAncora>
                 {passo.acao}
               </div>
               {passo.subpassos && (
@@ -327,9 +338,9 @@ export default async function AgendamentoDetalhePage({
       href: agendamento.veiculo_id ? `/painel/clientes/${agendamento.cliente_id}` : "#vincular-veiculo",
       icon: Car,
       acao: podeGerenciar && clientePronto && !agendamento.veiculo_id && (
-        <Link href="#vincular-veiculo" className={botaoClasse}>
+        <a href="#vincular-veiculo" className={botaoClasse}>
           Vincular veículo/equipamento
-        </Link>
+        </a>
       ),
     },
     {
