@@ -145,20 +145,37 @@ function PassoAPasso({ passos }: { passos: Passo[] }) {
                 )}
               />
             )}
-            <LinkOuAncora href={passo.href ?? "#"} aria-label={passo.label} title={passo.label} className="relative z-10 shrink-0">
-              <Bolinha passo={passo} atual={i === atualIndex} />
-            </LinkOuAncora>
+            {passo.href ? (
+              <LinkOuAncora href={passo.href} aria-label={passo.label} title={passo.label} className="relative z-10 shrink-0">
+                <Bolinha passo={passo} atual={i === atualIndex} />
+              </LinkOuAncora>
+            ) : (
+              <span className="relative z-10 shrink-0">
+                <Bolinha passo={passo} atual={i === atualIndex} />
+              </span>
+            )}
             <div className="min-w-0 flex-1 pt-1">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-                <LinkOuAncora
-                  href={passo.href ?? "#"}
-                  className={cn(
-                    "text-sm",
-                    passo.feito ? "text-neutral-500" : i === atualIndex ? "font-medium text-neutral-900" : "text-neutral-400",
-                  )}
-                >
-                  {passo.label}
-                </LinkOuAncora>
+                {passo.href ? (
+                  <LinkOuAncora
+                    href={passo.href}
+                    className={cn(
+                      "text-sm",
+                      passo.feito ? "text-neutral-500" : i === atualIndex ? "font-medium text-neutral-900" : "text-neutral-400",
+                    )}
+                  >
+                    {passo.label}
+                  </LinkOuAncora>
+                ) : (
+                  <span
+                    className={cn(
+                      "text-sm",
+                      passo.feito ? "text-neutral-500" : i === atualIndex ? "font-medium text-neutral-900" : "text-neutral-400",
+                    )}
+                  >
+                    {passo.label}
+                  </span>
+                )}
                 {passo.acao}
               </div>
               {passo.subpassos && (
