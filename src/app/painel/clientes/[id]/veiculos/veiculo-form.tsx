@@ -8,25 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ErrorModal } from "@/components/error-modal";
 import { onlyDigits } from "@/lib/utils/mascaras";
-import { buscarMarcasFipe, buscarModelosFipe, type MarcaFipe } from "@/lib/veiculos/fipe";
+import { buscarMarcasFipe, buscarModelosFipe, extrairCombustivel, type MarcaFipe } from "@/lib/veiculos/fipe";
 import { MarcaModeloCombobox } from "./marca-modelo-combobox";
 import { EspecificacaoMotorFields, type EspecificacaoMotorValues } from "./especificacao-motor-fields";
 import { salvarVeiculo, atualizarVeiculo } from "./actions";
-
-/** Nome de modelo da FIPE geralmente traz o combustível embutido (ex.: "Etios XLS 1.5 Flex 16V"). */
-const COMBUSTIVEIS_FIPE: { regex: RegExp; label: string }[] = [
-  { regex: /\bflex\b/i, label: "Flex" },
-  { regex: /\bdiesel\b/i, label: "Diesel" },
-  { regex: /\bel[ée]tric[oa]\b/i, label: "Elétrico" },
-  { regex: /\bh[íi]brid[oa]\b/i, label: "Híbrido" },
-  { regex: /\bgnv\b/i, label: "GNV" },
-  { regex: /\b[aá]lcool\b/i, label: "Álcool" },
-  { regex: /\bgasolina\b/i, label: "Gasolina" },
-];
-
-function extrairCombustivel(texto: string): string | null {
-  return COMBUSTIVEIS_FIPE.find(({ regex }) => regex.test(texto))?.label ?? null;
-}
 
 type EspecificacaoMotor = {
   marcha_lenta_min: number | null;
@@ -34,6 +19,16 @@ type EspecificacaoMotor = {
   rotacao_corte_min: number | null;
   rotacao_corte_max: number | null;
   limite_opacidade: number | null;
+};
+
+type EspecificacaoComModelo = {
+  identificacaoMotor: string;
+  origem: "importado_anfavea" | "manual";
+  marchaLentaMin: number | null;
+  marchaLentaMax: number | null;
+  rotacaoCorteMin: number | null;
+  rotacaoCorteMax: number | null;
+  limiteOpacidade: number | null;
 };
 
 export type VeiculoEdicao = {
@@ -85,54 +80,85 @@ export function VeiculoForm({
   const [rotacaoCorteMin, setRotacaoCorteMin] = useState(especificacao?.rotacao_corte_min?.toString() ?? "");
   const [rotacaoCorteMax, setRotacaoCorteMax] = useState(especificacao?.rotacao_corte_max?.toString() ?? "");
   const [limiteOpacidade, setLimiteOpacidade] = useState(especificacao?.limite_opacidade?.toString() ?? "");
-  // Não é indispensável pro cadastro em si (marcha lenta/rotação de
-  // corte/limite de opacidade são só referência pro laudo — quem decide
-  // aprovado/reprovado é o opacímetro no campo, configurado pelo técnico
-  // na hora do teste). Some por padrão pra não complicar o cadastro de um
-  // veículo novo; já vem aberto se a edição já tiver algo preenchido.
-  const [mostrarMotor, setMostrarMotor] = useState(!!(veiculo?.identificacao_motor || especificacao));
+  // Modelos dessa marca com especificação de motor já confirmada (ANFAVEA
+  // ou cadastro manual anterior) — alimenta as sugestões do combobox de
+  // "Modelo" (junto com a FIPE) e a tabela de auto-preenchimento abaixo.
+  const [especificacoesPorModelo, setEspecificacoesPorModelo] = useState<Record<string, EspecificacaoComModelo>>({});
   // Mensagem do preenchimento automático por marca/modelo — distinta da mensagem
   // interna do botão "Buscar especificação" (essa vive dentro de EspecificacaoMotorFields).
   const [autoFillMsg, setAutoFillMsg] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  /** Mesma marca/modelo já foi cadastrado antes com um motor identificado? Reaproveita
-   * o motor e os limites, sem precisar que a pessoa saiba de cor a ID do motor. */
-  async function buscarEspecificacaoPorModelo(marcaValor: string, modeloValor: string) {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("veiculos_maquinas")
-      .select(
-        "identificacao_motor, especificacoes_motor(marcha_lenta_min, marcha_lenta_max, rotacao_corte_min, rotacao_corte_max, limite_opacidade)",
-      )
-      .eq("tipo_ativo", "veiculo")
-      .ilike("marca", marcaValor)
-      .ilike("modelo", modeloValor)
-      .not("identificacao_motor", "is", null)
-      .neq("identificacao_motor", "")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!data?.identificacao_motor || motorRef.current.trim()) return;
-
-    setMotor(data.identificacao_motor);
-    setMostrarMotor(true);
-    setAutoFillMsg("Motor e limites preenchidos a partir de um veículo já cadastrado desse modelo.");
-    const espec = data.especificacoes_motor as unknown as EspecificacaoMotor | null;
-    if (espec) {
-      setMarchaLentaMin(espec.marcha_lenta_min?.toString() ?? "");
-      setMarchaLentaMax(espec.marcha_lenta_max?.toString() ?? "");
-      setRotacaoCorteMin(espec.rotacao_corte_min?.toString() ?? "");
-      setRotacaoCorteMax(espec.rotacao_corte_max?.toString() ?? "");
-      setLimiteOpacidade(espec.limite_opacidade?.toString() ?? "");
-    }
-  }
-
   useEffect(() => {
     motorRef.current = motor;
   }, [motor]);
+
+  /** Todo modelo dessa marca com especificação já confirmada — texto de modelo vem
+   * tanto de import ANFAVEA quanto de cadastro manual anterior (ver upsertEspecificacaoMotor). */
+  async function buscarModelosComEspecificacao(marcaValor: string) {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("especificacoes_motor")
+      .select(
+        "modelo, identificacao_motor, origem, marcha_lenta_min, marcha_lenta_max, rotacao_corte_min, rotacao_corte_max, limite_opacidade",
+      )
+      .eq("status", "confirmado")
+      .ilike("marca", marcaValor)
+      .not("modelo", "is", null);
+
+    const mapa: Record<string, EspecificacaoComModelo> = {};
+    for (const linha of data ?? []) {
+      if (!linha.modelo) continue;
+      mapa[linha.modelo] = {
+        identificacaoMotor: linha.identificacao_motor,
+        origem: linha.origem as "importado_anfavea" | "manual",
+        marchaLentaMin: linha.marcha_lenta_min,
+        marchaLentaMax: linha.marcha_lenta_max,
+        rotacaoCorteMin: linha.rotacao_corte_min,
+        rotacaoCorteMax: linha.rotacao_corte_max,
+        limiteOpacidade: linha.limite_opacidade,
+      };
+    }
+    setEspecificacoesPorModelo(mapa);
+  }
+
+  // Busca ao digitar a marca (debounce — evita bater no banco a cada tecla).
+  useEffect(() => {
+    if (tipoAtivo !== "veiculo") return;
+    const timeout = setTimeout(() => {
+      if (!marca.trim()) {
+        setEspecificacoesPorModelo({});
+        return;
+      }
+      buscarModelosComEspecificacao(marca.trim());
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [marca, tipoAtivo]);
+
+  // Preenche motor+limites assim que o modelo digitado/selecionado bate com um
+  // já confirmado — só em cadastro novo (edição já tem seus próprios dados) e só
+  // se a pessoa ainda não tiver digitado um motor manualmente.
+  useEffect(() => {
+    if (veiculo || tipoAtivo !== "veiculo" || !modelo.trim() || motorRef.current.trim()) return;
+    const espec = especificacoesPorModelo[modelo.trim()];
+    if (!espec) return;
+
+    const timeout = setTimeout(() => {
+      setMotor(espec.identificacaoMotor);
+      setAutoFillMsg(
+        espec.origem === "importado_anfavea"
+          ? "Motor e limites preenchidos a partir da tabela oficial da ANFAVEA."
+          : "Motor e limites preenchidos a partir de um veículo já cadastrado desse modelo.",
+      );
+      setMarchaLentaMin(espec.marchaLentaMin?.toString() ?? "");
+      setMarchaLentaMax(espec.marchaLentaMax?.toString() ?? "");
+      setRotacaoCorteMin(espec.rotacaoCorteMin?.toString() ?? "");
+      setRotacaoCorteMax(espec.rotacaoCorteMax?.toString() ?? "");
+      setLimiteOpacidade(espec.limiteOpacidade?.toString() ?? "");
+    }, 0);
+    return () => clearTimeout(timeout);
+  }, [modelo, especificacoesPorModelo, veiculo, tipoAtivo]);
 
   // Combustível costuma vir embutido no nome do modelo da FIPE — preenche sozinho
   // se a pessoa ainda não tiver digitado nada nesse campo.
@@ -141,14 +167,6 @@ export function VeiculoForm({
     const detectado = extrairCombustivel(valor);
     if (detectado) setCombustivel((atual) => atual || detectado);
   }
-
-  // Só busca em cadastro novo (edição já tem seus próprios dados) e só se a pessoa
-  // ainda não digitou um motor manualmente. Debounce pra não bater no banco a cada tecla.
-  useEffect(() => {
-    if (veiculo || tipoAtivo !== "veiculo" || !marca.trim() || !modelo.trim()) return;
-    const timeout = setTimeout(() => buscarEspecificacaoPorModelo(marca, modelo), 500);
-    return () => clearTimeout(timeout);
-  }, [modelo, marca, veiculo, tipoAtivo]);
 
   async function carregarMarcasFipe() {
     if (marcasFipe.length > 0) return;
@@ -257,7 +275,7 @@ export function VeiculoForm({
               name="modelo"
               value={modelo}
               onValueChange={handleModeloChange}
-              itens={modelosFipe}
+              itens={Array.from(new Set([...Object.keys(especificacoesPorModelo), ...modelosFipe]))}
               placeholder={modelosFipe.length > 0 ? "Digite para buscar" : "Selecione a marca primeiro"}
             />
           ) : (
@@ -325,32 +343,25 @@ export function VeiculoForm({
         </div>
       )}
 
-      {!mostrarMotor ? (
-        <button
-          type="button"
-          onClick={() => setMostrarMotor(true)}
-          className="w-full rounded-md border border-dashed border-neutral-300 p-3 text-left text-sm text-neutral-500 hover:border-brand hover:text-brand"
-        >
-          + Informar especificação do motor (opcional — marcha lenta, rotação de corte e
-          limite de opacidade, usados como referência no laudo)
-        </button>
-      ) : (
-        <div className="space-y-2">
-          {autoFillMsg && <p className="text-xs text-neutral-500">{autoFillMsg}</p>}
-          <EspecificacaoMotorFields
-            marca={marca}
-            values={{
-              identificacaoMotor: motor,
-              marchaLentaMin,
-              marchaLentaMax,
-              rotacaoCorteMin,
-              rotacaoCorteMax,
-              limiteOpacidade,
-            }}
-            onChange={handleMotorFieldsChange}
-          />
-        </div>
-      )}
+      <div className="space-y-2">
+        <p className="text-xs text-neutral-500">
+          Opcional — marcha lenta, rotação de corte e limite de opacidade, usados como referência no laudo. Preenche
+          sozinho ao escolher um modelo com especificação já confirmada.
+        </p>
+        {autoFillMsg && <p className="text-xs font-medium text-brand-dark">{autoFillMsg}</p>}
+        <EspecificacaoMotorFields
+          marca={marca}
+          values={{
+            identificacaoMotor: motor,
+            marchaLentaMin,
+            marchaLentaMax,
+            rotacaoCorteMin,
+            rotacaoCorteMax,
+            limiteOpacidade,
+          }}
+          onChange={handleMotorFieldsChange}
+        />
+      </div>
 
       <div className="flex gap-3">
         <Button type="submit" disabled={pending} className="bg-brand hover:bg-brand-dark">

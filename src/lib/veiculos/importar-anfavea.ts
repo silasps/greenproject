@@ -7,7 +7,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import crypto from "node:crypto";
-import { parseTabelaAnfavea } from "./parse-anfavea";
+import { parseTabelaAnfavea, ConteudoInvalidoError } from "./parse-anfavea";
 
 export type ResultadoImportacaoAnfavea = {
   importadas: number;
@@ -40,6 +40,10 @@ export async function importarTabelaAnfaveaInterno(
     try {
       linhas = await parseTabelaAnfavea(buffer);
     } catch (e) {
+      // PDF nem é da ANFAVEA (sem a referência regulatória) — propaga sem gravar nada,
+      // nem a fonte. Diferente de "é da ANFAVEA mas layout não reconhecível" (abaixo),
+      // que segue e grava a fonte pra manter monitorado (cai pro cadastro manual).
+      if (e instanceof ConteudoInvalidoError) throw e;
       erroParse = e instanceof Error ? e.message : "Erro ao interpretar o PDF.";
     }
   }
@@ -77,6 +81,7 @@ export async function importarTabelaAnfaveaInterno(
     const { error } = await admin.from("especificacoes_motor").upsert(
       {
         marca,
+        modelo: linha.modelo === "(modelo não identificado)" ? null : linha.modelo,
         identificacao_motor: linha.identificacaoMotor,
         marcha_lenta_min: linha.marchaLentaMin,
         marcha_lenta_max: linha.marchaLentaMax,

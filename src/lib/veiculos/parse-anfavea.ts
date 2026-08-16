@@ -25,6 +25,14 @@
 // `src/app/painel/especificacoes-motor/actions.ts`), mesmo vindo direto
 // da fonte oficial.
 
+/**
+ * PDF nem é uma tabela oficial da ANFAVEA (sem a referência regulatória) — diferente
+ * de "é da ANFAVEA mas o layout não é reconhecível" (erro genérico, tratado como falha
+ * de parser: a fonte ainda é gravada/monitorada). Esse aqui quem chama deve propagar
+ * sem gravar nada — ver `importarTabelaAnfaveaInterno`.
+ */
+export class ConteudoInvalidoError extends Error {}
+
 export type LinhaAnfavea = {
   modelo: string;
   identificacaoMotor: string;
@@ -241,8 +249,23 @@ function consolidarColunas(colunas: Coluna[]): { campo: Campo; min: Coluna; max:
   return resultado;
 }
 
+// Referência regulatória que toda tabela oficial da ANFAVEA cita (ex.: "Instrução
+// Normativa Ibama No 127, de 24 de outubro de 2006") — confere isso ANTES de tentar
+// achar colunas, pra rejeitar de cara um PDF qualquer (não-ANFAVEA, ou uma tabela da
+// ANFAVEA que não é de emissões diesel) em vez de arriscar "reconhecer" colunas por
+// coincidência de palavra-chave num documento errado.
+const REFERENCIA_REGULATORIA = /IBAMA.{0,20}127|PROCONVE/i;
+
 export async function parseTabelaAnfavea(buffer: Buffer): Promise<LinhaAnfavea[]> {
   const paginas = await extrairFragmentos(buffer);
+
+  const textoCompleto = paginas.flat().map((f) => f.str).join(" ");
+  if (!REFERENCIA_REGULATORIA.test(textoCompleto)) {
+    throw new ConteudoInvalidoError(
+      "Esse PDF não parece ser uma tabela oficial de emissões da ANFAVEA (não encontrei a referência à Instrução Normativa Ibama 127/2006 nem ao PROCONVE). Confira a URL antes de importar.",
+    );
+  }
+
   const linhasResultado: LinhaAnfavea[] = [];
 
   for (const frags of paginas) {

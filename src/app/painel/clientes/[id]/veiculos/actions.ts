@@ -13,6 +13,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 async function upsertEspecificacaoMotor(admin: ReturnType<typeof createAdminClient>, marca: string, formData: FormData) {
   const identificacaoMotor = String(formData.get("identificacao_motor") || "").trim();
+  // Só existe em `montarPayloadVeiculo` (form de veículo tem campo "modelo"); o mini-form
+  // de campo (`salvarEspecificacaoMotor`) não tem esse input, fica null — sem problema.
+  const modelo = String(formData.get("modelo") || "").trim() || null;
   const marchaLentaMin = numOrNull(formData.get("marcha_lenta_min"));
   const marchaLentaMax = numOrNull(formData.get("marcha_lenta_max"));
   const rotacaoCorteMin = numOrNull(formData.get("rotacao_corte_min"));
@@ -32,6 +35,10 @@ async function upsertEspecificacaoMotor(admin: ReturnType<typeof createAdminClie
     await admin
       .from("especificacoes_motor")
       .update({
+        // Só sobrescreve modelo se vier um novo — não some um modelo já
+        // registrado (ex.: importado da ANFAVEA) só porque essa chamada
+        // veio do mini-form de campo, que não tem esse input.
+        ...(modelo ? { modelo } : {}),
         marcha_lenta_min: marchaLentaMin,
         marcha_lenta_max: marchaLentaMax,
         rotacao_corte_min: rotacaoCorteMin,
@@ -48,6 +55,7 @@ async function upsertEspecificacaoMotor(admin: ReturnType<typeof createAdminClie
     .from("especificacoes_motor")
     .insert({
       marca,
+      modelo,
       identificacao_motor: identificacaoMotor,
       marcha_lenta_min: marchaLentaMin,
       marcha_lenta_max: marchaLentaMax,

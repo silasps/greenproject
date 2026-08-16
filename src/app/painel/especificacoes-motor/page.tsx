@@ -3,6 +3,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ImportarTabelaForm } from "./importar-tabela-form";
 import { FontesLista } from "./fontes-lista";
 import { PendentesLista } from "./pendentes-lista";
+import { AdicionarManualForm } from "./adicionar-manual-form";
+
+// "Verificar todos" chama uma server action que processa cada marca sequencialmente —
+// pode passar bem do timeout padrão (ver maxDuration.md dos docs do Next.js: define o
+// limite pra toda Server Action disparada nesta página). Vercel ainda pode limitar
+// conforme o plano (Hobby trava em 60s independente disso).
+export const maxDuration = 300;
 
 export default async function EspecificacoesMotorPage({
   searchParams,
@@ -33,8 +40,9 @@ export default async function EspecificacoesMotorPage({
       </p>
 
       <ImportarTabelaForm marcaInicial={marca ?? ""} />
-      <FontesLista fontes={fontes ?? []} />
+      <FontesLista fontes={fontes ?? []} totalFontes={(fontes ?? []).length} />
       <PendentesLista pendentes={pendentes ?? []} />
+      <AdicionarManualForm />
     </div>
   );
 }

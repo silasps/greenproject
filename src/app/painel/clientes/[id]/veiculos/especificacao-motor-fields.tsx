@@ -40,10 +40,17 @@ export function EspecificacaoMotorFields({
   idPrefix?: string;
 }) {
   const [buscando, setBuscando] = useState(false);
-  const [resultado, setResultado] = useState<{ encontrado: boolean } | null>(null);
+  const [resultado, setResultado] = useState<{ encontrado: boolean } | { erro: string } | null>(null);
 
   async function buscarMotor() {
-    if (!marca || !values.identificacaoMotor) return;
+    if (!marca.trim()) {
+      setResultado({ erro: "Preencha a marca antes de buscar." });
+      return;
+    }
+    if (!values.identificacaoMotor.trim()) {
+      setResultado({ erro: "Digite a identificação do motor antes de buscar (ex: OM904LA)." });
+      return;
+    }
     setBuscando(true);
     setResultado(null);
     const supabase = createClient();
@@ -99,9 +106,17 @@ export function EspecificacaoMotorFields({
       <Dialog open={resultado !== null} onOpenChange={(open) => !open && setResultado(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{resultado?.encontrado ? "Motor encontrado" : "Motor não encontrado"}</DialogTitle>
+            <DialogTitle>
+              {resultado && "erro" in resultado
+                ? "Não deu pra buscar"
+                : resultado?.encontrado
+                  ? "Motor encontrado"
+                  : "Motor não encontrado"}
+            </DialogTitle>
           </DialogHeader>
-          {resultado?.encontrado ? (
+          {resultado && "erro" in resultado ? (
+            <p className="text-sm text-neutral-600">{resultado.erro}</p>
+          ) : resultado?.encontrado ? (
             <p className="text-sm text-neutral-600">
               Preenchido a partir de um cadastro existente pra <strong>{marca} {values.identificacaoMotor}</strong> —
               confira os valores abaixo antes de salvar.
