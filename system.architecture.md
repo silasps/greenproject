@@ -215,16 +215,21 @@ created_at, updated_at (trigger)
 em `cnpj_cpf` permite múltiplos `NULL` (comportamento padrão do Postgres).
 Staff lê; `escritorio+` insere/atualiza.
 
-### 6.5 `fontes_anfavea` (schema presente, **não usado no app hoje**)
+### 6.5 `fontes_anfavea`
 ```
 id uuid PK, marca text unique, url_tabela_pdf text not null,
 hash_ultimo_conteudo text, verificado_em timestamptz,
 atualizacao_disponivel boolean default false, created_at
 ```
-Pensado pra um futuro monitor automático das tabelas ANFAVEA (marcha
-lenta/rotação de corte por marca/motor) — nenhuma rota do app lê/escreve
-aqui ainda. Reconstruir: pode pular esta tabela na v1 sem perder
-funcionalidade, ou mantê-la como está (reservada).
+Uma linha por marca monitorada — semeada por `0033_seed_fontes_anfavea.sql`
+com ~16 URLs reais de tabelas diesel da ANFAVEA (padrão
+`anfavea.com.br/Emissoes/diesel/TABELAEMISSOESDIESEL{MARCA}.pdf`, mais
+Volkswagen que usa outra URL). Verificada automaticamente a cada 3 meses
+pelo cron `atualizar-anfavea` (ver 15.x) ou sob demanda pelo botão
+"Verificar agora" em `/painel/especificacoes-motor` — hash muda →
+reimporta (`importarTabelaAnfaveaInterno`, `src/lib/veiculos/importar-anfavea.ts`).
+Mais marcas: form "Importar tabela de uma marca" na mesma tela, não
+precisa de código novo.
 
 ### 6.6 `especificacoes_motor`
 ```
@@ -236,9 +241,26 @@ origem text default 'manual' check in ('importado_anfavea','manual'),
 status text default 'confirmado' check in ('pendente_revisao','confirmado'),
 created_at
 ```
-Unique em `(marca, identificacao_motor)`. Preenchida manualmente no
-cadastro do veículo (upsert por marca+motor — ver 6.7/ação
-`salvarVeiculo`), não há importação ANFAVEA automática implementada.
+Unique em `(marca, identificacao_motor)`. Duas origens: manual (cadastro
+do veículo/campo, upsert por marca+motor, `status='confirmado'` direto —
+ver 6.7/ação `salvarVeiculo`) ou `importado_anfavea` (parser genérico
+`src/lib/veiculos/parse-anfavea.ts`, sempre nasce `pendente_revisao` —
+nunca sobrescreve uma linha já `confirmado` pro mesmo marca+motor, mesmo
+vindo de fonte oficial). Confirmar/descartar pendências:
+`/painel/especificacoes-motor` (`canGerenciarEspecificacoesMotor`,
+escritório+).
+
+**Parser ANFAVEA** (`parse-anfavea.ts`) é header-driven, não uma receita
+fixa por marca: lê o bloco de cabeçalho (que costuma quebrar em 2-3
+linhas), agrupa fragmentos de texto em colunas por posição X e casa cada
+coluna com um campo por palavra-chave; tenta várias notações de célula
+(faixa direta, tolerância ±simétrica/assimétrica, 3 colunas prontas de
+mín/típico/máx). Só cobre tabelas **linha por veículo** — alguns
+fabricantes publicam a tabela **transposta** (cada coluna é um veículo,
+ex. Scania/Toyota/Fiat, confirmado inspecionando os PDFs reais) e isso não
+é interpretado (arriscado extrair por posição sem conferência visual);
+`parseTabelaAnfavea` lança erro claro nesse caso e a marca cai pra
+cadastro manual (a fonte continua monitorada normalmente).
 
 ### 6.7 `veiculos_maquinas`
 ```
@@ -1152,29 +1174,23 @@ clusters, só que por linha em vez de coluna).
     "executar" só é possível depois que cliente+veículo estão completos).
 
 ### 8.5 Execução do teste (`painel/testes/[testeId]/`)
-Fluxo em 3 etapas, sem bloqueio rígido de campo entre elas — com uma
-exceção deliberada (especificação do motor, ver abaixo) além do botão
-final de "Liberar":
+Fluxo em 3 etapas, sem bloqueio rígido de campo entre elas — só o botão
+final de "Liberar" trava de verdade:
 1. **Campo** (`campo-wizard.tsx` → `salvarCampo`): fluxo em tela cheia
    (`fixed inset-0`, cobre até a sidebar), um passo por vez — pensado pra
    reduzir erro humano no celular. Tela de preparo: escolhe o equipamento
-   e resolve a **especificação do motor** (marcha lenta/rotação de
-   corte/limite de opacidade) — três desfechos possíveis, via
-   `CardEspecificacaoMotor`: já cadastrada no veículo (nada a fazer),
-   cadastrar ali mesmo (mini-form próprio, `EspecificacaoMotorFields`
-   reaproveitado do `VeiculoForm`, chama `salvarEspecificacaoMotorDoTeste`
-   — vincula ao veículo via `especificacoes_motor` e já preenche os
-   limites deste teste), ou declarar "já configurei no aparelho/app do
-   Syscon" (`marcarEspecificacaoMotorViaDispositivo`, marca
-   `testes_opacidade.especificacao_motor_via_dispositivo` — é só uma
-   promessa, conferida depois no backfill de `importarPdfSyscon` e, por
-   último, na trava de `liberarLaudo`). **"Concluir campo" fica desabilitado**
-   (e `salvarCampo` rejeita no servidor, mesma checagem espelhada) até um
-   dos três estar resolvido — motivo: esses limites só existiam antes se
-   alguém já tivesse cadastrado o motor dentro do app/dispositivo do
-   Syscon, um cadastro paralelo sem histórico neste sistema; virou etapa
-   explícita do processo, feita pelo escritório (cadastro do veículo,
-   `VeiculoForm`) ou pelo técnico em campo. Depois disso: 5 fotos
+   e, opcionalmente, a **especificação do motor** (marcha lenta/rotação de
+   corte/limite de opacidade) via `CardEspecificacaoMotor` — se já
+   cadastrada no veículo, só mostra; senão, mesmo toggle colapsado "+
+   Informar especificação do motor (opcional)" do `VeiculoForm`
+   (`EspecificacaoMotorFields` reaproveitado, chama
+   `salvarEspecificacaoMotorDoTeste`). **Não bloqueia "Concluir campo"** —
+   decisão deliberada: o opacímetro só imprime resultado porque já está
+   configurado com esses limites *antes* do teste (é o próprio PDF do
+   Syscon que os traz, ver etapa 2), então exigir confirmação de novo no
+   celular é redundante; a trava de verdade fica só em `liberarLaudo`/
+   `RevisaoSection` (via `resolverLimitesTeste`, ver 6.6), que já
+   considera tanto o PDF quanto o cadastro do veículo. Depois disso: 5 fotos
    obrigatórias em sequência (frente/traseira/painel/etiqueta
    completa/etiqueta só o número — convertidas pra WebP no browser antes
    do upload, `src/lib/utils/image-to-webp.ts`) pro bucket privado
@@ -1789,8 +1805,6 @@ opção, não obrigação, pra ter um sistema equivalente ao atual:
 
 - OTP/SMS no aceite de proposta (`propostas.otp_hash`/`otp_expira_em`
   existem, não são usados — aceite é só o token na URL + clique).
-- Importação automática de tabelas ANFAVEA (`fontes_anfavea` existe,
-  sem leitura/escrita no app).
 - Múltiplos tipos de teste além de opacidade (`tipo_teste` já tem o
   `check` pronto pra crescer, só "opacidade" existe).
 - "Áreas de acesso" como conceito de primeira classe (nota no fim da

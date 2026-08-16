@@ -118,7 +118,6 @@ async function CampoSection({ testeId, teste }: { testeId: string; teste: any })
             }
           : null
       }
-      especificacaoViaDispositivo={!!teste.especificacao_motor_via_dispositivo}
     />
   );
 }

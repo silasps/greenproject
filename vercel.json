@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/alertas-vencimento",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/atualizar-anfavea",
+      "schedule": "0 0 1 */3 *"
     }
   ]
 }

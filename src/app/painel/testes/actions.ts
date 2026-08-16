@@ -29,20 +29,6 @@ export async function salvarCampo(testeId: string, formData: FormData) {
   if (!numeroTeste) throw new Error("Número do teste é obrigatório.");
   if (!equipamentoId) throw new Error("Selecione o equipamento usado.");
 
-  const resultadoTeste = await admin
-    .from("testes_opacidade")
-    .select("especificacao_motor_via_dispositivo, veiculos_maquinas(especificacao_motor_id)")
-    .eq("id", testeId)
-    .single();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const teste = resultadoTeste.data as any;
-  if (!teste) throw new Error("Teste não encontrado.");
-  if (!teste.veiculos_maquinas?.especificacao_motor_id && !teste.especificacao_motor_via_dispositivo) {
-    throw new Error(
-      "Falta resolver a especificação do motor (cadastrar marcha lenta/rotação de corte/opacidade, ou declarar que já está configurado no aparelho do Syscon) antes de concluir o campo.",
-    );
-  }
-
   const update: Record<string, unknown> = {
     equipamento_id: equipamentoId,
     numero_teste: numeroTeste,
@@ -184,20 +170,6 @@ export async function salvarEspecificacaoMotorDoTeste(testeId: string, veiculoId
       .eq("id", testeId);
   }
 
-  revalidatePath(`/painel/testes/${testeId}`);
-}
-
-/** Técnico declara "já configurei os limites no aparelho/app do Syscon" — desbloqueia
- * "Concluir campo" sem exigir cadastro imediato; a promessa é conferida na importação do
- * PDF (backfill em `importarPdfSyscon`) e, por último, na trava de `liberarLaudo`. */
-export async function marcarEspecificacaoMotorViaDispositivo(testeId: string) {
-  await requireAuth();
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("testes_opacidade")
-    .update({ especificacao_motor_via_dispositivo: true })
-    .eq("id", testeId);
-  if (error) throw new Error(error.message);
   revalidatePath(`/painel/testes/${testeId}`);
 }
 

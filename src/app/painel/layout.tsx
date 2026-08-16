@@ -1,5 +1,5 @@
 import { requireAuth } from "@/lib/auth/session";
-import { canGerenciarUsuarios } from "@/lib/auth/permissions";
+import { canGerenciarUsuarios, canGerenciarEspecificacoesMotor } from "@/lib/auth/permissions";
 import { estaImpersonando, listarUsuariosParaImpersonar } from "@/lib/auth/impersonation";
 import { createClient } from "@/lib/supabase/server";
 import { getSecoesVisiveis } from "@/lib/kpis/visibilidade";
@@ -64,6 +64,12 @@ export default async function PainelLayout({
       label: "Site",
       key: "site" as const,
       show: secoesVisiveis.has("site"),
+    },
+    {
+      href: "/painel/especificacoes-motor",
+      label: "Especificações de Motor",
+      key: "especificacoes-motor" as const,
+      show: canGerenciarEspecificacoesMotor(perfil.role),
     },
     {
       href: "/painel/configuracoes",

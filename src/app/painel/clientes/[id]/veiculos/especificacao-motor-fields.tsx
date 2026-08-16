@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { InfoTooltip } from "@/components/info-tooltip";
 
@@ -36,13 +39,13 @@ export function EspecificacaoMotorFields({
   /** Só prefixa id/htmlFor (evita colisão se algum dia renderizar duas vezes na mesma página) — os `name` continuam fixos, é o que as server actions leem do FormData. */
   idPrefix?: string;
 }) {
-  const [buscaMotorMsg, setBuscaMotorMsg] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
+  const [resultado, setResultado] = useState<{ encontrado: boolean } | null>(null);
 
   async function buscarMotor() {
     if (!marca || !values.identificacaoMotor) return;
     setBuscando(true);
-    setBuscaMotorMsg(null);
+    setResultado(null);
     const supabase = createClient();
     const { data } = await supabase
       .from("especificacoes_motor")
@@ -54,7 +57,7 @@ export function EspecificacaoMotorFields({
     setBuscando(false);
 
     if (!data) {
-      setBuscaMotorMsg("Motor não encontrado — preencha os limites manualmente.");
+      setResultado({ encontrado: false });
       return;
     }
     onChange({
@@ -64,7 +67,7 @@ export function EspecificacaoMotorFields({
       rotacaoCorteMax: data.rotacao_corte_max?.toString() ?? "",
       limiteOpacidade: data.limite_opacidade?.toString() ?? "",
     });
-    setBuscaMotorMsg("Preenchido a partir de um cadastro existente.");
+    setResultado({ encontrado: true });
   }
 
   return (
@@ -81,7 +84,7 @@ export function EspecificacaoMotorFields({
           </InfoTooltip>
         </div>
         <Button type="button" variant="outline" size="sm" disabled={buscando} onClick={buscarMotor}>
-          {buscando ? "Buscando..." : "Buscar especificação"}
+          {buscando ? <Loader2 className="size-4 animate-spin" /> : "Buscar especificação"}
         </Button>
       </div>
       <Input
@@ -92,7 +95,38 @@ export function EspecificacaoMotorFields({
         value={values.identificacaoMotor}
         onChange={(e) => onChange({ identificacaoMotor: e.target.value })}
       />
-      {buscaMotorMsg && <p className="mt-2 text-xs text-neutral-500">{buscaMotorMsg}</p>}
+
+      <Dialog open={resultado !== null} onOpenChange={(open) => !open && setResultado(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{resultado?.encontrado ? "Motor encontrado" : "Motor não encontrado"}</DialogTitle>
+          </DialogHeader>
+          {resultado?.encontrado ? (
+            <p className="text-sm text-neutral-600">
+              Preenchido a partir de um cadastro existente pra <strong>{marca} {values.identificacaoMotor}</strong> —
+              confira os valores abaixo antes de salvar.
+            </p>
+          ) : (
+            <div className="space-y-2 text-sm text-neutral-600">
+              <p>
+                Nenhum cadastro confirmado pra <strong>{marca} {values.identificacaoMotor}</strong>. Preencha os
+                limites manualmente abaixo.
+              </p>
+              <p>
+                <Link
+                  href={`/painel/especificacoes-motor?marca=${encodeURIComponent(marca)}`}
+                  className="text-brand hover:underline"
+                >
+                  Importar tabela da marca pela ANFAVEA →
+                </Link>
+              </p>
+            </div>
+          )}
+          <Button type="button" variant="outline" onClick={() => setResultado(null)}>
+            Fechar
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
         <div className="space-y-2">

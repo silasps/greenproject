@@ -14,7 +14,7 @@ import {
   EspecificacaoMotorFields,
   type EspecificacaoMotorValues,
 } from "../../clientes/[id]/veiculos/especificacao-motor-fields";
-import { salvarCampo, salvarEspecificacaoMotorDoTeste, marcarEspecificacaoMotorViaDispositivo } from "../actions";
+import { salvarCampo, salvarEspecificacaoMotorDoTeste } from "../actions";
 
 type Equipamento = { id: string; label: string };
 
@@ -120,21 +120,13 @@ const VALORES_MOTOR_VAZIOS: EspecificacaoMotorValues = {
 };
 
 /**
- * Card de "especificação do motor" na fase "preparo" — três desfechos
- * possíveis: já cadastrada (nada a fazer), declarada como "vem do PDF do
- * dispositivo" (promessa, conferida depois na importação/`liberarLaudo`),
- * ou pendente (cadastra ali mesmo ou declara a promessa). Sem ela,
- * "Concluir campo" fica bloqueado — ver `bloqueadoPorMotor` no componente pai.
+ * Card de "especificação do motor" na fase "preparo" — opcional: se já
+ * cadastrada no veículo, só mostra; senão, mesmo toggle colapsado do
+ * `VeiculoForm`. Não bloqueia nada aqui — o opacímetro já precisa estar
+ * configurado com esses limites pra produzir qualquer resultado, então a
+ * trava de verdade fica só em `liberarLaudo`/`RevisaoSection`.
  */
-function CardEspecificacaoMotor({
-  testeId,
-  veiculo,
-  especificacaoViaDispositivo,
-}: {
-  testeId: string;
-  veiculo: VeiculoParaMotor;
-  especificacaoViaDispositivo: boolean;
-}) {
+function CardEspecificacaoMotor({ testeId, veiculo }: { testeId: string; veiculo: VeiculoParaMotor }) {
   const router = useRouter();
   const [mostrarForm, setMostrarForm] = useState(false);
   const [valores, setValores] = useState<EspecificacaoMotorValues>(
@@ -162,18 +154,6 @@ function CardEspecificacaoMotor({
       try {
         await salvarEspecificacaoMotorDoTeste(testeId, veiculo!.id, formData);
         setMostrarForm(false);
-        router.refresh();
-      } catch (e) {
-        setErro(e instanceof Error ? e.message : "Erro ao salvar.");
-      }
-    });
-  }
-
-  function handleViaDispositivo() {
-    setErro(null);
-    startTransition(async () => {
-      try {
-        await marcarEspecificacaoMotorViaDispositivo(testeId);
         router.refresh();
       } catch (e) {
         setErro(e instanceof Error ? e.message : "Erro ao salvar.");
@@ -221,34 +201,15 @@ function CardEspecificacaoMotor({
     );
   }
 
-  if (especificacaoViaDispositivo) {
-    return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-left">
-        <p className="text-sm text-neutral-600">Aguardando os limites do PDF do opacímetro (declarado como já configurado no dispositivo).</p>
-        <button
-          type="button"
-          onClick={() => setMostrarForm(true)}
-          className="shrink-0 text-xs font-medium text-brand hover:underline"
-        >
-          Cadastrar aqui mesmo
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-left">
-      <p className="text-sm text-amber-800">Especificação do motor pendente — sem ela não dá pra concluir o campo.</p>
-      {erro && <p className="text-sm text-red-600">{erro}</p>}
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={() => setMostrarForm(true)} className="bg-brand hover:bg-brand-dark">
-          Cadastrar especificação do motor
-        </Button>
-        <Button type="button" variant="outline" disabled={pending} onClick={handleViaDispositivo}>
-          {pending ? <Loader2 className="size-4 animate-spin" /> : "Já configurei no aparelho/app do Syscon"}
-        </Button>
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={() => setMostrarForm(true)}
+      className="w-full rounded-md border border-dashed border-neutral-300 p-3 text-left text-sm text-neutral-500 hover:border-brand hover:text-brand"
+    >
+      + Informar especificação do motor (opcional — marcha lenta, rotação de corte e limite de
+      opacidade, usados como referência no laudo)
+    </button>
   );
 }
 
@@ -264,12 +225,10 @@ export function CampoWizard({
   testeId,
   equipamentos,
   veiculo,
-  especificacaoViaDispositivo,
 }: {
   testeId: string;
   equipamentos: Equipamento[];
   veiculo: VeiculoParaMotor;
-  especificacaoViaDispositivo: boolean;
 }) {
   const router = useRouter();
   const [fase, setFase] = useState<number | "preparo" | "conferencia">("preparo");
@@ -293,7 +252,6 @@ export function CampoWizard({
   const total = STEPS.length;
   const passoAtual = typeof fase === "number" ? fase : fase === "conferencia" ? total : -1;
   const concluidas = STEPS.filter((s) => prontos[s.name]).length;
-  const motorResolvido = !!veiculo?.especificacao || especificacaoViaDispositivo;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white">
@@ -348,7 +306,7 @@ export function CampoWizard({
               </Select>
             </div>
 
-            <CardEspecificacaoMotor testeId={testeId} veiculo={veiculo} especificacaoViaDispositivo={especificacaoViaDispositivo} />
+            <CardEspecificacaoMotor testeId={testeId} veiculo={veiculo} />
 
             <Button
               type="button"
@@ -408,20 +366,6 @@ export function CampoWizard({
                   <Input id="numero_teste" name="numero_teste" required />
                 </div>
                 <FotosExtras />
-
-                {!motorResolvido && (
-                  <div className="space-y-2">
-                    <p className="text-sm text-amber-700">
-                      Falta resolver a especificação do motor antes de concluir — volta na primeira tela pra cadastrar
-                      ou declarar que já está no dispositivo.
-                    </p>
-                    <CardEspecificacaoMotor
-                      testeId={testeId}
-                      veiculo={veiculo}
-                      especificacaoViaDispositivo={especificacaoViaDispositivo}
-                    />
-                  </div>
-                )}
               </div>
             )}
 
@@ -460,7 +404,7 @@ export function CampoWizard({
                   </Button>
                   <Button
                     type="submit"
-                    disabled={pending || !motorResolvido}
+                    disabled={pending}
                     className="h-12 flex-1 rounded-full bg-brand text-base hover:bg-brand-dark"
                   >
                     {pending ? "Enviando..." : "Concluir campo"}

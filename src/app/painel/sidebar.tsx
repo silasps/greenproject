@@ -19,6 +19,7 @@ import {
   ClipboardCheck,
   Globe,
   Lightbulb,
+  Wrench,
 } from "lucide-react";
 import { ROLE_LABELS, type Role } from "@/lib/auth/permissions";
 import type { UsuarioImpersonavel } from "@/lib/auth/impersonation";
@@ -82,6 +83,7 @@ const ICONS = {
   "responsaveis-tecnicos": BadgeCheck,
   dp: Contact,
   site: Globe,
+  "especificacoes-motor": Wrench,
   configuracoes: Settings,
   sugestoes: Lightbulb,
 } as const;
