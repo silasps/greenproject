@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { addMonths, addHours, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Clock, AlignLeft, Users, User, Wrench, MapPin, Calculator, Palette, Loader2, MessageCircle, Mail } from "lucide-react";
+import { Clock, AlignLeft, Users, User, Wrench, MapPin, Calculator, Palette, Loader2, MessageCircle, Mail, Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,7 +63,7 @@ function CamposInicioFim({
   diaInteiro?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div className="space-y-2">
         <Label htmlFor={`${idPrefix}_data_inicio`}>
           Data de início{" "}
@@ -158,6 +158,7 @@ export function EventoForm({
   const [pending, startTransition] = useTransition();
   const [eTeste, setETeste] = useState(apenasTeste || Boolean(clienteIdPreSelecionado));
   const [erro, setErro] = useState<string | null>(null);
+  const [resumoWhatsappEnviado, setResumoWhatsappEnviado] = useState(false);
   const horaPadrao = horaInicial ?? "09:00";
 
   // Início/fim do agendamento — fim começa sempre 1h depois do início e
@@ -232,16 +233,22 @@ export function EventoForm({
   const [testeNaEmpresa, setTesteNaEmpresa] = useState(false);
   const [enderecoEmpresa, setEnderecoEmpresa] = useState<string | null>(null);
 
+  /** Busca o endereço da empresa uma única vez (cacheado em memória) — usado
+   * tanto pro aviso de "teste na empresa" quanto pro link de pesquisa de
+   * distância no Google. */
+  function garantirEnderecoEmpresa() {
+    if (enderecoEmpresa) return;
+    const supabase = createClient();
+    supabase
+      .from("dados_empresa")
+      .select("endereco")
+      .single()
+      .then(({ data }) => data && setEnderecoEmpresa(data.endereco));
+  }
+
   function handleTesteNaEmpresa(marcado: boolean) {
     setTesteNaEmpresa(marcado);
-    if (marcado && !enderecoEmpresa) {
-      const supabase = createClient();
-      supabase
-        .from("dados_empresa")
-        .select("endereco")
-        .single()
-        .then(({ data }) => data && setEnderecoEmpresa(data.endereco));
-    }
+    if (marcado) garantirEnderecoEmpresa();
   }
 
   // Orçamento
@@ -254,6 +261,7 @@ export function EventoForm({
 
   async function buscarCep(cepLimpo: string) {
     setBuscandoCep(true);
+    garantirEnderecoEmpresa();
     const resultado = await buscarEnderecoPorCep(cepLimpo);
     setBuscandoCep(false);
     if (!resultado) return;
@@ -290,6 +298,16 @@ export function EventoForm({
   );
   const kmIdaVolta = testeNaEmpresa ? 0 : kmEditadoManualmente ? Number(kmManual || 0) : (kmEstimado ?? Number(kmManual || 0));
   const orcamentoTemDadosMinimos = testeNaEmpresa || kmIdaVolta > 0;
+
+  // O fator de correção (linha reta × fator fixo) erra feio em trechos
+  // curtos — esse link poupa o usuário de abrir o Google/Maps manualmente
+  // pra conferir a distância real de carro.
+  const linkPesquisaDistancia = useMemo(() => {
+    if (!enderecoEmpresa || !endereco) return null;
+    const destino = `${endereco}${numero ? `, ${numero}` : ""}${cep ? ` - CEP ${cep}` : ""}`;
+    const consulta = `distância de carro entre ${enderecoEmpresa} e ${destino}`;
+    return `https://www.google.com/search?q=${encodeURIComponent(consulta)}`;
+  }, [enderecoEmpresa, endereco, numero, cep]);
 
   function handleKmChange(valor: string) {
     setKmManual(valor);
@@ -601,6 +619,17 @@ export function EventoForm({
                       {kmEditadoManualmente && " — valor acima ajustado manualmente"}
                     </p>
                   )}
+                  {linkPesquisaDistancia && (
+                    <a
+                      href={linkPesquisaDistancia}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
+                    >
+                      <Search className="size-3.5" />
+                      Conferir distância real no Google
+                    </a>
+                  )}
                   <p className="text-sm text-neutral-600">
                     Valor do deslocamento ({kmIdaVolta.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km ×{" "}
                     {formatarMoeda(Number(valorKm || 0))}):{" "}
@@ -643,7 +672,8 @@ export function EventoForm({
                   type="button"
                   variant="outline"
                   className="w-full border-brand text-brand hover:bg-brand/10"
-                  onClick={() =>
+                  onClick={() => {
+                    setResumoWhatsappEnviado(true);
                     window.open(
                       linkWhatsapp(
                         whatsappContato || telefoneContato,
@@ -671,11 +701,11 @@ export function EventoForm({
                         }),
                       ),
                       "_blank",
-                    )
-                  }
+                    );
+                  }}
                 >
-                  <MessageCircle />
-                  Enviar orçamento resumido por WhatsApp
+                  {resumoWhatsappEnviado ? <Check /> : <MessageCircle />}
+                  {resumoWhatsappEnviado ? "Reenviar orçamento resumido por WhatsApp" : "Enviar orçamento resumido por WhatsApp"}
                 </Button>
               )}
 
@@ -701,7 +731,7 @@ export function EventoForm({
 
       <div className="flex gap-3">
         <Button type="submit" disabled={pending} className="bg-brand hover:bg-brand-dark">
-          {pending ? "Salvando..." : eTeste ? "Criar teste e enviar orçamento" : "Criar evento"}
+          {pending ? "Salvando..." : eTeste ? "Criar teste" : "Criar evento"}
         </Button>
         <Button type="button" variant="outline" onClick={onCancelar}>
           Cancelar

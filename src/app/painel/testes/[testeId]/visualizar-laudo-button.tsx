@@ -25,7 +25,7 @@ export function VisualizarLaudoButton({ children }: { children: React.ReactNode 
       </button>
 
       <Dialog open={aberto} onOpenChange={setAberto}>
-        <DialogContent className="max-h-[85vh] w-full max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="max-h-[85dvh] w-full max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-3xl">
           <DialogTitle className="sr-only">Laudo</DialogTitle>
           {children}
         </DialogContent>

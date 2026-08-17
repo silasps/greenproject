@@ -19,7 +19,7 @@ export function NovaFuncaoButton() {
         Nova função
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] w-full max-w-lg overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[85dvh] w-full max-w-lg overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Nova função</DialogTitle>
           </DialogHeader>

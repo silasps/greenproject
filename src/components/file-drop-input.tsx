@@ -263,7 +263,7 @@ export function FileDropInput({
             <img
               src={imagemGrandeUrl}
               alt="Foto ampliada"
-              className="max-h-[85vh] w-full rounded-lg object-contain"
+              className="max-h-[85dvh] w-full rounded-lg object-contain"
             />
           </DialogContent>
         </Dialog>

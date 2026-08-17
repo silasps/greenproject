@@ -137,6 +137,16 @@
   html {
     @apply font-sans;
   }
+  /* iOS/Chrome mobile dão zoom automático (e "pulam" a tela) ao focar um
+     campo com font-size menor que 16px. Classes utilitárias específicas
+     (ex.: md:text-sm) continuam vencendo essa regra em telas maiores. */
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
 }
 
 /* Tipografia IBM Plex — mesmo padrão em todo o sistema (site público e

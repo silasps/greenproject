@@ -114,7 +114,7 @@ export function CampoEditForm({
       )}
 
       <Dialog open={editando} onOpenChange={setEditando}>
-        <DialogContent className="max-h-[85vh] w-full max-w-2xl overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[85dvh] w-full max-w-2xl overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Editar dados de campo</DialogTitle>
           </DialogHeader>

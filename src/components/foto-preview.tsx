@@ -73,7 +73,7 @@ export function FotoPreview({ url, path, label, size = "sm" }: ItemArquivo & { s
               </div>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={urlGrande} alt={label} className="max-h-[85vh] w-full rounded-lg object-contain" />
+              <img src={urlGrande} alt={label} className="max-h-[85dvh] w-full rounded-lg object-contain" />
             )}
           </DialogContent>
         </Dialog>
@@ -117,7 +117,7 @@ export function FotoPreview({ url, path, label, size = "sm" }: ItemArquivo & { s
             </div>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={urlGrande} alt={label} className="max-h-[85vh] w-full rounded-lg object-contain" />
+            <img src={urlGrande} alt={label} className="max-h-[85dvh] w-full rounded-lg object-contain" />
           )}
         </DialogContent>
       </Dialog>
