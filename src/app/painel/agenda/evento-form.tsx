@@ -713,12 +713,22 @@ export function EventoForm({
                 className="flex items-center gap-2"
                 title="Complete o cadastro do cliente e do veículo (depois de salvar) para liberar o orçamento oficial completo."
               >
-                <Button type="button" variant="outline" disabled className="flex-1 gap-1.5 text-neutral-400">
-                  <Mail className="size-4" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled
+                  className="h-auto min-w-0 flex-1 gap-1.5 py-1.5 text-center whitespace-normal text-neutral-400"
+                >
+                  <Mail className="size-4 shrink-0" />
                   Completo por e-mail
                 </Button>
-                <Button type="button" variant="outline" disabled className="flex-1 gap-1.5 text-neutral-400">
-                  <MessageCircle className="size-4" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled
+                  className="h-auto min-w-0 flex-1 gap-1.5 py-1.5 text-center whitespace-normal text-neutral-400"
+                >
+                  <MessageCircle className="size-4 shrink-0" />
                   Completo por WhatsApp
                 </Button>
               </div>

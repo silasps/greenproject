@@ -64,7 +64,10 @@ function DialogContent({
           className={cn(
             // m-auto (não items-center/justify-center) evita o "flexbug" que
             // corta o topo de conteúdo que estoura o container com scroll.
-            "relative m-auto grid w-full shrink-0 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            // *:min-w-0 evita o "blowout" do grid: sem isso, um botão/texto
+            // que não quebra linha lá dentro (ex.: whitespace-nowrap) empurra
+            // a largura do modal inteiro pra fora da tela no celular.
+            "relative m-auto grid w-full shrink-0 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 *:min-w-0",
             className
           )}
           {...props}
