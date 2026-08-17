@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Sans_Condensed, IBM_Plex_Mono } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import { COMPANY } from "@/lib/legal/company-info";
@@ -42,6 +42,20 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
   },
+};
+
+// maximumScale/userScalable travam o zoom automático que o Safari/Chrome
+// mobile disparam ao focar um input (o "pulo" de tela nos modais); já
+// interactiveWidget faz o teclado virtual encolher a viewport de layout em
+// vez de só sobrepor por cima, então o `dvh` usado nos modais acompanha o
+// teclado corretamente.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
