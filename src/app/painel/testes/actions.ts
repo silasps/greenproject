@@ -308,13 +308,20 @@ export async function liberarLaudo(testeId: string, formData: FormData) {
 
   const admin = createAdminClient();
 
-  const { data: teste } = await admin
-    .from("testes_opacidade")
-    .select(
-      "*, veiculos_maquinas(*, clientes(*), especificacoes_motor(*)), equipamentos_teste(*), agendamentos(id), testes_opacidade_medicoes(*)",
-    )
-    .eq("id", testeId)
-    .single();
+  // Teste, responsável e contagem de laudos não dependem um do outro —
+  // buscar em paralelo em vez de sequencial já tira uma boa fatia do tempo
+  // de "Validar teste" (a geração do PDF logo depois é o resto do gargalo).
+  const [{ data: teste }, { data: responsavel }, { count }] = await Promise.all([
+    admin
+      .from("testes_opacidade")
+      .select(
+        "*, veiculos_maquinas(*, clientes(*), especificacoes_motor(*)), equipamentos_teste(*), agendamentos(id), testes_opacidade_medicoes(*)",
+      )
+      .eq("id", testeId)
+      .single(),
+    admin.from("responsaveis_tecnicos").select("*").eq("id", responsavelTecnicoId).single(),
+    admin.from("laudos").select("id", { count: "exact", head: true }),
+  ]);
   if (!teste) throw new Error("Teste não encontrado.");
   if (!teste.resultado) throw new Error("Faltam dados do ensaio para liberar o laudo.");
   if (limitesTesteFaltando(resolverLimitesTeste(teste, teste.veiculos_maquinas?.especificacoes_motor))) {
@@ -322,15 +329,13 @@ export async function liberarLaudo(testeId: string, formData: FormData) {
       "Faltam os limites de marcha lenta, rotação de corte e/ou opacidade — vêm do PDF do Syscon na importação ou da especificação do motor cadastrada no veículo. Cadastre a especificação do motor ou devolva pro escritório reimportar o PDF antes de liberar o laudo.",
     );
   }
-
-  const { data: responsavel } = await admin
-    .from("responsaveis_tecnicos")
-    .select("*")
-    .eq("id", responsavelTecnicoId)
-    .single();
   if (!responsavel) throw new Error("Responsável técnico não encontrado.");
+  if (!responsavel.imagem_assinatura_path) {
+    throw new Error(
+      "Esse responsável técnico ainda não tem imagem de assinatura cadastrada — cadastre em Responsáveis técnicos antes de liberar o laudo.",
+    );
+  }
 
-  const { count } = await admin.from("laudos").select("id", { count: "exact", head: true });
   const numero = `${(count ?? 0) + 1}/${new Date().getFullYear().toString().slice(-2)}`;
   const codigoPublico = gerarCodigoPublico();
 
@@ -353,16 +358,19 @@ export async function liberarLaudo(testeId: string, formData: FormData) {
   });
   if (laudoError) throw new Error(laudoError.message);
 
-  await admin.from("testes_opacidade").update({ status: "aprovado" }).eq("id", testeId);
-  await admin.from("agendamentos").update({ status: "concluido" }).eq("id", teste.agendamento_id);
-
-  await registrarAuditoria({
-    usuarioId: perfil.id,
-    acao: "liberar_laudo",
-    entidade: "laudo",
-    entidadeId: testeId,
-    detalhes: { numero, codigo_publico: codigoPublico },
-  });
+  // As duas atualizações de status e o log de auditoria não dependem um do
+  // outro (só do laudo já criado acima) — em paralelo.
+  await Promise.all([
+    admin.from("testes_opacidade").update({ status: "aprovado" }).eq("id", testeId),
+    admin.from("agendamentos").update({ status: "concluido" }).eq("id", teste.agendamento_id),
+    registrarAuditoria({
+      usuarioId: perfil.id,
+      acao: "liberar_laudo",
+      entidade: "laudo",
+      entidadeId: testeId,
+      detalhes: { numero, codigo_publico: codigoPublico },
+    }),
+  ]);
 
   // Envio automático é best-effort: o laudo já foi liberado e emitido de
   // verdade, então uma falha aqui (ex.: cliente sem e-mail cadastrado) não

@@ -1438,6 +1438,22 @@ separado em várias linhas se tiver "/" — ex. "Engenheiro Mecânico /
 Engenheiro de Segurança do Trabalho" —, nome, `registro_conselho`,
 telefone da empresa via `getDadosEmpresa()`, e-mail/site de `COMPANY`).
 
+Como a assinatura é sempre a imagem cadastrada (nunca um carimbo
+fabricado), `liberarLaudo` (seção 8.3, item 3) **bloqueia** com erro
+explícito se `responsaveis_tecnicos.imagem_assinatura_path` do
+responsável escolhido estiver vazio — sem isso o laudo sairia com a
+caixa de assinatura em branco. `responsaveis-tecnicos/` ganhou
+`[id]/editar/` (mesmo padrão de `equipamentos/[id]/editar/`) pra
+cadastrar/trocar nome, formação, CREA e a imagem de assinatura de um
+responsável já existente (antes só dava pra enviar a assinatura na
+criação, em `novo/`); a listagem mostra um selo "Sem assinatura
+cadastrada" pra quem ainda não tem. Além disso, `LiberarForm` já checa
+isso no cliente: se quem for escolhido em "Validar teste" não tiver
+assinatura, abre um modal ali mesmo pra enviar a imagem
+(`salvarAssinaturaResponsavel`, em `responsaveis-tecnicos/actions.ts` —
+qualquer um cadastra a própria, cadastrar a de outro exige a área
+`responsaveis_tecnicos`) antes de seguir pra confirmação de liberação.
+
 Tudo isso (Telefone/Placa/formação/CREA/rodapé de 3 colunas) já existia
 na prévia em tela (`testes/[testeId]/laudo-preview-card.tsx`) — só
 faltava no PDF gerado de fato, gap fechado depois que a gerência recebeu
@@ -1497,6 +1513,12 @@ Component, `Tabs`/`TabsList`/`TabsTrigger`/`TabsContent` de
 ## 9. Módulo DP — "Departamento Pessoal" (`src/app/painel/dp/`)
 
 Só `gerencia` acessa (`canGerenciarUsuarios`). Item da sidebar: "DP".
+
+Contas com `usuarios_perfis.is_superadmin = true` (dono/desenvolvedor da
+conta, ver `requireSuperadmin` na seção 5) são filtradas fora da listagem
+em `dp/page.tsx` antes de calcular os cards Total/Ativos/Inativos — não são
+"pessoal" da empresa do cliente, então não aparecem aqui (continuam com
+acesso normal ao sistema, só ficam de fora dessa tela específica).
 
 - **Pessoas** (`dp/page.tsx`, `dp/novo`, `dp/[id]/editar`,
   `pessoa-form.tsx`): cadastra uma pessoa = cria a conta de acesso de

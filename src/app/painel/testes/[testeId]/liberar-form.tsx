@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { FileDropInput } from "@/components/file-drop-input";
 import { liberarLaudo } from "../actions";
+import { salvarAssinaturaResponsavel } from "../../responsaveis-tecnicos/actions";
 
-type Responsavel = { id: string; label: string };
+type Responsavel = { id: string; label: string; temAssinatura: boolean };
 
 export function LiberarForm({
   testeId,
@@ -36,13 +38,43 @@ export function LiberarForm({
   const [resultadoEnvio, setResultadoEnvio] = useState<{ emailEnviado: boolean; emailErro: string | null } | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Assinaturas cadastradas nesta sessão via o modal abaixo — a lista de
+  // `responsaveis` veio do servidor no carregamento da página, então sem
+  // isso o botão continuaria achando que falta assinatura mesmo logo depois
+  // de cadastrar uma.
+  const [assinaturasExtras, setAssinaturasExtras] = useState<Set<string>>(new Set());
+  const [cadastrandoAssinatura, setCadastrandoAssinatura] = useState(false);
+  const [errorAssinatura, setErrorAssinatura] = useState<string | null>(null);
+  const [pendingAssinatura, startTransitionAssinatura] = useTransition();
+
   function abrirConfirmacao() {
     setError(null);
     if (!responsavelId) {
       setError("Selecione o responsável técnico.");
       return;
     }
+    const responsavel = responsaveis.find((r) => r.id === responsavelId);
+    const temAssinatura = responsavel?.temAssinatura || assinaturasExtras.has(responsavelId);
+    if (!temAssinatura) {
+      setErrorAssinatura(null);
+      setCadastrandoAssinatura(true);
+      return;
+    }
     setConfirmando(true);
+  }
+
+  function cadastrarAssinatura(formData: FormData) {
+    setErrorAssinatura(null);
+    startTransitionAssinatura(async () => {
+      try {
+        await salvarAssinaturaResponsavel(responsavelId, formData);
+        setAssinaturasExtras((prev) => new Set(prev).add(responsavelId));
+        setCadastrandoAssinatura(false);
+        setConfirmando(true);
+      } catch (e) {
+        setErrorAssinatura(e instanceof Error ? e.message : "Erro ao cadastrar assinatura.");
+      }
+    });
   }
 
   function validar(enviarEmail: boolean) {
@@ -169,6 +201,36 @@ export function LiberarForm({
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cadastrandoAssinatura} onOpenChange={(open) => !pendingAssinatura && setCadastrandoAssinatura(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cadastrar assinatura</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-neutral-600">
+            <strong>{responsaveis.find((r) => r.id === responsavelId)?.label}</strong> ainda não tem uma imagem de
+            assinatura cadastrada — é ela que sai no laudo, então precisa enviar antes de validar.
+          </p>
+          <form action={cadastrarAssinatura} className="space-y-3">
+            <FileDropInput
+              id="assinatura_rapida"
+              name="assinatura"
+              accept="image/*"
+              required
+              label="Clique para enviar a imagem da assinatura"
+            />
+            {errorAssinatura && <p className="text-sm text-red-600">{errorAssinatura}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={pendingAssinatura} onClick={() => setCadastrandoAssinatura(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={pendingAssinatura} className="bg-brand hover:bg-brand-dark">
+                {pendingAssinatura ? <Loader2 className="size-4 animate-spin" /> : "Salvar e continuar"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

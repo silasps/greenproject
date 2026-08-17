@@ -168,11 +168,11 @@ async function RevisaoSection({ testeId, teste, meuResponsavelId }: { testeId: s
     ),
   ]);
 
-  let responsaveis: { id: string; label: string }[] = [];
+  let responsaveis: { id: string; label: string; temAssinatura: boolean }[] = [];
   if (podeLiberar) {
     const admin = createAdminClient();
-    const { data } = await admin.from("responsaveis_tecnicos").select("id, nome");
-    responsaveis = (data ?? []).map((r) => ({ id: r.id, label: r.nome }));
+    const { data } = await admin.from("responsaveis_tecnicos").select("id, nome, imagem_assinatura_path");
+    responsaveis = (data ?? []).map((r) => ({ id: r.id, label: r.nome, temAssinatura: !!r.imagem_assinatura_path }));
   }
 
   return (

@@ -7,7 +7,7 @@ export default async function ResponsaveisTecnicosPage() {
   const supabase = await createClient();
   const { data: responsaveis } = await supabase
     .from("responsaveis_tecnicos")
-    .select("id, nome, formacao, registro_conselho")
+    .select("id, nome, formacao, registro_conselho, imagem_assinatura_path")
     .order("nome");
 
   return (
@@ -25,12 +25,23 @@ export default async function ResponsaveisTecnicosPage() {
       <div className="mt-6 space-y-3">
         {responsaveis?.length === 0 && <p className="text-sm text-neutral-500">Nenhum responsável cadastrado.</p>}
         {responsaveis?.map((r) => (
-          <div key={r.id} className="rounded-lg border border-neutral-200 bg-white p-4">
-            <p className="font-medium text-neutral-900">{r.nome}</p>
-            <p className="text-sm text-neutral-500">
-              {[r.formacao, r.registro_conselho].filter(Boolean).join(" · ")}
-            </p>
-          </div>
+          <Link
+            key={r.id}
+            href={`/painel/responsaveis-tecnicos/${r.id}/editar`}
+            className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-4 hover:border-brand/40"
+          >
+            <div>
+              <p className="font-medium text-neutral-900">{r.nome}</p>
+              <p className="text-sm text-neutral-500">
+                {[r.formacao, r.registro_conselho].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+            {!r.imagem_assinatura_path && (
+              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                Sem assinatura cadastrada
+              </span>
+            )}
+          </Link>
         ))}
       </div>
     </div>
