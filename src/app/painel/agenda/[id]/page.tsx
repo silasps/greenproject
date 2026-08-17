@@ -351,9 +351,11 @@ export default async function AgendamentoDetalhePage({
         ).data
       : null;
 
+  const propostaAceita = proposta?.status === "aceita";
+
   const passos: Passo[] = [
     {
-      label: "Cadastro do cliente completo",
+      label: clientePronto ? "Cadastro do cliente completo" : "Aguardando completar cadastro do cliente",
       feito: clientePronto,
       href: hrefEditarCliente,
       icon: User,
@@ -364,7 +366,7 @@ export default async function AgendamentoDetalhePage({
       ),
     },
     {
-      label: "Veículo/equipamento vinculado",
+      label: agendamento.veiculo_id ? "Veículo/equipamento vinculado" : "Aguardando vínculo de veículo/equipamento",
       feito: !!agendamento.veiculo_id,
       // Concluído: vai direto pra edição (ícone/texto do passo já servem de
       // atalho, sem precisar de um botão extra). Pendente: sem href — a
@@ -376,29 +378,33 @@ export default async function AgendamentoDetalhePage({
       ),
     },
     {
-      label: "Proposta aceita pelo cliente",
-      feito: proposta?.status === "aceita",
+      label: propostaAceita ? "Proposta aceita pelo cliente" : "Aguardando aceite da proposta",
+      feito: propostaAceita,
       href: proposta ? "#proposta" : undefined,
       icon: Handshake,
-      // Emitir e aceitar viraram um passo só — não fazia sentido separar
-      // "emitida" da aceita, o que importa mesmo é ter o aceite do cliente.
-      acao:
-        podeGerenciar &&
-        (!proposta?.pdf_path ? (
-          clientePronto &&
-          agendamento.veiculo_id && (
+      // O cliente já pode aceitar direto pela página pública (card "Proposta"
+      // mais abaixo manda o link por WhatsApp/e-mail assim que a proposta é
+      // criada, sem depender de "emitir" nada) — se o aceite já veio por lá,
+      // não faz sentido continuar oferecendo "Emitir e enviar proposta" aqui,
+      // mesmo que o PDF nunca tenha sido gerado. "Marcar como aceita" (pro
+      // caso do cliente confirmar por telefone/WhatsApp sem clicar no link)
+      // também não pode depender do PDF já ter sido emitido — são as duas
+      // únicas formas de fechar esse passo e podem coexistir enquanto pendente.
+      acao: podeGerenciar && !propostaAceita && proposta?.status === "enviada" && (
+        <div className="flex flex-wrap items-center gap-2">
+          {!proposta.pdf_path && clientePronto && agendamento.veiculo_id && (
             <form action={emitirPropostaPdf.bind(null, agendamento.id)}>
               <SubmitButton pendingLabel="Emitindo..." className={botaoClasse}>
                 Emitir e enviar proposta
               </SubmitButton>
             </form>
-          )
-        ) : proposta.status === "enviada" ? (
+          )}
           <AceitarPropostaButton agendamentoId={agendamento.id} className={botaoClasseSecundario} />
-        ) : null),
+        </div>
+      ),
     },
     {
-      label: "Execução do teste iniciada",
+      label: execucaoIniciada ? "Execução do teste iniciada" : "Aguardando início da execução do teste",
       feito: execucaoIniciada,
       href: testeId ? `/painel/testes/${testeId}` : undefined,
       icon: Play,

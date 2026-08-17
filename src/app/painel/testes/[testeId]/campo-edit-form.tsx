@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,32 @@ export function CampoEditForm({
   const [editando, setEditando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // "Editar dados de campo" em outras telas (prévia do laudo, passo a passo
+  // do agendamento) é só um link `#dados-campo` — como essa seção às vezes
+  // já está na mesma página, o clique não navega, só muda o hash (sem
+  // recarregar/remontar nada), por isso é `hashchange`, não só um efeito de
+  // montagem. Precisa rodar a checagem já na montagem também, pro caso de
+  // chegar aqui vindo de outra página com o hash na URL desde o primeiro load.
+  useEffect(() => {
+    if (bloqueado) return;
+    function verificarHash() {
+      if (window.location.hash === "#dados-campo") setEditando(true);
+    }
+    verificarHash();
+    window.addEventListener("hashchange", verificarHash);
+    return () => window.removeEventListener("hashchange", verificarHash);
+  }, [bloqueado]);
+
+  // Limpa o hash ao fechar (qualquer caminho: Cancelar, salvar, clicar fora)
+  // — sem isso, fechar e clicar em "Editar dados de campo" de novo não
+  // reabria: o hash já era `#dados-campo`, então não mudava, e sem mudança
+  // não tem `hashchange` pra pegar.
+  useEffect(() => {
+    if (!editando && window.location.hash === "#dados-campo") {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }, [editando]);
 
   function handleSubmit(formData: FormData) {
     setError(null);

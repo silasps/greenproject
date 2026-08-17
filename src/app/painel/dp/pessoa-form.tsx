@@ -69,7 +69,6 @@ export function PessoaForm({
   useEffect(() => {
     if (!pessoa) return;
     let ativo = true;
-    setCarregandoEmail(true);
     buscarEmailUsuario(pessoa.id).then((resultado) => {
       if (ativo) {
         setEmail(resultado);

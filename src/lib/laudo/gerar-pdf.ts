@@ -43,37 +43,44 @@ export async function gerarLaudoPdf({
   validadeDate.setFullYear(validadeDate.getFullYear() + 1);
   const validade = validadeDate.toLocaleDateString("pt-BR");
   const veiculoLabel = `${veiculo?.marca ?? ""} ${veiculo?.modelo ?? ""} - ${veiculo?.identificador ?? ""}`.trim();
-  const { razaoSocial, cnpj, endereco, telefone } = await getDadosEmpresa();
 
-  // Limites do motor (marcha lenta/rotação de corte/opacidade) — cadastro
-  // técnico já existente (ANFAVEA ou manual), vinculado ao veículo. Só
-  // busca se o veículo tiver uma especificação de motor associada.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let especMotor: any = null;
-  if (veiculo?.especificacao_motor_id) {
-    const admin = createAdminClient();
-    const { data } = await admin
-      .from("especificacoes_motor")
-      .select("marcha_lenta_min, marcha_lenta_max, rotacao_corte_min, rotacao_corte_max, limite_opacidade")
-      .eq("id", veiculo.especificacao_motor_id)
-      .maybeSingle();
-    especMotor = data;
-  }
-
-  let logoBuffer: Buffer | null = null;
-  try {
-    logoBuffer = await fs.readFile(path.join(process.cwd(), "public/brand/logo-completa.png"));
-  } catch {
-    logoBuffer = null;
-  }
+  // Tudo que precisa de I/O (banco, disco, storage) e não depende de nada
+  // que ainda vá ser calculado — carregado de uma vez em paralelo, em vez de
+  // sequencial (cada `await` separado somava sua própria viagem de rede à
+  // geração do PDF, que já é o passo mais lento de liberar um laudo).
+  const [
+    dadosEmpresa,
+    especMotor,
+    logoBuffer,
+    certBuffer,
+    fotos,
+    assinaturaBuf,
+    seloBuf,
+  ] = await Promise.all([
+    getDadosEmpresa(),
+    // Limites do motor (marcha lenta/rotação de corte/opacidade) — cadastro
+    // técnico já existente (ANFAVEA ou manual), vinculado ao veículo. Só
+    // busca se o veículo tiver uma especificação de motor associada.
+    veiculo?.especificacao_motor_id
+      ? createAdminClient()
+          .from("especificacoes_motor")
+          .select("marcha_lenta_min, marcha_lenta_max, rotacao_corte_min, rotacao_corte_max, limite_opacidade")
+          .eq("id", veiculo.especificacao_motor_id)
+          .maybeSingle()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .then((r: any) => r.data)
+      : Promise.resolve(null),
+    fs.readFile(path.join(process.cwd(), "public/brand/logo-completa.png")).catch(() => null),
+    // Página 3 (certificado de calibração do equipamento) não é redesenhada —
+    // é o PDF real anexado no cadastro do equipamento, mesclado como está.
+    baixarArquivoInterno(equipamento?.pdf_certificado_calibracao_path),
+    Promise.all([teste.foto_frente_path, teste.foto_traseira_path, teste.foto_painel_path].map(baixarArquivoInterno)),
+    baixarArquivoInterno(responsavel.imagem_assinatura_path),
+    baixarArquivoInterno(equipamento?.selo_imagem_path),
+  ]);
+  const { razaoSocial, cnpj, endereco, telefone } = dadosEmpresa;
   const logoBase64 = logoBuffer ? `data:image/png;base64,${logoBuffer.toString("base64")}` : null;
 
-  // Página 3 (certificado de calibração do equipamento) não é redesenhada —
-  // é o PDF real anexado no cadastro do equipamento, mesclado como está.
-  // A página 2 (ensaio) já foi redesenhada com dados do próprio sistema —
-  // ver nota mais abaixo. Carrega o certificado antes de desenhar a capa
-  // pra já cravar o total de páginas certo no cabeçalho.
-  const certBuffer = await baixarArquivoInterno(equipamento?.pdf_certificado_calibracao_path);
   const certTipo = certBuffer ? detectarTipoArquivo(certBuffer) : null;
   let certDoc: PDFDocument | null = null;
   if (certTipo === "pdf" && certBuffer) {
@@ -227,9 +234,6 @@ export async function gerarLaudoPdf({
   doc.text("FOTOS DO ENSAIO", margin, y);
   y += 3;
 
-  const fotos = await Promise.all(
-    [teste.foto_frente_path, teste.foto_traseira_path, teste.foto_painel_path].map(baixarArquivoInterno),
-  );
   const fotoW = (pageW - margin * 2 - 8) / 3;
   fotos.forEach((buf, i) => {
     if (!buf) return;
@@ -293,16 +297,28 @@ export async function gerarLaudoPdf({
   doc.line(margin, ty + 1, pageW - margin, ty + 1);
   ty += 4;
 
-  const assinaturaBuf = await baixarArquivoInterno(responsavel.imagem_assinatura_path);
+  // Imagem centralizada dentro do espaço da linha de assinatura (mesma
+  // largura, 70mm, de margin+4 até margin+74) — antes ficava encostada à
+  // esquerda, meio solta em relação à linha e ao texto abaixo.
+  const larguraAssinatura = 32;
+  const linhaAssinaturaX = margin + 4;
+  const linhaAssinaturaW = 70;
   if (assinaturaBuf) {
     try {
-      doc.addImage(assinaturaBuf, "PNG", margin + 4, ty, 32, 13);
+      doc.addImage(
+        assinaturaBuf,
+        "PNG",
+        linhaAssinaturaX + (linhaAssinaturaW - larguraAssinatura) / 2,
+        ty,
+        larguraAssinatura,
+        13,
+      );
     } catch {
       // assinatura em formato não suportado — segue sem travar a emissão
     }
   }
   doc.setDrawColor(150, 150, 150);
-  doc.line(margin + 4, ty + 15, margin + 74, ty + 15);
+  doc.line(linhaAssinaturaX, ty + 15, linhaAssinaturaX + linhaAssinaturaW, ty + 15);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(60, 60, 60);
@@ -454,7 +470,6 @@ export async function gerarLaudoPdf({
   // explícito: bem maior que o texto acima, não mais um ícone pequeno
   // encostado nele). Altura desejada cede pro espaço real disponível na
   // página, nunca invade o rodapé.
-  const seloBuf = await baixarArquivoInterno(equipamento?.selo_imagem_path);
   if (seloBuf) {
     try {
       // O arquivo enviado no cadastro costuma vir com bastante espaço em

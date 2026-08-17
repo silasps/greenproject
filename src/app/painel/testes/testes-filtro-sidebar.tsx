@@ -8,21 +8,31 @@ import { cn } from "@/lib/utils";
 import { bucketDoTeste, FILTROS_STATUS, type FiltroStatus, type LinhaTesteStatus } from "./status";
 import { useTestesFiltro } from "../testes-filtro-context";
 
-/** Contagem por status na sidebar de Testes — busca client-side sob demanda (só quando essa área abre), mesmo padrão do CategoriasFiltro da Agenda. */
+/**
+ * Contagem por status na sidebar de Testes. Preferência: os dados que a
+ * própria lista de /painel/testes já carregou do servidor (via
+ * `TestesFiltroContext` — sempre os mesmos que ela está mostrando, sem risco
+ * de divergir). Só busca por conta própria quando a lista não está montada
+ * (ex.: usuário dentro de um teste específico) — mesmo padrão do
+ * CategoriasFiltro da Agenda.
+ */
 export function TestesFiltroSidebar() {
   const pathname = usePathname();
-  const { filtro: filtroAtivo, setFiltro } = useTestesFiltro();
-  const [linhas, setLinhas] = useState<LinhaTesteStatus[] | null>(null);
+  const { filtro: filtroAtivo, setFiltro, linhas: linhasCompartilhadas } = useTestesFiltro();
+  const [linhasProprias, setLinhasProprias] = useState<LinhaTesteStatus[] | null>(null);
 
   useEffect(() => {
+    if (linhasCompartilhadas) return;
     const supabase = createClient();
     supabase
       .from("agendamentos")
       .select("testes_opacidade(status, resultado)")
       .eq("tipo", "teste_opacidade")
       .neq("status", "cancelado")
-      .then(({ data }) => setLinhas((data ?? []) as unknown as LinhaTesteStatus[]));
-  }, []);
+      .then(({ data }) => setLinhasProprias((data ?? []) as unknown as LinhaTesteStatus[]));
+  }, [linhasCompartilhadas]);
+
+  const linhas = linhasCompartilhadas ?? linhasProprias;
 
   const contagem = (chave: FiltroStatus) => linhas?.filter((l) => bucketDoTeste(l) === chave).length ?? null;
 

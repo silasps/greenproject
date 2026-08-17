@@ -103,7 +103,7 @@ function ListaTestes({ titulo, testes, concluidos = false }: { titulo: string; t
  */
 export function TestesListaCliente({ linhas }: { linhas: LinhaTeste[] }) {
   const searchParams = useSearchParams();
-  const { filtro, setFiltro } = useTestesFiltro();
+  const { filtro, setFiltro, registrarLinhas } = useTestesFiltro();
 
   // Deep link (ex.: link vindo de fora com ?status=...) — só na primeira montagem.
   useEffect(() => {
@@ -111,6 +111,14 @@ export function TestesListaCliente({ linhas }: { linhas: LinhaTeste[] }) {
     if (status) setFiltro(status);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Compartilha os dados (já vieram prontos do servidor) com a contagem da
+  // sidebar, pra ela não precisar buscar de novo por conta própria e correr
+  // o risco de mostrar um número diferente do que a lista de fato tem.
+  useEffect(() => {
+    registrarLinhas(linhas);
+    return () => registrarLinhas(null);
+  }, [linhas, registrarLinhas]);
 
   return (
     <>
