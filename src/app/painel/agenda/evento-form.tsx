@@ -64,7 +64,7 @@ function CamposInicioFim({
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}_data_inicio`}>
           Data de início{" "}
           {dataInicio && <span className="font-normal text-neutral-400 capitalize">({diaSemanaAbrev(dataInicio)})</span>}
@@ -79,7 +79,7 @@ function CamposInicioFim({
         />
       </div>
       {!diaInteiro && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}_hora_inicio`}>Hora de início</Label>
           <Input
             id={`${idPrefix}_hora_inicio`}
@@ -91,7 +91,7 @@ function CamposInicioFim({
           />
         </div>
       )}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}_data_fim`}>
           Data de fim{" "}
           {dataFim && <span className="font-normal text-neutral-400 capitalize">({diaSemanaAbrev(dataFim)})</span>}
@@ -106,7 +106,7 @@ function CamposInicioFim({
         />
       </div>
       {!diaInteiro && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}_hora_fim`}>Hora de fim</Label>
           <Input
             id={`${idPrefix}_hora_fim`}
@@ -342,7 +342,7 @@ export function EventoForm({
   }
 
   return (
-    <form ref={formRef} action={(formData) => startTransition(() => handleSubmit(formData))} className="space-y-4">
+    <form ref={formRef} action={(formData) => startTransition(() => handleSubmit(formData))} className="space-y-3">
       {podeCriarTeste && !apenasTeste && (
         <div className="flex items-center gap-2">
           <button
@@ -371,7 +371,7 @@ export function EventoForm({
 
       {!eTeste && (
         <>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="titulo">Título</Label>
             <Input id="titulo" name="titulo" required placeholder="Ex.: Reunião de equipe" />
           </div>
@@ -394,7 +394,7 @@ export function EventoForm({
             />
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Repetir</Label>
                 <Select value={repetir} onValueChange={(v) => v && aoMudarRepetir(v)}>
                   <SelectTrigger className="w-full">
@@ -412,7 +412,7 @@ export function EventoForm({
                 <input type="hidden" name="repetir" value={repetir} />
               </div>
               {repetir !== "nunca" && (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="repetir_ate">Repetir até</Label>
                   <Input
                     id="repetir_ate"
@@ -463,7 +463,7 @@ export function EventoForm({
             />
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="whatsapp_contato">WhatsApp</Label>
                 <Input
                   id="whatsapp_contato"
@@ -474,7 +474,7 @@ export function EventoForm({
                   onChange={(e) => setWhatsappContato(formatTelefone(e.target.value))}
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="telefone_contato">Telefone do contato</Label>
                 <Input
                   id="telefone_contato"
@@ -548,7 +548,7 @@ export function EventoForm({
             {!testeNaEmpresa && (
               <>
                 <div className="grid grid-cols-[1fr_auto] gap-3">
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="cep">CEP do local do teste</Label>
                     <div className="relative">
                       <Input
@@ -564,7 +564,7 @@ export function EventoForm({
                       )}
                     </div>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="numero">Número</Label>
                     <Input
                       id="numero"
@@ -576,7 +576,7 @@ export function EventoForm({
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="endereco">Endereço</Label>
                   <Input id="endereco" name="endereco" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
                 </div>
@@ -599,7 +599,7 @@ export function EventoForm({
                   )}
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="km_manual">
                     Distância ida e volta (km) {!distanciaLinhaReta && cep && "— CEP sem coordenada, preencha manualmente"}
                   </Label>
@@ -640,19 +640,19 @@ export function EventoForm({
               <input type="hidden" name="km_ida_volta" value={kmIdaVolta} />
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="valor_km">Valor por km (R$)</Label>
                   <MoedaInput id="valor_km" name="valor_km" value={valorKm} onChange={setValorKm} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="valor_servico">Valor do serviço (R$)</Label>
                   <MoedaInput id="valor_servico" name="valor_servico" value={valorServico} onChange={setValorServico} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="pedagio">Pedágio (R$)</Label>
                   <MoedaInput id="pedagio" name="pedagio" value={pedagio} onChange={setPedagio} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="alimentacao">Alimentação (R$)</Label>
                   <MoedaInput id="alimentacao" name="alimentacao" value={alimentacao} onChange={setAlimentacao} />
                 </div>

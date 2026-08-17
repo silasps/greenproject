@@ -13,9 +13,9 @@ export function Secao({
   children: ReactNode;
 }) {
   return (
-    <div className={cn("flex gap-3", comDivisor && "border-t border-neutral-100 pt-4")}>
+    <div className={cn("flex gap-3", comDivisor && "border-t border-neutral-100 pt-3")}>
       <Icon className="mt-2 size-4 shrink-0 text-brand" />
-      <div className="min-w-0 flex-1 space-y-3">{children}</div>
+      <div className="min-w-0 flex-1 space-y-2">{children}</div>
     </div>
   );
 }
