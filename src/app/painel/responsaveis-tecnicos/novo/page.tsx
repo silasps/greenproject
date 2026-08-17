@@ -6,7 +6,13 @@ import { ResponsavelForm } from "../responsavel-form";
 export default async function NovoResponsavelPage() {
   await requireArea("responsaveis_tecnicos");
   const supabase = await createClient();
-  const { data: usuarios } = await supabase.from("usuarios_perfis").select("id, nome").order("nome");
+  // Contas superadmin (dono/desenvolvedor, só manutenção do sistema) não são
+  // engenheiro/técnico da empresa — não entram como conta vinculável aqui.
+  const { data: usuarios } = await supabase
+    .from("usuarios_perfis")
+    .select("id, nome")
+    .eq("is_superadmin", false)
+    .order("nome");
 
   return (
     <div className="mx-auto max-w-lg">

@@ -11,14 +11,19 @@ export default async function DpPage() {
   const [{ data: pessoas }, { data: funcoes }, { data: usuariosKpis }, { data: funcoesKpis }] = await Promise.all([
     supabase
       .from("usuarios_perfis")
-      .select("id, nome, role, funcao_id, cpf, telefone, data_admissao, acesso_sistema, funcoes(nome)")
+      .select("id, nome, role, funcao_id, cpf, telefone, data_admissao, acesso_sistema, is_superadmin, funcoes(nome)")
       .order("nome"),
     supabase.from("funcoes").select("id, nome, nivel_acesso").order("nome"),
     supabase.from("usuarios_kpis").select("usuario_id, kpi_secao, visivel"),
     supabase.from("funcoes_kpis").select("funcao_id, kpi_secao, visivel"),
   ]);
 
-  const linhas = pessoas ?? [];
+  // Contas superadmin (dono/desenvolvedor, ver requireSuperadmin em
+  // src/lib/auth/session.ts) não são "pessoal" da empresa do cliente —
+  // ficam de fora da listagem de DP pra não sujar a tela dele com acesso
+  // que não é da equipe dele. Continuam com acesso normal ao sistema, só
+  // não aparecem aqui.
+  const linhas = (pessoas ?? []).filter((p) => !p.is_superadmin);
   const ativos = linhas.filter((p) => p.acesso_sistema).length;
   const inativos = linhas.length - ativos;
 

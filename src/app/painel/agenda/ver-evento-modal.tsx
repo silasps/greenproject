@@ -277,6 +277,9 @@ function EditarEvento({
     supabase
       .from("usuarios_perfis")
       .select("id, nome")
+      // Contas superadmin (dono/desenvolvedor, só manutenção do sistema) não
+      // são equipe pra atribuir evento — mesmo critério do módulo DP.
+      .eq("is_superadmin", false)
       .order("nome")
       .then(({ data }) => setEquipe((data ?? []).map((u) => ({ id: u.id, nome: u.nome }))));
     // eslint-disable-next-line react-hooks/exhaustive-deps

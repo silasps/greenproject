@@ -45,7 +45,9 @@ export function CriarModal({
     if (!open || dados) return;
     const supabase = createClient();
     Promise.all([
-      supabase.from("usuarios_perfis").select("id, nome").order("nome"),
+      // Contas superadmin (dono/desenvolvedor, só manutenção do sistema) não
+      // são equipe pra atribuir evento — mesmo critério do módulo DP.
+      supabase.from("usuarios_perfis").select("id, nome").eq("is_superadmin", false).order("nome"),
       podeCriarTeste
         ? supabase.from("configuracoes_orcamento").select("valor_km, fator_correcao_distancia").single()
         : Promise.resolve({ data: null }),

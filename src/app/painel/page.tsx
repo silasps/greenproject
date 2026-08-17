@@ -63,10 +63,14 @@ async function buscarClientesVeiculos(supabase: Supabase) {
 }
 
 async function buscarEquipe(supabase: Supabase) {
+  // Contas superadmin (dono/desenvolvedor, só pra manutenção do sistema)
+  // não entram nessa contagem — mesmo critério do módulo DP (ver
+  // system.architecture.md seção 9).
   const { count } = await supabase
     .from("usuarios_perfis")
     .select("id", { count: "exact", head: true })
-    .eq("acesso_sistema", true);
+    .eq("acesso_sistema", true)
+    .eq("is_superadmin", false);
   return { ativos: count ?? 0 };
 }
 
