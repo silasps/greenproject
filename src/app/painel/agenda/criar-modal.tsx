@@ -46,6 +46,9 @@ export function CriarModal({
   // Alvo do portal do rodapé (botões Criar/Cancelar) — fica fora da área
   // rolável pra ficar sempre alcançável, sem precisar rolar o form inteiro.
   const [footerEl, setFooterEl] = useState<HTMLDivElement | null>(null);
+  // Alvo do portal do toggle Evento/Teste — fica junto do header, fixo, em
+  // vez de rolar com o resto do form.
+  const [toggleEl, setToggleEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open || dados) return;
@@ -87,13 +90,16 @@ export function CriarModal({
             </div>
 
             {/* Header fixo */}
-            <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-4 py-3 sm:px-6">
+            <div className="flex shrink-0 items-center justify-between px-4 py-3 sm:px-6">
               <h2 className="font-heading text-base font-medium text-popover-foreground">Criar</h2>
               <DialogClose render={<Button variant="ghost" size="icon-sm" />}>
                 <XIcon />
                 <span className="sr-only">Fechar</span>
               </DialogClose>
             </div>
+
+            {/* Toggle Evento/Teste — fixo junto do header, preenchido via portal pelo EventoForm */}
+            <div ref={setToggleEl} className="shrink-0 border-b border-neutral-100" />
 
             {/* Meio rolável — só isso rola, header e rodapé ficam fixos */}
             <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
@@ -111,6 +117,7 @@ export function CriarModal({
                   onCancelar={() => onOpenChange(false)}
                   onSucesso={onSucesso}
                   footerContainer={footerEl}
+                  toggleContainer={toggleEl}
                 />
               )}
               {open && !dados && <p className="py-8 text-center text-sm text-neutral-500">Carregando...</p>}

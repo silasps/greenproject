@@ -142,6 +142,7 @@ export function EventoForm({
   onCancelar,
   onSucesso,
   footerContainer,
+  toggleContainer,
 }: {
   equipe: Pessoa[];
   podeCriarTeste: boolean;
@@ -157,6 +158,8 @@ export function EventoForm({
   onSucesso?: () => void;
   /** Nó do rodapé fixo do modal — quando presente, os botões Criar/Cancelar são portados pra lá em vez de renderizar no fim do form (que rola). */
   footerContainer?: HTMLElement | null;
+  /** Nó fixo no topo do modal — quando presente, o toggle Evento/Teste é portado pra lá em vez de rolar com o form. */
+  toggleContainer?: HTMLElement | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -347,30 +350,37 @@ export function EventoForm({
 
   return (
     <form ref={formRef} action={(formData) => startTransition(() => handleSubmit(formData))} className="space-y-3">
-      {podeCriarTeste && !apenasTeste && (
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setETeste(false)}
-            className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-              !eTeste ? "bg-brand/15 text-brand" : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200",
-            )}
-          >
-            Evento
-          </button>
-          <button
-            type="button"
-            onClick={() => setETeste(true)}
-            className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-              eTeste ? "bg-brand/15 text-brand" : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200",
-            )}
-          >
-            Teste
-          </button>
-        </div>
-      )}
+      {podeCriarTeste &&
+        !apenasTeste &&
+        (() => {
+          const toggle = (
+            <div className="flex gap-1 rounded-2xl bg-neutral-100 p-1">
+              <button
+                type="button"
+                onClick={() => setETeste(false)}
+                className={cn(
+                  "flex-1 rounded-xl px-4 py-2 text-sm font-medium transition-all",
+                  !eTeste ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-700",
+                )}
+              >
+                Evento
+              </button>
+              <button
+                type="button"
+                onClick={() => setETeste(true)}
+                className={cn(
+                  "flex-1 rounded-xl px-4 py-2 text-sm font-medium transition-all",
+                  eTeste ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-700",
+                )}
+              >
+                Teste
+              </button>
+            </div>
+          );
+          return toggleContainer
+            ? createPortal(<div className="px-4 pb-3 sm:px-6">{toggle}</div>, toggleContainer)
+            : toggle;
+        })()}
       <input type="hidden" name="e_teste" value={eTeste ? "on" : "off"} />
 
       {!eTeste && (
