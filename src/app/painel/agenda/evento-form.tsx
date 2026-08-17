@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { addMonths, addHours, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Clock, AlignLeft, Users, User, Wrench, MapPin, Calculator, Palette, Loader2, MessageCircle, Mail, Search, Check } from "lucide-react";
@@ -140,6 +141,7 @@ export function EventoForm({
   apenasTeste,
   onCancelar,
   onSucesso,
+  footerContainer,
 }: {
   equipe: Pessoa[];
   podeCriarTeste: boolean;
@@ -153,6 +155,8 @@ export function EventoForm({
   apenasTeste?: boolean;
   onCancelar: () => void;
   onSucesso?: () => void;
+  /** Nó do rodapé fixo do modal — quando presente, os botões Criar/Cancelar são portados pra lá em vez de renderizar no fim do form (que rola). */
+  footerContainer?: HTMLElement | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -739,14 +743,19 @@ export function EventoForm({
 
       <ErrorModal erro={erro} onClose={() => setErro(null)} formRef={formRef} />
 
-      <div className="flex gap-3">
-        <Button type="submit" disabled={pending} className="bg-brand hover:bg-brand-dark">
-          {pending ? "Salvando..." : eTeste ? "Criar teste" : "Criar evento"}
-        </Button>
-        <Button type="button" variant="outline" onClick={onCancelar}>
-          Cancelar
-        </Button>
-      </div>
+      {(() => {
+        const botoes = (
+          <div className="flex w-full gap-3">
+            <Button type="submit" disabled={pending} className="flex-1 bg-brand hover:bg-brand-dark sm:flex-none">
+              {pending ? "Salvando..." : eTeste ? "Criar teste" : "Criar evento"}
+            </Button>
+            <Button type="button" variant="outline" onClick={onCancelar} className="flex-1 sm:flex-none">
+              Cancelar
+            </Button>
+          </div>
+        );
+        return footerContainer ? createPortal(botoes, footerContainer) : botoes;
+      })()}
     </form>
   );
 }
