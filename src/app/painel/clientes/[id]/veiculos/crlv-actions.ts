@@ -11,7 +11,7 @@ import { parseCrlv, type DadosCrlv } from "@/lib/veiculos/parse-crlv";
  */
 export async function lerCrlv(formData: FormData): Promise<{ dados: DadosCrlv } | { erro: string }> {
   await requireAuth();
-  const pdf = formData.get("crlv") as File | null;
+  const pdf = formData.get("pdf") as File | null;
   if (!pdf || pdf.size === 0) return { erro: "Selecione o PDF do e-CRLV." };
   if (pdf.type && pdf.type !== "application/pdf") {
     return { erro: "O arquivo precisa ser o PDF do e-CRLV (não foto)." };

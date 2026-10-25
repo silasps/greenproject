@@ -282,7 +282,8 @@ do cliente), o botão "Preencher com o e-CRLV (PDF)"
 (`clientes/[id]/veiculos/crlv-import-button.tsx`) manda o PDF pra
 `lerCrlv` (`crlv-actions.ts`, não grava nada), que usa
 `src/lib/veiculos/parse-crlv.ts` — mesma técnica do PDF do Syscon
-(texto do PDF via `pdfjs-dist`, sem OCR): cada campo é "o texto logo
+(texto do PDF via `pdfjs-dist`, sem OCR; extração compartilhada em
+`src/lib/pdf/segmentos-texto.ts`): cada campo é "o texto logo
 abaixo do rótulo, na mesma coluna", conferido pelo formato
 (placa/chassi/ano), com fallback por formato no texto todo. Traz placa,
 renavam, chassi, marca (abreviação do DETRAN → nome da FIPE, ex.
@@ -295,6 +296,16 @@ da Agenda (`agenda/cadastro-cliente-veiculo.tsx`); lá, em "Cadastrar
 novo", o proprietário do e-CRLV (nome + CPF/CNPJ) também vira o cliente
 — só se o CNPJ/CPF ainda estiver vazio. `onDados` devolve o que cada
 form de fato preencheu, e é isso que a mensagem lista.
+
+**Preencher pela CNH.** Mesma ideia pro cliente pessoa física: com "Pessoa
+física (CPF)" marcado, o `ClienteForm` (`clientes/cliente-form.tsx`) e o
+"Cadastrar novo" da Agenda mostram "Preencher com a CNH (PDF)"
+(`clientes/cnh-import-button.tsx` → `lerCnh` em `clientes/cnh-actions.ts`
+→ `src/lib/clientes/parse-cnh.ts`). Lê nome (vira "João da Silva") e CPF
+(conferido pelos dígitos verificadores) — cobre o modelo antigo
+(`NOME`/`CPF`) e o de 2022 (`2 e 1 NOME E SOBRENOME`/`4d CPF`). Os dois
+botões são o componente genérico `src/components/importar-pdf-button.tsx`
+(recebe a server action `ler` e o `onDados`).
 
 **Especificação do motor no cadastro.** Tanto o `VeiculoForm` quanto o
 cadastro rápido da Agenda têm os campos de motor/limites

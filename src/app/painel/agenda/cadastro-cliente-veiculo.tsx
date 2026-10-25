@@ -13,6 +13,8 @@ import { MarcaModeloCombobox } from "../clientes/[id]/veiculos/marca-modelo-comb
 import { EspecificacaoMotorFields, type EspecificacaoMotorValues } from "../clientes/[id]/veiculos/especificacao-motor-fields";
 import { CrlvImportButton } from "../clientes/[id]/veiculos/crlv-import-button";
 import type { DadosCrlv } from "@/lib/veiculos/parse-crlv";
+import { CnhImportButton } from "../clientes/cnh-import-button";
+import type { DadosCnh } from "@/lib/clientes/parse-cnh";
 import { ClienteExistentePicker } from "./cliente-existente-picker";
 
 function CamposVeiculo({
@@ -301,6 +303,19 @@ export function CadastroClienteVeiculo({
     return true;
   }
 
+  function aplicarCnh(dados: DadosCnh): string[] {
+    const preenchidos: string[] = [];
+    if (dados.cpf) {
+      setCnpjCpf(formatCpfCnpj(dados.cpf));
+      preenchidos.push("CPF");
+    }
+    if (dados.nome) {
+      setNome(dados.nome);
+      preenchidos.push("nome");
+    }
+    return preenchidos;
+  }
+
   async function handleBuscarCnpj() {
     setBuscando(true);
     try {
@@ -387,6 +402,8 @@ export function CadastroClienteVeiculo({
               Pessoa física (CPF)
             </label>
           </div>
+
+          {tipo === "pf" && <CnhImportButton onDados={aplicarCnh} />}
 
           <div className="space-y-2">
             <Label htmlFor="cliente_cnpj_cpf">{tipo === "pj" ? "CNPJ" : "CPF"}</Label>

@@ -4,13 +4,15 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { buscarCnpj } from "@/lib/utils/documento";
+import { buscarCnpj, formatCpfCnpj } from "@/lib/utils/documento";
 import { formatTelefone } from "@/lib/utils/mascaras";
 import { DocumentoInput } from "@/components/documento-input";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ErrorModal } from "@/components/error-modal";
 import { isRedirectError } from "@/lib/utils/is-redirect-error";
 import { salvarCliente } from "./actions";
+import { CnhImportButton } from "./cnh-import-button";
+import type { DadosCnh } from "@/lib/clientes/parse-cnh";
 
 type Cliente = {
   id: string;
@@ -43,6 +45,19 @@ export function ClienteForm({
   const [error, setError] = useState<string | null>(null);
   const [documentoValido, setDocumentoValido] = useState(true);
   const [pending, startTransition] = useTransition();
+
+  function aplicarCnh(dados: DadosCnh): string[] {
+    const preenchidos: string[] = [];
+    if (dados.cpf) {
+      setCnpjCpf(formatCpfCnpj(dados.cpf));
+      preenchidos.push("CPF");
+    }
+    if (dados.nome) {
+      setNome(dados.nome);
+      preenchidos.push("nome");
+    }
+    return preenchidos;
+  }
 
   async function handleBuscarCnpj() {
     setBuscando(true);
@@ -89,6 +104,8 @@ export function ClienteForm({
           Pessoa física (CPF)
         </label>
       </div>
+
+      {tipo === "pf" && <CnhImportButton onDados={aplicarCnh} />}
 
       <div className="space-y-2">
         <Label htmlFor="cnpj_cpf">{tipo === "pj" ? "CNPJ" : "CPF"}</Label>

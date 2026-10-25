@@ -1,11 +1,9 @@
 // Extrai os dados do veículo do e-CRLV (PDF baixado do app Carteira Digital
 // de Trânsito / gov.br) pra preencher o cadastro de veículo sozinho.
 //
-// Abordagem: mesma do PDF do Syscon (`src/lib/syscon/parse-ensaio.ts`) —
-// o e-CRLV é um PDF gerado digitalmente, com texto de verdade, então não
-// precisa de OCR. O layout é uma grade de células "RÓTULO em cima, valor
-// embaixo", então cada campo é lido como "o texto logo abaixo do rótulo,
-// na mesma coluna" — e conferido pelo formato (placa, chassi, renavam e
+// Abordagem: `src/lib/pdf/segmentos-texto.ts` (texto do PDF, sem OCR —
+// o e-CRLV é gerado digitalmente): cada campo é "o texto logo abaixo do
+// rótulo, na mesma coluna" — e conferido pelo formato (placa, chassi, renavam e
 // ano têm formato fixo). Se a posição falhar, cai pra uma busca pelo
 // formato no texto inteiro.
 //
@@ -14,6 +12,12 @@
 // editáveis no formulário pra pessoa conferir antes de salvar.
 
 import { onlyDigits } from "@/lib/utils/mascaras";
+import {
+  extrairSegmentos,
+  normalizarTexto as normalizar,
+  valorAbaixoDe as valorAbaixoDePdf,
+  type Segmento,
+} from "@/lib/pdf/segmentos-texto";
 
 export type DadosCrlv = {
   placa: string | null;
@@ -28,8 +32,6 @@ export type DadosCrlv = {
   /** Só dígitos: 11 (CPF) ou 14 (CNPJ). */
   proprietarioDocumento: string | null;
 };
-
-type Segmento = { x: number; y: number; w: number; str: string };
 
 const PLACA = /^[A-Z]{3}-?\d[A-Z0-9]\d{2}$/;
 // VIN: 17 caracteres, sem I/O/Q, com pelo menos uma letra e um dígito.
@@ -98,72 +100,13 @@ const COMBUSTIVEIS: Record<string, string> = {
   ELETRICO: "Elétrico",
 };
 
-function normalizar(texto: string): string {
-  return texto
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toUpperCase()
-    .replace(/\s*\/\s*/g, "/")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function capitalizar(texto: string): string {
   return texto.toLowerCase().replace(/(^|[\s-])(\S)/g, (_, sep: string, letra: string) => sep + letra.toUpperCase());
 }
 
-/**
- * Segmentos de texto da 1ª página (o CRLV-e é uma página só): agrupa por
- * linha (y, tolerância 2pt) e junta fragmentos vizinhos na mesma linha —
- * o pdfjs às vezes quebra um rótulo como "MARCA / MODELO / VERSÃO" em pedaços.
- */
-async function extrairSegmentos(buffer: Buffer): Promise<Segmento[]> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise;
-  const page = await doc.getPage(1);
-  const content = await page.getTextContent();
-
-  const grupos = new Map<number, Segmento[]>();
-  for (const item of content.items) {
-    if (!("str" in item) || !item.str.trim()) continue;
-    const y = Math.round(item.transform[5]);
-    const chave = [...grupos.keys()].find((k) => Math.abs(k - y) <= 2) ?? y;
-    if (!grupos.has(chave)) grupos.set(chave, []);
-    grupos.get(chave)!.push({ x: item.transform[4], y: chave, w: item.width, str: item.str.trim() });
-  }
-
-  const segmentos: Segmento[] = [];
-  for (const [, frags] of [...grupos.entries()].sort((a, b) => b[0] - a[0])) {
-    frags.sort((a, b) => a.x - b.x);
-    let atual: Segmento | null = null;
-    for (const f of frags) {
-      if (atual && f.x - (atual.x + atual.w) < 4) {
-        atual.str = `${atual.str} ${f.str}`;
-        atual.w = f.x + f.w - atual.x;
-      } else {
-        atual = { ...f };
-        segmentos.push(atual);
-      }
-    }
-  }
-  return segmentos;
-}
-
-/** Texto logo abaixo do rótulo, na mesma coluna — ignora outro rótulo (célula vazia). */
+/** Texto logo abaixo do rótulo exato (já normalizado) do CRLV-e. */
 function valorAbaixoDe(segmentos: Segmento[], rotulo: string): string | null {
-  const alvo = segmentos.find((s) => normalizar(s.str) === rotulo);
-  if (!alvo) return null;
-  const candidato = segmentos
-    .filter(
-      (s) =>
-        s.y < alvo.y &&
-        alvo.y - s.y <= 30 &&
-        s.x < alvo.x + Math.max(alvo.w, 40) &&
-        s.x + s.w > alvo.x - 4 &&
-        !ROTULOS.has(normalizar(s.str)),
-    )
-    .sort((a, b) => b.y - a.y || Math.abs(a.x - alvo.x) - Math.abs(b.x - alvo.x))[0];
-  return candidato?.str ?? null;
+  return valorAbaixoDePdf(segmentos, (n) => n === rotulo, ROTULOS);
 }
 
 /** Valor abaixo do rótulo se tiver o formato esperado, senão o primeiro trecho do texto inteiro com esse formato. */
