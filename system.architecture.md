@@ -290,6 +290,23 @@ renavam, chassi, marca (abreviação do DETRAN → nome da FIPE, ex.
 combustível. Foto/PDF escaneado não tem texto → erro claro pedindo o PDF
 do app Carteira Digital de Trânsito. Parser feito a partir do layout
 público do CRLV-e, sem PDF real de exemplo — campos ficam editáveis.
+O mesmo botão está no cadastro rápido de veículo do modal de criar teste
+da Agenda (`agenda/cadastro-cliente-veiculo.tsx`); lá, em "Cadastrar
+novo", o proprietário do e-CRLV (nome + CPF/CNPJ) também vira o cliente
+— só se o CNPJ/CPF ainda estiver vazio. `onDados` devolve o que cada
+form de fato preencheu, e é isso que a mensagem lista.
+
+**Especificação do motor no cadastro.** Tanto o `VeiculoForm` quanto o
+cadastro rápido da Agenda têm os campos de motor/limites
+(`EspecificacaoMotorFields`) e preenchem sozinhos quando o modelo bate
+com uma especificação confirmada da marca
+(`src/lib/veiculos/use-especificacoes-por-modelo.ts` — busca com
+debounce; `encontrarEspecificacao` compara sem diferenciar maiúscula, já
+que o modelo do e-CRLV vem em caixa alta). Ao salvar, os dois chamam
+`upsertEspecificacaoMotor` (`src/lib/veiculos/upsert-especificacao-motor.ts`
+— fora de arquivo `"use server"` de propósito, pra não virar server action
+pública; recebe o `modelo` por parâmetro porque o nome do campo muda:
+`modelo` × `veiculo_modelo`).
 
 ### 6.8 `equipamentos_teste` (opacímetro/tacômetro da empresa)
 ```

@@ -3,72 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireArea, requireAuth } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-/**
- * Upsert de especificacoes_motor por (marca, identificacao_motor) —
- * compartilhado entre o cadastro de veículo (`montarPayloadVeiculo`,
- * `marca` já vem do próprio form) e o cadastro avulso feito em campo
- * (`salvarEspecificacaoMotor`, `marca` vem do veículo já cadastrado).
- * Retorna `null` se não tiver motor+algum limite pra salvar.
- */
-async function upsertEspecificacaoMotor(admin: ReturnType<typeof createAdminClient>, marca: string, formData: FormData) {
-  const identificacaoMotor = String(formData.get("identificacao_motor") || "").trim();
-  // Só existe em `montarPayloadVeiculo` (form de veículo tem campo "modelo"); o mini-form
-  // de campo (`salvarEspecificacaoMotor`) não tem esse input, fica null — sem problema.
-  const modelo = String(formData.get("modelo") || "").trim() || null;
-  const marchaLentaMin = numOrNull(formData.get("marcha_lenta_min"));
-  const marchaLentaMax = numOrNull(formData.get("marcha_lenta_max"));
-  const rotacaoCorteMin = numOrNull(formData.get("rotacao_corte_min"));
-  const rotacaoCorteMax = numOrNull(formData.get("rotacao_corte_max"));
-  const limiteOpacidade = numOrNull(formData.get("limite_opacidade"));
-
-  if (!marca || !identificacaoMotor) return null;
-
-  const { data: existente } = await admin
-    .from("especificacoes_motor")
-    .select("id")
-    .eq("marca", marca)
-    .eq("identificacao_motor", identificacaoMotor)
-    .maybeSingle();
-
-  if (existente) {
-    await admin
-      .from("especificacoes_motor")
-      .update({
-        // Só sobrescreve modelo se vier um novo — não some um modelo já
-        // registrado (ex.: importado da ANFAVEA) só porque essa chamada
-        // veio do mini-form de campo, que não tem esse input.
-        ...(modelo ? { modelo } : {}),
-        marcha_lenta_min: marchaLentaMin,
-        marcha_lenta_max: marchaLentaMax,
-        rotacao_corte_min: rotacaoCorteMin,
-        rotacao_corte_max: rotacaoCorteMax,
-        limite_opacidade: limiteOpacidade,
-      })
-      .eq("id", existente.id);
-    return existente.id as string;
-  }
-
-  if (!marchaLentaMin && !rotacaoCorteMin && !limiteOpacidade) return null;
-
-  const { data: criado } = await admin
-    .from("especificacoes_motor")
-    .insert({
-      marca,
-      modelo,
-      identificacao_motor: identificacaoMotor,
-      marcha_lenta_min: marchaLentaMin,
-      marcha_lenta_max: marchaLentaMax,
-      rotacao_corte_min: rotacaoCorteMin,
-      rotacao_corte_max: rotacaoCorteMax,
-      limite_opacidade: limiteOpacidade,
-      origem: "manual",
-      status: "confirmado",
-    })
-    .select("id")
-    .single();
-  return (criado?.id as string) ?? null;
-}
+import { upsertEspecificacaoMotor } from "@/lib/veiculos/upsert-especificacao-motor";
 
 /** Monta o payload comum a criar/editar — inclusive o upsert de especificacoes_motor, que as duas ações usam igual. */
 async function montarPayloadVeiculo(admin: ReturnType<typeof createAdminClient>, clienteId: string, formData: FormData) {
@@ -83,7 +18,7 @@ async function montarPayloadVeiculo(admin: ReturnType<typeof createAdminClient>,
 
   if (!identificador) throw new Error("Placa/número de série é obrigatório.");
 
-  const especificacaoMotorId = await upsertEspecificacaoMotor(admin, marca, formData);
+  const especificacaoMotorId = await upsertEspecificacaoMotor(admin, marca, modelo || null, formData);
 
   const payload: Record<string, unknown> = {
     cliente_id: clienteId,
@@ -157,7 +92,7 @@ export async function salvarEspecificacaoMotor(veiculoId: string, formData: Form
   const identificacaoMotor = String(formData.get("identificacao_motor") || "").trim();
   if (!identificacaoMotor) throw new Error("Identificação do motor é obrigatória.");
 
-  const especificacaoMotorId = await upsertEspecificacaoMotor(admin, veiculo.marca, formData);
+  const especificacaoMotorId = await upsertEspecificacaoMotor(admin, veiculo.marca, null, formData);
   if (!especificacaoMotorId) {
     throw new Error("Informe ao menos um dos limites (marcha lenta, rotação de corte ou opacidade).");
   }
@@ -170,11 +105,4 @@ export async function salvarEspecificacaoMotor(veiculoId: string, formData: Form
 
   revalidatePath(`/painel/clientes/${veiculo.cliente_id}`);
   return { especificacaoMotorId };
-}
-
-function numOrNull(value: FormDataEntryValue | null) {
-  const str = String(value ?? "").trim();
-  if (!str) return null;
-  const n = Number(str);
-  return Number.isFinite(n) ? n : null;
 }

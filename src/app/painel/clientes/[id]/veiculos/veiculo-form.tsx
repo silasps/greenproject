@@ -4,11 +4,11 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
 import { ConfirmLeaveButton } from "@/components/confirm-leave-button";
 import { ErrorModal } from "@/components/error-modal";
 import { onlyDigits } from "@/lib/utils/mascaras";
 import { buscarMarcasFipe, buscarModelosFipe, extrairCombustivel, type MarcaFipe } from "@/lib/veiculos/fipe";
+import { encontrarEspecificacao, useEspecificacoesPorModelo } from "@/lib/veiculos/use-especificacoes-por-modelo";
 import { MarcaModeloCombobox } from "./marca-modelo-combobox";
 import { EspecificacaoMotorFields, type EspecificacaoMotorValues } from "./especificacao-motor-fields";
 import { salvarVeiculo, atualizarVeiculo } from "./actions";
@@ -21,16 +21,6 @@ type EspecificacaoMotor = {
   rotacao_corte_min: number | null;
   rotacao_corte_max: number | null;
   limite_opacidade: number | null;
-};
-
-type EspecificacaoComModelo = {
-  identificacaoMotor: string;
-  origem: "importado_anfavea" | "manual";
-  marchaLentaMin: number | null;
-  marchaLentaMax: number | null;
-  rotacaoCorteMin: number | null;
-  rotacaoCorteMax: number | null;
-  limiteOpacidade: number | null;
 };
 
 export type VeiculoEdicao = {
@@ -87,7 +77,7 @@ export function VeiculoForm({
   // Modelos dessa marca com especificação de motor já confirmada (ANFAVEA
   // ou cadastro manual anterior) — alimenta as sugestões do combobox de
   // "Modelo" (junto com a FIPE) e a tabela de auto-preenchimento abaixo.
-  const [especificacoesPorModelo, setEspecificacoesPorModelo] = useState<Record<string, EspecificacaoComModelo>>({});
+  const especificacoesPorModelo = useEspecificacoesPorModelo(marca, tipoAtivo === "veiculo");
   // Mensagem do preenchimento automático por marca/modelo — distinta da mensagem
   // interna do botão "Buscar especificação" (essa vive dentro de EspecificacaoMotorFields).
   const [autoFillMsg, setAutoFillMsg] = useState<string | null>(null);
@@ -98,54 +88,12 @@ export function VeiculoForm({
     motorRef.current = motor;
   }, [motor]);
 
-  /** Todo modelo dessa marca com especificação já confirmada — texto de modelo vem
-   * tanto de import ANFAVEA quanto de cadastro manual anterior (ver upsertEspecificacaoMotor). */
-  async function buscarModelosComEspecificacao(marcaValor: string) {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("especificacoes_motor")
-      .select(
-        "modelo, identificacao_motor, origem, marcha_lenta_min, marcha_lenta_max, rotacao_corte_min, rotacao_corte_max, limite_opacidade",
-      )
-      .eq("status", "confirmado")
-      .ilike("marca", marcaValor)
-      .not("modelo", "is", null);
-
-    const mapa: Record<string, EspecificacaoComModelo> = {};
-    for (const linha of data ?? []) {
-      if (!linha.modelo) continue;
-      mapa[linha.modelo] = {
-        identificacaoMotor: linha.identificacao_motor,
-        origem: linha.origem as "importado_anfavea" | "manual",
-        marchaLentaMin: linha.marcha_lenta_min,
-        marchaLentaMax: linha.marcha_lenta_max,
-        rotacaoCorteMin: linha.rotacao_corte_min,
-        rotacaoCorteMax: linha.rotacao_corte_max,
-        limiteOpacidade: linha.limite_opacidade,
-      };
-    }
-    setEspecificacoesPorModelo(mapa);
-  }
-
-  // Busca ao digitar a marca (debounce — evita bater no banco a cada tecla).
-  useEffect(() => {
-    if (tipoAtivo !== "veiculo") return;
-    const timeout = setTimeout(() => {
-      if (!marca.trim()) {
-        setEspecificacoesPorModelo({});
-        return;
-      }
-      buscarModelosComEspecificacao(marca.trim());
-    }, 400);
-    return () => clearTimeout(timeout);
-  }, [marca, tipoAtivo]);
-
   // Preenche motor+limites assim que o modelo digitado/selecionado bate com um
   // já confirmado — só em cadastro novo (edição já tem seus próprios dados) e só
   // se a pessoa ainda não tiver digitado um motor manualmente.
   useEffect(() => {
     if (veiculo || tipoAtivo !== "veiculo" || !modelo.trim() || motorRef.current.trim()) return;
-    const espec = especificacoesPorModelo[modelo.trim()];
+    const espec = encontrarEspecificacao(especificacoesPorModelo, modelo);
     if (!espec) return;
 
     const timeout = setTimeout(() => {
@@ -188,13 +136,33 @@ export function VeiculoForm({
   }
 
   /** Só sobrescreve o que o e-CRLV trouxe — campo não reconhecido fica como está. */
-  function aplicarCrlv(dados: DadosCrlv) {
-    if (dados.placa) setIdentificador(dados.placa);
-    if (dados.modelo) handleModeloChange(dados.modelo);
-    if (dados.ano) setAno(dados.ano);
-    if (dados.combustivel) setCombustivel(dados.combustivel);
-    if (dados.chassi) setChassi(dados.chassi);
-    if (dados.renavam) setRenavam(dados.renavam);
+  function aplicarCrlv(dados: DadosCrlv): string[] {
+    const preenchidos: string[] = [];
+    if (dados.placa) {
+      setIdentificador(dados.placa);
+      preenchidos.push("placa");
+    }
+    if (dados.marca) preenchidos.push("marca");
+    if (dados.modelo) {
+      handleModeloChange(dados.modelo);
+      preenchidos.push("modelo");
+    }
+    if (dados.ano) {
+      setAno(dados.ano);
+      preenchidos.push("ano");
+    }
+    if (dados.combustivel) {
+      setCombustivel(dados.combustivel);
+      preenchidos.push("combustível");
+    }
+    if (dados.chassi) {
+      setChassi(dados.chassi);
+      preenchidos.push("chassi");
+    }
+    if (dados.renavam) {
+      setRenavam(dados.renavam);
+      preenchidos.push("renavam");
+    }
     if (dados.marca) {
       const marcaCrlv = dados.marca;
       setMarca(marcaCrlv);
@@ -205,6 +173,7 @@ export function VeiculoForm({
         if (encontrada) buscarModelosFipe(encontrada).then(setModelosFipe);
       });
     }
+    return preenchidos;
   }
 
   function handleMotorFieldsChange(patch: Partial<EspecificacaoMotorValues>) {

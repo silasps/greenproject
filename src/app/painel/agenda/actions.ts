@@ -14,26 +14,37 @@ import { enviarEmail } from "@/lib/email/enviar";
 import { COMPANY } from "@/lib/legal/company-info";
 import { registrarAuditoria } from "@/lib/auditoria/registrar";
 import { isRedirectError } from "@/lib/utils/is-redirect-error";
+import { upsertEspecificacaoMotor } from "@/lib/veiculos/upsert-especificacao-motor";
 import { CORES_AGENDA } from "./cores";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-/** Campos do veículo novo — usado tanto no cadastro completo quanto quando o cliente já existe. */
-function extrairVeiculoNovo(formData: FormData) {
+/**
+ * Campos do veículo novo — usado tanto no cadastro completo quanto quando o
+ * cliente já existe. Motor/limites (mesmos nomes de campo do `VeiculoForm`,
+ * sem prefixo `veiculo_`) são opcionais — o upsert em `especificacoes_motor`
+ * é o mesmo usado pelo cadastro completo, pra não duplicar a lógica.
+ */
+async function extrairVeiculoNovo(admin: Admin, formData: FormData) {
   const identificador = String(formData.get("veiculo_identificador") ?? "").trim();
   if (!identificador) return null;
+  const marca = String(formData.get("veiculo_marca") ?? "").trim() || null;
+  const modelo = String(formData.get("veiculo_modelo") ?? "").trim() || null;
+  const especificacaoMotorId = marca ? await upsertEspecificacaoMotor(admin, marca, modelo, formData) : null;
   return {
     tipo_ativo: String(formData.get("veiculo_tipo_ativo") ?? "veiculo") as "veiculo" | "maquina_equipamento",
     identificador,
-    marca: String(formData.get("veiculo_marca") ?? "").trim() || null,
-    modelo: String(formData.get("veiculo_modelo") ?? "").trim() || null,
+    marca,
+    modelo,
+    identificacao_motor: String(formData.get("identificacao_motor") ?? "").trim() || null,
+    especificacao_motor_id: especificacaoMotorId,
     chassi: String(formData.get("veiculo_chassi") ?? "").trim() || null,
     renavam: String(formData.get("veiculo_renavam") ?? "").trim() || null,
   };
 }
 
 /** Cadastro de cliente/veículo preenchido direto no orçamento (opcional). */
-function extrairCadastroClienteVeiculo(formData: FormData) {
+async function extrairCadastroClienteVeiculo(admin: Admin, formData: FormData) {
   if (formData.get("cadastro_cliente") !== "on") return null;
   const cnpjCpf = onlyDigits(String(formData.get("cliente_cnpj_cpf") ?? ""));
   const nome = String(formData.get("cliente_nome") ?? "").trim();
@@ -46,7 +57,7 @@ function extrairCadastroClienteVeiculo(formData: FormData) {
       endereco: String(formData.get("cliente_endereco") ?? "").trim() || null,
       email: String(formData.get("cliente_email") ?? "").trim() || null,
     },
-    veiculo: extrairVeiculoNovo(formData),
+    veiculo: await extrairVeiculoNovo(admin, formData),
   };
 }
 
@@ -63,7 +74,7 @@ async function resolverClienteEVeiculo(
 ): Promise<{ clienteId: string; veiculoId: string | null }> {
   const clienteIdExistente = String(formData.get("cliente_id_existente") ?? "") || null;
   const veiculoIdExistente = String(formData.get("veiculo_id_existente") ?? "") || null;
-  const cadastro = extrairCadastroClienteVeiculo(formData);
+  const cadastro = await extrairCadastroClienteVeiculo(admin, formData);
 
   let clienteId: string;
   if (clienteIdExistente) {
@@ -84,7 +95,7 @@ async function resolverClienteEVeiculo(
 
   let veiculoId = veiculoIdExistente;
   if (!veiculoId) {
-    const veiculoNovo = clienteIdExistente ? extrairVeiculoNovo(formData) : cadastro?.veiculo;
+    const veiculoNovo = clienteIdExistente ? await extrairVeiculoNovo(admin, formData) : cadastro?.veiculo;
     if (veiculoNovo) {
       const { data: veiculo, error } = await admin
         .from("veiculos_maquinas")

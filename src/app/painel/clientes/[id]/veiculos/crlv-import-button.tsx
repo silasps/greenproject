@@ -7,21 +7,13 @@ import { ErrorModal } from "@/components/error-modal";
 import type { DadosCrlv } from "@/lib/veiculos/parse-crlv";
 import { lerCrlv } from "./crlv-actions";
 
-const ROTULOS_CAMPOS: Record<keyof DadosCrlv, string> = {
-  placa: "placa",
-  marca: "marca",
-  modelo: "modelo",
-  ano: "ano",
-  combustivel: "combustível",
-  chassi: "chassi",
-  renavam: "renavam",
-};
-
 /**
- * Botão "Preencher com o e-CRLV" do cadastro de veículo — envia o PDF pro
- * servidor ler (`lerCrlv`) e repassa os dados pro form via `onDados`.
+ * Botão "Preencher com o e-CRLV" — envia o PDF pro servidor ler (`lerCrlv`)
+ * e repassa os dados pro form via `onDados`, que devolve o nome de cada
+ * campo que de fato preencheu (cada form aproveita um pedaço diferente).
+ * Usado no cadastro de veículo e no cadastro rápido do modal da Agenda.
  */
-export function CrlvImportButton({ onDados }: { onDados: (dados: DadosCrlv) => void }) {
+export function CrlvImportButton({ onDados }: { onDados: (dados: DadosCrlv) => string[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [mensagem, setMensagem] = useState<string | null>(null);
@@ -39,10 +31,11 @@ export function CrlvImportButton({ onDados }: { onDados: (dados: DadosCrlv) => v
           setErro(resultado.erro);
           return;
         }
-        onDados(resultado.dados);
-        const preenchidos = (Object.keys(ROTULOS_CAMPOS) as (keyof DadosCrlv)[])
-          .filter((campo) => resultado.dados[campo])
-          .map((campo) => ROTULOS_CAMPOS[campo]);
+        const preenchidos = onDados(resultado.dados);
+        if (preenchidos.length === 0) {
+          setErro("O PDF foi lido, mas nenhum dado útil pra esse cadastro foi reconhecido. Preencha manualmente.");
+          return;
+        }
         setMensagem(`Preenchido pelo e-CRLV: ${preenchidos.join(", ")}. Confira antes de salvar.`);
       } catch {
         setErro("Não foi possível enviar o PDF. Confira sua conexão com a internet e tente de novo.");

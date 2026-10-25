@@ -23,6 +23,10 @@ export type DadosCrlv = {
   modelo: string | null;
   ano: string | null;
   combustivel: string | null;
+  /** Dono do veículo no documento — no cadastro rápido da Agenda vira o cliente novo. */
+  proprietarioNome: string | null;
+  /** Só dígitos: 11 (CPF) ou 14 (CNPJ). */
+  proprietarioDocumento: string | null;
 };
 
 type Segmento = { x: number; y: number; w: number; str: string };
@@ -212,7 +216,11 @@ export async function parseCrlv(buffer: Buffer): Promise<DadosCrlv> {
     ? (COMBUSTIVEIS[normalizar(combustivelBruto)] ?? capitalizar(combustivelBruto))
     : null;
 
-  const dados = { placa, renavam, chassi, marca, modelo, ano, combustivel };
+  const proprietarioNome = valorAbaixoDe(segmentos, "NOME")?.trim() || null;
+  const documentoBruto = onlyDigits(valorAbaixoDe(segmentos, "CPF/CNPJ") ?? "");
+  const proprietarioDocumento = documentoBruto.length === 11 || documentoBruto.length === 14 ? documentoBruto : null;
+
+  const dados = { placa, renavam, chassi, marca, modelo, ano, combustivel, proprietarioNome, proprietarioDocumento };
   if (Object.values(dados).every((v) => !v)) {
     throw new Error(
       "Não reconheci os dados de um e-CRLV nesse PDF. Confira se é o CRLV digital baixado do app Carteira Digital de Trânsito (ou do site do DETRAN).",
