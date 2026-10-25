@@ -211,7 +211,9 @@ export function CadastroClienteVeiculo({
           <div className="space-y-2">
             <Label htmlFor="cliente_cnpj_cpf">{tipo === "pj" ? "CNPJ" : "CPF"}</Label>
             <div className="flex gap-2">
-              <DocumentoInput id="cliente_cnpj_cpf" name="cliente_cnpj_cpf" tipo={tipo} value={cnpjCpf} onChange={setCnpjCpf} className="flex-1" />
+              {/* Obrigatórios com o cadastro aberto: sem documento+nome o servidor descarta o
+                  cadastro inteiro (inclusive o veículo) e o cliente fica "pendente" sem aviso. */}
+              <DocumentoInput id="cliente_cnpj_cpf" name="cliente_cnpj_cpf" tipo={tipo} value={cnpjCpf} onChange={setCnpjCpf} required className="flex-1" />
               {tipo === "pj" && (
                 <Button type="button" variant="outline" size="sm" disabled={buscando} onClick={handleBuscarCnpj}>
                   {buscando ? "Buscando..." : "Buscar"}
@@ -222,7 +224,7 @@ export function CadastroClienteVeiculo({
 
           <div className="space-y-2">
             <Label htmlFor="cliente_nome">{tipo === "pj" ? "Razão social" : "Nome completo"}</Label>
-            <Input id="cliente_nome" name="cliente_nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+            <Input id="cliente_nome" name="cliente_nome" required value={nome} onChange={(e) => setNome(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

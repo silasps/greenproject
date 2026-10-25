@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useId, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { addMonths, addHours, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -21,6 +21,7 @@ import { COORDENADAS_EMPRESA, haversineKm, type Coordenada } from "@/lib/geo/dis
 import { calcularValorTotal } from "@/lib/orcamento/calcular";
 import { MoedaInput } from "@/components/moeda-input";
 import { isRedirectError } from "@/lib/utils/is-redirect-error";
+import { listarCamposPendentes } from "@/lib/utils/focar-campo-invalido";
 import { criarEvento } from "./actions";
 import { CategoriaPicker } from "./categoria-picker";
 import { CustosExtras, type CustoExtra } from "./custos-extras";
@@ -162,6 +163,10 @@ export function EventoForm({
   toggleContainer?: HTMLElement | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  // Os botões Criar/Cancelar podem ser portados pro rodapé fixo do modal —
+  // fora do <form> no DOM. Sem o atributo `form={formId}` o submit não
+  // encontra o form e o clique não faz nada.
+  const formId = useId();
   const [pending, startTransition] = useTransition();
   const [eTeste, setETeste] = useState(apenasTeste || Boolean(clienteIdPreSelecionado));
   const [erro, setErro] = useState<string | null>(null);
@@ -336,20 +341,37 @@ export function EventoForm({
 
   async function handleSubmit(formData: FormData) {
     setErro(null);
+    const pendentes = listarCamposPendentes(formRef.current);
+    if (pendentes.length > 0) {
+      setErro(`Preencha os campos obrigatórios: ${pendentes.join(", ")}.`);
+      return;
+    }
     try {
-      await criarEvento(formData);
+      const resultado = await criarEvento(formData);
+      if (resultado?.erro) {
+        setErro(resultado.erro);
+        return;
+      }
       // Só chega aqui pro fluxo de evento — o de teste redireciona (lança
       // antes de retornar), então onSucesso não roda pra ele (correto: quem
       // criou teste deve ver a página do teste, não fechar o modal aqui).
       onSucesso?.();
     } catch (e) {
       if (isRedirectError(e)) throw e;
-      setErro(e instanceof Error ? e.message : "Não foi possível salvar.");
+      // Erros esperados já voltam em `resultado.erro` — o que cai aqui é
+      // falha de rede ou erro inesperado (mensagem genérica em produção).
+      setErro("Não foi possível salvar. Confira sua conexão com a internet e tente de novo.");
     }
   }
 
   return (
-    <form ref={formRef} action={(formData) => startTransition(() => handleSubmit(formData))} className="space-y-3">
+    <form
+      id={formId}
+      ref={formRef}
+      noValidate
+      action={(formData) => startTransition(() => handleSubmit(formData))}
+      className="space-y-3"
+    >
       {podeCriarTeste &&
         !apenasTeste &&
         (() => {
@@ -756,10 +778,28 @@ export function EventoForm({
       {(() => {
         const botoes = (
           <div className="flex w-full gap-3">
-            <Button type="submit" disabled={pending} className="flex-1 bg-brand hover:bg-brand-dark sm:flex-none">
-              {pending ? "Salvando..." : eTeste ? "Criar teste" : "Criar evento"}
+            <Button
+              type="submit"
+              form={formId}
+              disabled={pending}
+              className="flex-1 bg-brand hover:bg-brand-dark disabled:opacity-80 sm:flex-none"
+            >
+              {pending && <Loader2 className="animate-spin" />}
+              {pending
+                ? eTeste
+                  ? "Criando teste..."
+                  : "Criando evento..."
+                : eTeste
+                  ? "Criar teste"
+                  : "Criar evento"}
             </Button>
-            <Button type="button" variant="outline" onClick={onCancelar} className="flex-1 sm:flex-none">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancelar}
+              disabled={pending}
+              className="flex-1 sm:flex-none"
+            >
               Cancelar
             </Button>
           </div>

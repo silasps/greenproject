@@ -12,6 +12,8 @@ import { buscarMarcasFipe, buscarModelosFipe, extrairCombustivel, type MarcaFipe
 import { MarcaModeloCombobox } from "./marca-modelo-combobox";
 import { EspecificacaoMotorFields, type EspecificacaoMotorValues } from "./especificacao-motor-fields";
 import { salvarVeiculo, atualizarVeiculo } from "./actions";
+import { CrlvImportButton } from "./crlv-import-button";
+import type { DadosCrlv } from "@/lib/veiculos/parse-crlv";
 
 type EspecificacaoMotor = {
   marcha_lenta_min: number | null;
@@ -73,6 +75,8 @@ export function VeiculoForm({
   // só se aplica a motor diesel), evita ter que digitar em quase todo cadastro.
   const [combustivel, setCombustivel] = useState(veiculo?.combustivel ?? "Diesel");
   const [ano, setAno] = useState(veiculo?.ano?.toString() ?? "");
+  const [chassi, setChassi] = useState(veiculo?.chassi ?? "");
+  const [renavam, setRenavam] = useState(veiculo?.renavam ?? "");
   const [motor, setMotor] = useState(veiculo?.identificacao_motor ?? "");
   const motorRef = useRef(motor);
   const [marchaLentaMin, setMarchaLentaMin] = useState(especificacao?.marcha_lenta_min?.toString() ?? "");
@@ -183,6 +187,26 @@ export function VeiculoForm({
     buscarModelosFipe(encontrada).then(setModelosFipe);
   }
 
+  /** Só sobrescreve o que o e-CRLV trouxe — campo não reconhecido fica como está. */
+  function aplicarCrlv(dados: DadosCrlv) {
+    if (dados.placa) setIdentificador(dados.placa);
+    if (dados.modelo) handleModeloChange(dados.modelo);
+    if (dados.ano) setAno(dados.ano);
+    if (dados.combustivel) setCombustivel(dados.combustivel);
+    if (dados.chassi) setChassi(dados.chassi);
+    if (dados.renavam) setRenavam(dados.renavam);
+    if (dados.marca) {
+      const marcaCrlv = dados.marca;
+      setMarca(marcaCrlv);
+      // Mesmo efeito de escolher a marca no combobox: carrega os modelos da FIPE dela.
+      buscarMarcasFipe().then((marcas) => {
+        setMarcasFipe(marcas);
+        const encontrada = marcas.find((m) => m.nome.toLowerCase() === marcaCrlv.toLowerCase());
+        if (encontrada) buscarModelosFipe(encontrada).then(setModelosFipe);
+      });
+    }
+  }
+
   function handleMotorFieldsChange(patch: Partial<EspecificacaoMotorValues>) {
     if (patch.identificacaoMotor !== undefined) setMotor(patch.identificacaoMotor);
     if (patch.marchaLentaMin !== undefined) setMarchaLentaMin(patch.marchaLentaMin);
@@ -237,6 +261,8 @@ export function VeiculoForm({
           Máquina/Equipamento
         </label>
       </div>
+
+      {tipoAtivo === "veiculo" && <CrlvImportButton onDados={aplicarCrlv} />}
 
       <div className="space-y-2">
         <Label htmlFor="identificador">{tipoAtivo === "veiculo" ? "Placa" : "Número de série do fabricante"}</Label>
@@ -317,10 +343,8 @@ export function VeiculoForm({
               id="chassi"
               name="chassi"
               placeholder="17 caracteres"
-              defaultValue={veiculo?.chassi ?? ""}
-              onChange={(e) => {
-                e.target.value = e.target.value.toUpperCase();
-              }}
+              value={chassi}
+              onChange={(e) => setChassi(e.target.value.toUpperCase())}
             />
           </div>
           <div className="space-y-2">
@@ -329,10 +353,8 @@ export function VeiculoForm({
               id="renavam"
               name="renavam"
               placeholder="11 dígitos"
-              defaultValue={veiculo?.renavam ?? ""}
-              onChange={(e) => {
-                e.target.value = e.target.value.toUpperCase();
-              }}
+              value={renavam}
+              onChange={(e) => setRenavam(e.target.value.toUpperCase())}
             />
           </div>
         </div>

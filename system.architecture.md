@@ -277,6 +277,20 @@ created_at, updated_at (trigger)
 ```
 Staff lê; `escritorio+` insere/atualiza.
 
+**Preencher pelo e-CRLV.** No `VeiculoForm` (cadastro/edição de veículo
+do cliente), o botão "Preencher com o e-CRLV (PDF)"
+(`clientes/[id]/veiculos/crlv-import-button.tsx`) manda o PDF pra
+`lerCrlv` (`crlv-actions.ts`, não grava nada), que usa
+`src/lib/veiculos/parse-crlv.ts` — mesma técnica do PDF do Syscon
+(texto do PDF via `pdfjs-dist`, sem OCR): cada campo é "o texto logo
+abaixo do rótulo, na mesma coluna", conferido pelo formato
+(placa/chassi/ano), com fallback por formato no texto todo. Traz placa,
+renavam, chassi, marca (abreviação do DETRAN → nome da FIPE, ex.
+`M.BENZ` → Mercedes-Benz), modelo, ano (fabricação, senão modelo) e
+combustível. Foto/PDF escaneado não tem texto → erro claro pedindo o PDF
+do app Carteira Digital de Trânsito. Parser feito a partir do layout
+público do CRLV-e, sem PDF real de exemplo — campos ficam editáveis.
+
 ### 6.8 `equipamentos_teste` (opacímetro/tacômetro da empresa)
 ```
 id uuid PK, tipo text check in ('opacimetro','tacometro'), modelo text not null,
@@ -1079,6 +1093,20 @@ teste, que tem uma página própria pra ir) — evento fecha o modal e chama
 `recarregarTudo()`, porque redirecionar pra `/painel/agenda` sem
 query params resetava a visão/data que o usuário estava vendo (o mesmo
 motivo por trás de tirar `router.push` da navegação em 8.1).
+
+**Envio e erros do form.** Os botões Criar/Cancelar são portados pro
+rodapé fixo do modal (`footerContainer`), ou seja, ficam **fora** do
+`<form>` no DOM — por isso o submit usa `form={formId}` (`useId`); sem
+isso o clique não faz nada (foi o bug "botão de criar teste não
+funciona", out/2026). O form é `noValidate`: antes de chamar a action,
+`listarCamposPendentes` (`src/lib/utils/focar-campo-invalido.ts`) lista
+pelo rótulo os `required` vazios + grupos `data-um-de` (WhatsApp/telefone)
+e mostra no `ErrorModal` — o balão nativo do navegador some dentro de
+modal rolável no celular. `criarEvento` devolve `{ erro }` em vez de
+lançar (em produção o Next troca a mensagem de um `throw` por texto
+genérico), com mensagem amigável pra placa/CNPJ duplicados; o redirect do
+teste criado continua passando direto. Botão mostra spinner + "Criando
+teste..." enquanto a action roda.
 
 #### 8.2.1 Categoria (`categorias_agenda`, ver 6.17)
 `CategoriaPicker` (`agenda/categoria-picker.tsx`): bolinhas de cor

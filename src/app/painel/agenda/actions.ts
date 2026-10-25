@@ -13,6 +13,7 @@ import { onlyDigits } from "@/lib/utils/mascaras";
 import { enviarEmail } from "@/lib/email/enviar";
 import { COMPANY } from "@/lib/legal/company-info";
 import { registrarAuditoria } from "@/lib/auditoria/registrar";
+import { isRedirectError } from "@/lib/utils/is-redirect-error";
 import { CORES_AGENDA } from "./cores";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -189,13 +190,39 @@ function gerarToken() {
   return codigo;
 }
 
+/** Violações de unique conhecidas → mensagem que a pessoa entende e sabe resolver. */
+function mensagemAmigavel(mensagem: string): string {
+  if (mensagem.includes("veiculos_maquinas_identificador_key")) {
+    return 'Já existe um veículo cadastrado com essa placa/número de série. Use "Já é cliente" para buscar o cliente dono dele.';
+  }
+  if (mensagem.includes("clientes_cnpj_cpf_key")) {
+    return 'Já existe um cliente com esse CNPJ/CPF. Use "Já é cliente" para selecioná-lo.';
+  }
+  return mensagem;
+}
+
+/**
+ * Erros esperados voltam como `{ erro }` em vez de `throw` — em produção o
+ * Next troca a mensagem de qualquer erro lançado numa server action por um
+ * texto genérico, e a pessoa ficaria sem saber o que corrigir. O redirect de
+ * sucesso (teste criado) continua passando direto.
+ */
+export async function criarEvento(formData: FormData): Promise<{ erro: string } | undefined> {
+  try {
+    await criarEventoOuTeste(formData);
+  } catch (e) {
+    if (isRedirectError(e)) throw e;
+    return { erro: e instanceof Error ? mensagemAmigavel(e.message) : "Não foi possível salvar." };
+  }
+}
+
 /**
  * Criação unificada da Agenda: por padrão cria um evento livre; marcando
  * "é um teste" vira o primeiro atendimento do pipeline comercial — cria um
  * cliente pendente (só nome+telefone), o agendamento e a proposta com o
  * orçamento calculado.
  */
-export async function criarEvento(formData: FormData) {
+async function criarEventoOuTeste(formData: FormData) {
   const { perfil } = await requireAuth();
   const eTeste = formData.get("e_teste") === "on";
 
